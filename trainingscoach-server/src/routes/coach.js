@@ -7,6 +7,7 @@ const { serializeWorkoutLog } = require("./workoutLogs");
 const { serialize: serializeCardioLog } = require("./cardioLogs");
 const calc = require("../lib/calculations");
 const { buildCoachSystemPrompt } = require("../lib/coachPrompt");
+const { callCoachModel, describeProvider } = require("../lib/llmProvider");
 
 const router = express.Router();
 
@@ -99,38 +100,20 @@ router.post("/ask", async (req, res) => {
     vraagVanGebruiker: question,
   };
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY ontbreekt in de server-omgeving (.env)." });
-  }
-
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: buildCoachSystemPrompt(),
-        messages: [{ role: "user", content: JSON.stringify(payload) }],
-      }),
+    const { rawText, provider, model } = await callCoachModel({
+      systemPrompt: buildCoachSystemPrompt(),
+      userContent: JSON.stringify(payload),
+      maxTokens: 1000,
     });
 
-    const data = await response.json();
-    if (!response.ok || !data.content) {
-      return res.status(502).json({ error: data?.error?.message || "Onbekende fout bij Anthropic API" });
-    }
-
-    const rawText = data.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
     let structured = null;
     try {
       structured = JSON.parse(stripJsonFences(rawText));
     } catch {
       structured = null;
     }
+    if (structured) console.log(`[coach] antwoord via ${provider} (${model})`);
 
     const entryId = `coach-${Date.now()}`;
     const entry = structured
@@ -160,8 +143,13 @@ router.post("/ask", async (req, res) => {
 
     res.json(entry);
   } catch (err) {
-    res.status(500).json({ error: "Kon coach niet bereiken", details: err.message });
+    res.status(502).json({ error: err.message });
   }
+});
+
+// GET /api/coach/provider - which model is configured (diagnostics)
+router.get("/provider", (req, res) => {
+  res.json(describeProvider());
 });
 
 // GET /api/coach/history

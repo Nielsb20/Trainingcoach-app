@@ -13,7 +13,9 @@ nooit in de browser terechtkomt.
 - `src/routes/*` — REST-endpoints voor schema/profiel, kracht- en cardiologs, gewicht,
   evenementen, coach, en import/export
 - `src/routes/coach.js` — bouwt exact dezelfde payload als de artifact-versie en roept
-  de Anthropic API aan met je eigen sleutel (uit `.env`, nooit blootgesteld aan de client)
+  het taalmodel aan met je eigen sleutel (uit `.env`, nooit blootgesteld aan de client)
+- `src/lib/llmProvider.js` — providerlaag: ondersteunt **Google Gemini** én **Anthropic**,
+  omschakelbaar via één instelling in `.env`
 - `src/routes/stravaWebhook.js` — **scaffold, nog niet werkend** — bevat de structuur en
   duidelijke TODO's voor wanneer je een Strava API-app hebt geregistreerd
 - `src/routes/importExport.js` — importeert het exacte JSON-formaat van de
@@ -46,7 +48,7 @@ npm install
 
 # 4. .env aanmaken en invullen
 cp .env.example .env
-# open .env en vul in ieder geval ANTHROPIC_API_KEY in
+# open .env en vul één API-sleutel in (GEMINI_API_KEY of ANTHROPIC_API_KEY)
 
 # 5. Testen dat de rekenkern klopt (geen dependencies nodig, draait los)
 npm test
@@ -67,6 +69,32 @@ npm start
 > ```
 
 Check daarna `http://localhost:3001/api/health` — die moet `{"ok":true}` teruggeven.
+
+## Welk AI-model gebruikt de coach?
+
+Instelbaar via `.env`, zonder code aan te passen:
+
+| | Google Gemini | Anthropic |
+|---|---|---|
+| Kosten | Gratis tier (1.500 verzoeken/dag), geen creditcard | Betalen per gebruik |
+| Sleutel ophalen | https://aistudio.google.com | https://console.anthropic.com |
+| Instellen | `GEMINI_API_KEY=...` | `ANTHROPIC_API_KEY=...` |
+
+Laat `LLM_PROVIDER` leeg en de server kiest automatisch: staat er een
+`GEMINI_API_KEY`, dan wordt Gemini gebruikt. Wil je expliciet vastzetten (bijv.
+omdat beide sleutels ingevuld staan), zet dan `LLM_PROVIDER=anthropic` of
+`LLM_PROVIDER=gemini`.
+
+Bij Gemini wordt het JSON-antwoordformaat afgedwongen via `responseSchema`, wat
+betrouwbaarder is dan het alleen in de prompt vragen. Bij Anthropic gebeurt dat
+via de systeemprompt, met een terugvaloptie als er toch geen geldig JSON terugkomt.
+
+Controleren wat er actief is:
+
+```bash
+curl http://localhost:3001/api/coach/provider
+# -> {"configured":true,"provider":"gemini","model":"gemini-2.5-flash"}
+```
 
 ## Je bestaande data overzetten
 

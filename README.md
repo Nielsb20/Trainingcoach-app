@@ -27,7 +27,8 @@ serveert op één poort.
 - **Trainingsbelasting** volgens het standaard Performance Management Chart-model
   (TSS, CTL, ATL, TSB) — dezelfde formules als TrainingPeaks/WKO, puur berekend
 - **Hartslag- en vermogenszones** op basis van je max. hartslag, rusthartslag en FTP
-- **AI-coach** die bovenop die harde cijfers analyse, tips en een cardiovoorstel geeft
+- **AI-coach** die bovenop die harde cijfers analyse, tips en een cardiovoorstel geeft —
+  werkt met Google Gemini (gratis tier) of Anthropic, omschakelbaar via `.env`
 
 De rekenkern is bewust deterministisch en los van de AI: de coach krijgt de
 berekende cijfers aangereikt en interpreteert ze, in plaats van ze zelf te schatten.
@@ -43,7 +44,7 @@ cd trainingscoach
 cd trainingscoach-server
 npm install
 cp .env.example .env
-nano .env                 # vul ANTHROPIC_API_KEY in
+nano .env                 # vul één API-sleutel in (GEMINI_API_KEY of ANTHROPIC_API_KEY)
 npm test                  # controleert de rekenkern
 cd ..
 
