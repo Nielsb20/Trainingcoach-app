@@ -1,0 +1,4 @@
+# Persoonlijke data-exports horen niet in de repo
+backup.json
+trainingscoach-backup-*.json
+*.db

@@ -94,9 +94,13 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens }) {
 /* -------------------------------- Gemini -------------------------------- */
 
 async function callGemini({ systemPrompt, userContent, maxTokens }) {
+  // Gemini 3 models reason before answering, and those thinking tokens count
+  // against maxOutputTokens. A budget sized for the visible answer alone gets
+  // consumed by thinking and truncates the JSON mid-sentence, so give it room.
+  const outputBudget = Math.max(maxTokens * 8, 8000);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY ontbreekt in .env.");
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
@@ -112,7 +116,7 @@ async function callGemini({ systemPrompt, userContent, maxTokens }) {
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: "user", parts: [{ text: userContent }] }],
       generationConfig: {
-        maxOutputTokens: maxTokens,
+        maxOutputTokens: outputBudget,
         // Ask Gemini to enforce the JSON contract itself instead of relying
         // purely on the prompt — noticeably more reliable.
         responseMimeType: "application/json",
@@ -137,6 +141,13 @@ async function callGemini({ systemPrompt, userContent, maxTokens }) {
     .map((p) => p.text || "")
     .join("\n")
     .trim();
+
+  if (candidate.finishReason === "MAX_TOKENS") {
+    throw new Error(
+      "Gemini's antwoord werd afgekapt omdat het tokenbudget op was. Verhoog maxTokens, " +
+        "of kies een model dat minder 'thinking'-tokens gebruikt."
+    );
+  }
 
   if (!rawText) {
     throw new Error(`Gemini gaf een leeg antwoord (finishReason: ${candidate.finishReason || "onbekend"}).`);
@@ -163,7 +174,7 @@ function describeProvider() {
     const provider = resolveProvider();
     const model =
       provider === "gemini"
-        ? process.env.GEMINI_MODEL || "gemini-2.5-flash"
+        ? process.env.GEMINI_MODEL || "gemini-3-flash-preview"
         : process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
     return { configured: true, provider, model };
   } catch (err) {

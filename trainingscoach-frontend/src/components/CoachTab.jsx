@@ -165,7 +165,17 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
 
 function FeedbackCard({ entry, defaultOpen, onDelete }) {
   const [confirming, setConfirming] = useState(false);
-  const isStructured = entry.analyse !== undefined || (entry.cardioVoorstel && entry.cardioVoorstel.length > 0);
+  // Check for actual content, not just the presence of the key: the API always
+  // returns these fields, but they're null/empty when the model didn't produce
+  // parseable JSON. In that case we fall back to showing the raw text, so a
+  // reply is never silently swallowed.
+  const hasStructuredContent =
+    !!entry.analyse ||
+    (entry.tips && entry.tips.length > 0) ||
+    !!entry.waarschuwing ||
+    (entry.cardioVoorstel && entry.cardioVoorstel.length > 0);
+  // `feedback` is the field name used by artifact-era backups; `rawFeedback` by the server.
+  const fallbackText = entry.rawFeedback || entry.feedback || null;
 
   function handleDeleteClick(e) {
     e.preventDefault();
@@ -203,9 +213,15 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
         )}
       </summary>
 
-      {!isStructured && <p className="tc-feedback-text">{entry.feedback}</p>}
+      {!hasStructuredContent && fallbackText && <p className="tc-feedback-text">{fallbackText}</p>}
+      {!hasStructuredContent && !fallbackText && (
+        <p className="tc-feedback-text tc-gpxbatch-error">
+          Dit antwoord kwam leeg terug van het model. Probeer het opnieuw, of controleer of het
+          ingestelde model in .env nog beschikbaar is.
+        </p>
+      )}
 
-      {isStructured && (
+      {hasStructuredContent && (
         <div className="tc-feedback-structured">
           {entry.analyse && <p className="tc-feedback-text">{entry.analyse}</p>}
 
