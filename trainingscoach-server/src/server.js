@@ -20,7 +20,7 @@ const { router: weightLogRoutes } = require("./routes/weightLogs");
 const { router: eventRoutes } = require("./routes/events");
 const coachRoutes = require("./routes/coach");
 const importExportRoutes = require("./routes/importExport");
-const stravaWebhookRoutes = require("./routes/stravaWebhook");
+const { router: stravaRoutes } = require("./routes/strava");
 
 app.use("/api/schema", schemaRoutes);
 app.use("/api/workout-logs", workoutLogRoutes);
@@ -29,7 +29,7 @@ app.use("/api/weight-logs", weightLogRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/coach", coachRoutes);
 app.use("/api", importExportRoutes); // /api/export, /api/import
-app.use("/api/strava", stravaWebhookRoutes); // /api/strava/webhook
+app.use("/api/strava", stravaRoutes); // OAuth, webhook, sync
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

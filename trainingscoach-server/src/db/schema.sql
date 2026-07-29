@@ -124,3 +124,25 @@ CREATE TABLE IF NOT EXISTS coach_history (
   cardio_voorstel_json TEXT,      -- JSON array of {dag, type, invulling}
   raw_feedback TEXT               -- fallback plain-text if the model didn't return valid JSON
 );
+
+-- Strava OAuth tokens. Single-user like the rest of the app, so exactly one
+-- row (id=1). Access tokens expire after ~6 hours; the refresh token is
+-- long-lived and is used to mint new access tokens without re-authorising.
+CREATE TABLE IF NOT EXISTS strava_tokens (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  access_token TEXT,
+  refresh_token TEXT,
+  expires_at INTEGER,          -- unix seconds, from Strava
+  athlete_id INTEGER,
+  athlete_name TEXT,
+  connected_at TEXT
+);
+INSERT OR IGNORE INTO strava_tokens (id) VALUES (1);
+
+-- Log of activities pulled in via the webhook, so a re-delivered event
+-- doesn't create a duplicate session.
+CREATE TABLE IF NOT EXISTS strava_imported_activities (
+  strava_activity_id INTEGER PRIMARY KEY,
+  cardio_log_id TEXT,
+  imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

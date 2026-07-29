@@ -16,8 +16,9 @@ nooit in de browser terechtkomt.
   het taalmodel aan met je eigen sleutel (uit `.env`, nooit blootgesteld aan de client)
 - `src/lib/llmProvider.js` — providerlaag: ondersteunt **Google Gemini** én **Anthropic**,
   omschakelbaar via één instelling in `.env`
-- `src/routes/stravaWebhook.js` — **scaffold, nog niet werkend** — bevat de structuur en
-  duidelijke TODO's voor wanneer je een Strava API-app hebt geregistreerd
+- `src/routes/strava.js` + `src/lib/strava.js` — volledige Strava-integratie: OAuth,
+  automatische tokenvernieuwing, webhook-ontvangst en handmatige synchronisatie
+- `scripts/strava-subscription.js` — hulpscript om het webhook-abonnement te beheren
 - `src/routes/importExport.js` — importeert het exacte JSON-formaat van de
   "Exporteer alles (JSON)"-knop uit de artifact-versie, dus je kunt je huidige data
   1-op-1 overzetten
@@ -29,8 +30,6 @@ De React-UI staat in het aparte project `trainingscoach-frontend`. Die bouw je m
 serveert deze server zowel de UI als de API op één poort. Zie de README daar.
 
 ## Wat hier nog NIET staat
-- **De echte Strava-koppeling.** De webhook-route staat klaar qua vorm, maar mist de
-  OAuth-token-opslag en de daadwerkelijke Strava API-aanroepen (zie TODO's in het bestand).
 - **Authenticatie.** Dit is nu single-user zonder inlogscherm — prima voor persoonlijk
   gebruik binnen je eigen netwerk, maar als je dit ooit vanaf buiten je huis bereikbaar
   maakt, wil je op zijn minst een simpele API-sleutel-check toevoegen.
@@ -118,15 +117,69 @@ pm2 save
 pm2 startup   # volg de instructies die dit commando toont
 ```
 
-## Bereikbaar maken voor de Strava-webhook
+## Volgende stappen
 
-Zodra je zover bent: gebruik een **Cloudflare Tunnel** of **Tailscale Funnel** om de
-server veilig vanaf internet bereikbaar te maken, zonder poorten open te zetten op je
-router. Dat is de aanbevolen route boven directe port-forwarding.
+1. Strava-webhook publiek bereikbaar maken (zie hieronder) als je automatische import wilt
+2. Authenticatie toevoegen — nodig zodra je de app buiten je eigen netwerk gebruikt of deelt
 
-## Volgende stappen (in volgorde van logische prioriteit)
+## Strava koppelen
 
-1. Frontend omzetten naar een Vite-project dat tegen deze API praat
-2. Strava API-app registreren (developer portal) en de webhook-TODO's invullen
-3. Cloudflare Tunnel opzetten zodra de webhook nodig is
-4. (optioneel) simpele API-sleutel-auth toevoegen als je dit van buitenaf bereikbaar maakt
+De koppeling bestaat uit twee losse delen, met verschillende eisen:
+
+| | Wat het doet | Publiek bereikbaar nodig? |
+|---|---|---|
+| **OAuth** | Jouw server mag data ophalen | Nee — de omleiding loopt via jouw browser |
+| **Webhook** | Strava seint jouw server in bij een nieuwe rit | Ja — Strava's servers bellen jouw server |
+
+Je kunt dus prima met deel 1 beginnen en deel 2 later doen. Zonder webhook werkt
+alles ook, alleen druk je zelf op "Nu synchroniseren" in plaats van dat het
+vanzelf binnenkomt.
+
+### Deel 1 — OAuth (werkt binnen je LAN)
+
+1. Registreer een API-app op https://www.strava.com/settings/api
+   - **Authorization Callback Domain**: het IP of de hostnaam van je Pi, bijv. `192.168.1.121`
+     (alleen het domein/IP, zonder `http://` en zonder pad)
+2. Zet de gegevens in `.env`:
+   ```
+   STRAVA_CLIENT_ID=12345
+   STRAVA_CLIENT_SECRET=...
+   STRAVA_WEBHOOK_VERIFY_TOKEN=verzin-hier-iets-willekeurigs
+   ```
+3. Herstart de server (`pm2 restart trainingscoach`)
+4. Ga in de app naar **Schema → Strava** en klik op "Verbinden met Strava"
+5. Na het goedkeuren kun je op "Nu synchroniseren" klikken om je laatste activiteiten op te halen
+
+Krachttrainingen worden overgeslagen (dat is geen cardio), en activiteiten die al
+geïmporteerd zijn worden niet nog eens toegevoegd.
+
+### Deel 2 — Webhook (vereist publieke bereikbaarheid)
+
+Nodig is een publiek adres dat naar deze server verwijst. Een Cloudflare Tunnel is
+hiervoor de aanbevolen route: geen poorten open op je router, en je kunt het beperken
+tot alleen het webhook-pad.
+
+```bash
+# op de Pi
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o cloudflared
+chmod +x cloudflared && sudo mv cloudflared /usr/local/bin/
+cloudflared tunnel login
+cloudflared tunnel create trainingscoach
+# koppel een hostname aan de tunnel en laat 'm wijzen naar http://localhost:3001
+```
+
+Registreer daarna het abonnement bij Strava:
+
+```bash
+cd ~/Trainingcoach-app/trainingscoach-server
+node scripts/strava-subscription.js create https://jouw-tunnel-adres
+node scripts/strava-subscription.js status     # controleren
+node scripts/strava-subscription.js delete     # weer opzeggen
+```
+
+Strava roept bij het aanmaken direct je callback-URL aan ter verificatie, dus de
+server én de tunnel moeten op dat moment draaien.
+
+**Beveiliging:** de app zelf heeft geen authenticatie. Zet daarom in Cloudflare
+alleen het pad `/api/strava/webhook` open en houd de rest privé — dat ene endpoint
+accepteert niets anders dan een activiteits-ID en geeft nooit data terug.

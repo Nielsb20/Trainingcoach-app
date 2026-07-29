@@ -1,12 +1,12 @@
 {
   "name": "trainingscoach-server",
   "version": "0.1.0",
-  "description": "Self-hosted backend for Trainingscoach — Express + SQLite, extracted calculation core, and a server-side Anthropic API proxy for the AI coach.",
+  "description": "Self-hosted backend for Trainingscoach \u2014 Express + SQLite, extracted calculation core, and a server-side Anthropic API proxy for the AI coach.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node src/lib/calculations.test.js"
+    "test": "node src/lib/calculations.test.js && node src/lib/strava.test.js && node src/lib/stravaTokens.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
