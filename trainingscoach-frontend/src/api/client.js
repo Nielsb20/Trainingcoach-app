@@ -75,6 +75,12 @@ export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method
 export const exportAll = () => request("/export");
 export const importAll = (data) => request("/import", { method: "POST", body: JSON.stringify(data) });
 
+/* --------------------------------- strava ------------------------------ */
+
+export const getStravaStatus = () => request("/strava/status");
+export const syncStrava = (limit = 20) => request("/strava/sync", { method: "POST", body: JSON.stringify({ limit }) });
+export const disconnectStrava = () => request("/strava/disconnect", { method: "POST" });
+
 /* --------------------------------- health ------------------------------ */
 
 export const health = () => request("/health");

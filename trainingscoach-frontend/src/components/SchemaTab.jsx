@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2 } from "lucide-r
 import { CARDIO_TYPES } from "../lib/constants";
 import { WEEKDAYS, uid, todayStr, computeHrZones, computePowerZones } from "../lib/calculations";
 import * as api from "../api/client";
+import StravaPanel from "./StravaPanel";
 
 export default function SchemaTab({ schema, setSchema, onRestored }) {
   const [pendingImport, setPendingImport] = useState(null);
@@ -300,6 +301,9 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
           </table>
         )}
       </div>
+
+      <h2 className="tc-section-title" style={{ marginTop: 32 }}>Strava</h2>
+      <StravaPanel onImported={onRestored} />
 
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Back-up</h2>
       <p className="tc-sub" style={{ marginTop: -4 }}>

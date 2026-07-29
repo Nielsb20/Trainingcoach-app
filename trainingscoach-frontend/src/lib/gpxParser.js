@@ -126,7 +126,13 @@ export function parseGpxToSession(text) {
   const avgCadence = cadences.length ? Math.round(cadences.reduce((a, b) => a + b, 0) / cadences.length) : null;
   const maxCadence = cadences.length ? Math.max(...cadences) : null;
 
-  const numBuckets = Math.min(16, Math.max(4, Math.round(totalDurationMin / 2)));
+  // Resolution matters more than it looks: with buckets that are too wide, an
+  // interval session averages out to a flat line (a 2-minute bucket over
+  // 1-on/1-off intervals shows only the mean, hiding the structure entirely).
+  // Aim for ~30-second buckets, widening only when a long ride would otherwise
+  // produce hundreds of points.
+  const TARGET_BUCKET_SECONDS = 30;
+  const numBuckets = Math.max(4, Math.min(60, Math.round((totalDurationMin * 60) / TARGET_BUCKET_SECONDS)));
   const bucketSec = (totalDurationMin * 60) / numBuckets;
   const profile = [];
   for (let b = 0; b < numBuckets; b++) {
