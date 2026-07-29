@@ -153,6 +153,22 @@ vanzelf binnenkomt.
 Krachttrainingen worden overgeslagen (dat is geen cardio), en activiteiten die al
 geïmporteerd zijn worden niet nog eens toegevoegd.
 
+**Al eerder geïmporteerde ritten worden herkend.** Als je eerder de Strava
+CSV-export of GPX-bestanden hebt ingeladen, staan dezelfde ritten daar al onder
+een ander intern ID. De synchronisatie herkent die (zelfde dag, zelfde sport,
+afstand en duur binnen 5%) en vervangt de bestaande versie in plaats van er een
+tweede naast te zetten — de Strava-versie is rijker, want die bevat het verloop
+binnen de sessie.
+
+Zijn er tóch dubbelen ontstaan, dan ruimt dit ze op:
+
+```bash
+npm run dedupe            # proefdraai: laat alleen zien wat het zou doen
+npm run dedupe -- --apply # daadwerkelijk opruimen
+```
+
+Bij elk paar wordt de rijkste versie behouden (die met verloopdata wint).
+
 ### Deel 2 — Webhook (vereist publieke bereikbaarheid)
 
 Nodig is een publiek adres dat naar deze server verwijst. Een Cloudflare Tunnel is

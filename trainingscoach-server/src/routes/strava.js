@@ -135,9 +135,20 @@ async function importActivity(activityId, { source = "strava", force = false } =
   }
 
   const session = strava.stravaToSession(activity, streams);
+
+  // The same ride may already be present from the CSV archive import or a GPX
+  // upload, under a different id. Replace that row rather than adding a second
+  // one — the Strava version is richer (it carries the within-session profile).
+  const existing = strava.findExistingSimilarSession(session);
+  let replaced = null;
+  if (existing) {
+    db.prepare("DELETE FROM cardio_logs WHERE id = ?").run(existing.id);
+    replaced = existing.id;
+  }
+
   insertSession(session, source);
   strava.markImported(activityId, session.id);
-  return { imported: true, session };
+  return { imported: true, session, replaced };
 }
 
 /* -------------------------------- webhook ------------------------------- */

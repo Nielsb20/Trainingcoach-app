@@ -317,6 +317,43 @@ const markImported = (stravaActivityId, cardioLogId) =>
     .prepare("INSERT OR REPLACE INTO strava_imported_activities (strava_activity_id, cardio_log_id) VALUES (?, ?)")
     .run(stravaActivityId, cardioLogId);
 
+/** True when two optional numbers are both absent, or both present and within tolerance. */
+function withinTolerance(a, b, fraction) {
+  if (a === null || a === undefined || b === null || b === undefined) return true; // unknown -> don't block a match
+  if (a === 0 && b === 0) return true;
+  const larger = Math.max(Math.abs(a), Math.abs(b));
+  if (larger === 0) return true;
+  return Math.abs(a - b) / larger <= fraction;
+}
+
+/**
+ * Finds a session already in the database that describes the same workout as
+ * `session`, even though it arrived from a different source (CSV bulk import
+ * or GPX upload) and therefore carries a different id.
+ *
+ * Without this, syncing Strava after having imported the Strava CSV archive
+ * silently duplicates every ride: one workout, two rows, and every weekly
+ * total counted twice.
+ *
+ * Matching is deliberately conservative — same day, same sport, and both
+ * distance and duration within 5% — so two genuinely different rides on the
+ * same day aren't collapsed into one.
+ */
+function findExistingSimilarSession(session, excludeId = null) {
+  const candidates = db
+    .prepare("SELECT * FROM cardio_logs WHERE date = ? AND type = ?")
+    .all(session.date, session.type)
+    .filter((row) => row.id !== excludeId && row.id !== session.id);
+
+  return (
+    candidates.find(
+      (row) =>
+        withinTolerance(row.distance_km, session.distance_km, 0.05) &&
+        withinTolerance(row.duration_min, session.duration_min, 0.05)
+    ) || null
+  );
+}
+
 module.exports = {
   // connection
   isConnected,
@@ -338,4 +375,6 @@ module.exports = {
   // dedup
   wasImported,
   markImported,
+  findExistingSimilarSession,
+  withinTolerance,
 };
