@@ -163,9 +163,10 @@ export default function PlannerTab() {
         <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
           onClick={() => act(async () => {
             const r = await api.fillPlanFromSchema(isoOf(rangeStart), isoOf(rangeEnd));
-            setFillMessage(r.aangemaakt === 0
-              ? "Deze periode was al gevuld — er is niets toegevoegd."
-              : `${r.aangemaakt} sessies toegevoegd (${r.kracht} kracht, ${r.cardio} cardio).`);
+            const parts = [];
+            if (r.aangemaakt > 0) parts.push(`${r.aangemaakt} sessies toegevoegd (${r.kracht} kracht, ${r.cardio} cardio)`);
+            if (r.bijgewerkt > 0) parts.push(`${r.bijgewerkt} omschrijving(en) bijgewerkt met je oefeningen`);
+            setFillMessage(parts.length ? parts.join(" — ") + "." : "Deze periode was al gevuld — er is niets veranderd.");
           })}>
           <CalendarPlus size={14} /> Vul aan vanuit mijn schema
         </button>

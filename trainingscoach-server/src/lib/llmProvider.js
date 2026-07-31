@@ -49,7 +49,7 @@ const COACH_RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["analyse", "tips", "cardioVoorstel"],
+  required: ["analyse", "tips", "cardioVoorstel", "krachtVoorstel"],
 };
 
 function resolveProvider() {
