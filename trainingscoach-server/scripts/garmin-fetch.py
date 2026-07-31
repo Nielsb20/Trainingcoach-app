@@ -66,6 +66,37 @@ except ImportError:
     )
 
 
+def save_tokens(client):
+    """
+    Persists the session so the next run doesn't hit Garmin's login at all —
+    which matters, because repeated logins are exactly what triggers their rate
+    limiting. The library has moved this method around between versions, so try
+    the known shapes rather than assuming one.
+    """
+    for attempt in (
+        lambda: client.garth.dump(TOKEN_DIR),
+        lambda: client.dump(TOKEN_DIR),
+        lambda: client.garth_client.dump(TOKEN_DIR),
+    ):
+        try:
+            attempt()
+            print(f"Tokens opgeslagen in {TOKEN_DIR} (je wachtwoord wordt niet bewaard).")
+            return True
+        except AttributeError:
+            continue
+        except Exception as err:
+            print(f"  (waarschuwing: tokens konden niet worden opgeslagen: {err})")
+            return False
+    print("  (waarschuwing: kon geen manier vinden om tokens op te slaan — "
+          "je moet volgende keer opnieuw inloggen)")
+    return False
+
+
+def is_rate_limited(err):
+    text = str(err).lower()
+    return "429" in text or "rate limit" in text or "too many requests" in text
+
+
 def login():
     """Logs in, reusing cached tokens when possible so we don't hammer Garmin's login."""
     try:
@@ -83,21 +114,36 @@ def login():
         password = getpass.getpass("Garmin wachtwoord: ")
 
     try:
-        client = Garmin(email=email, password=password, return_on_mfa=True)
-        result = client.login()
+        try:
+            client = Garmin(email=email, password=password, return_on_mfa=True)
+            result = client.login()
+        except TypeError:
+            # Older releases don't accept return_on_mfa
+            client = Garmin(email, password)
+            result = client.login()
+
         # Newer library versions signal MFA by returning a tuple
-        if isinstance(result, tuple) and result[0] == "needs_mfa":
+        if isinstance(result, tuple) and result and result[0] == "needs_mfa":
             code = input("MFA-code uit je authenticator-app: ")
             client.resume_login(result[1], code)
-        client.garth.dump(TOKEN_DIR)
-        print(f"Ingelogd. Tokens opgeslagen in {TOKEN_DIR} (je wachtwoord wordt niet bewaard).")
+
+        print("Ingelogd bij Garmin.")
+        save_tokens(client)  # a failure here is a nuisance, not fatal
         return client
+
     except Exception as err:
+        if is_rate_limited(err):
+            fail(
+                "Garmin heeft je IP-adres tijdelijk geblokkeerd (429).",
+                "Dit is hun botbeveiliging, niet iets in deze code. Wacht een uur en probeer opnieuw.\n"
+                "      Probeer NIET herhaaldelijk in te loggen - dat verlengt de blokkade.\n"
+                "      Intussen kun je je gegevens gewoon handmatig invoeren bij Herstel in de app.",
+            )
         fail(
             f"inloggen bij Garmin mislukt: {err}",
-            "Als dit plotseling begon te falen, heeft Garmin waarschijnlijk zijn login gewijzigd. "
-            "Probeer 'pip install --upgrade garminconnect'; werkt dat niet, voer je gegevens dan "
-            "voorlopig handmatig in via de app.",
+            "Als dit plotseling begon te falen, heeft Garmin waarschijnlijk zijn login gewijzigd.\n"
+            "      Probeer: ./scripts/garmin-venv/bin/pip install --upgrade garminconnect\n"
+            "      Werkt dat niet, voer je gegevens dan handmatig in via de app.",
         )
 
 
