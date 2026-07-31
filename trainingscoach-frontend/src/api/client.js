@@ -75,6 +75,27 @@ export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method
 export const exportAll = () => request("/export");
 export const importAll = (data) => request("/import", { method: "POST", body: JSON.stringify(data) });
 
+/* -------------------------------- wellness ------------------------------ */
+
+export const getWellnessLogs = (days = 120) => request(`/wellness?days=${days}`);
+export const saveWellnessLog = (entry) => request("/wellness", { method: "POST", body: JSON.stringify(entry) });
+export const deleteWellnessLog = (date) => request(`/wellness/${date}`, { method: "DELETE" });
+
+/* -------------------------------- analysis ------------------------------ */
+
+export const getZoneDistribution = (weeks = 12, metric = "hr") =>
+  request(`/analysis/zones?weeks=${weeks}&metric=${metric}`);
+export const getPowerCurve = (days = 90) => request(`/analysis/power-curve?days=${days}`);
+
+/* -------------------------------- planned ------------------------------- */
+
+export const getPlannedSessions = (weeks = 4) => request(`/planned?weeks=${weeks}`);
+export const createPlanFromCoach = (coachEntryId) =>
+  request("/planned/from-coach", { method: "POST", body: JSON.stringify({ coachEntryId }) });
+export const updatePlannedSession = (id, status) =>
+  request(`/planned/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const deletePlannedSession = (id) => request(`/planned/${id}`, { method: "DELETE" });
+
 /* --------------------------------- strava ------------------------------ */
 
 export const getStravaStatus = () => request("/strava/status");

@@ -77,6 +77,7 @@ const CARDIO_COLUMNS = [
   "id", "date", "time_of_day", "type", "duration_min", "total_duration_min", "distance_km",
   "avg_hr", "max_hr", "avg_power", "max_power", "weighted_avg_power", "avg_cadence", "max_cadence",
   "elevation_gain_m", "elevation_loss_m", "pace", "calories", "notes", "profile_json", "source",
+  "hr_histogram_json", "power_histogram_json", "power_curve_json",
 ];
 
 function insertSession(session, source) {
@@ -102,6 +103,9 @@ function insertSession(session, source) {
     notes: session.notes ?? null,
     profile_json: session.profile ? JSON.stringify(session.profile) : null,
     source,
+    hr_histogram_json: session.hr_histogram ? JSON.stringify(session.hr_histogram) : null,
+    power_histogram_json: session.power_histogram ? JSON.stringify(session.power_histogram) : null,
+    power_curve_json: session.power_curve ? JSON.stringify(session.power_curve) : null,
   };
   db.prepare(
     `INSERT OR REPLACE INTO cardio_logs (${CARDIO_COLUMNS.join(", ")})

@@ -34,6 +34,7 @@ router.post("/ask", async (req, res) => {
     .all()
     .map(serializeCardioLog);
   const weightLogs = db.prepare("SELECT * FROM weight_logs ORDER BY date ASC").all();
+  const wellnessLogs = db.prepare("SELECT * FROM wellness_logs ORDER BY date DESC LIMIT 28").all();
   const events = db.prepare("SELECT * FROM events ORDER BY date ASC").all();
 
   const hrZones = schema.profile.maxHr ? calc.computeHrZones(schema.profile.maxHr, schema.profile.restingHr) : null;
@@ -62,11 +63,47 @@ router.post("/ask", async (req, res) => {
     };
   }
 
+  // Recovery context: recent nights plus a baseline to compare against, so the
+  // coach can spot "resting HR up / HRV down versus normal" rather than being
+  // handed absolute numbers it has no reference for.
+  let herstel = null;
+  if (wellnessLogs.length > 0) {
+    const avg = (rows, key) => {
+      const vals = rows.map((r) => r[key]).filter((v) => v !== null && v !== undefined);
+      return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
+    };
+    const recent = wellnessLogs.slice(0, 7);
+    const baseline = wellnessLogs.slice(7, 28);
+    herstel = {
+      laatste7Dagen: {
+        gemRusthartslag: avg(recent, "resting_hr"),
+        gemHrvMs: avg(recent, "hrv_ms"),
+        gemSlaapMinuten: avg(recent, "sleep_minutes"),
+        gemSlaapscore: avg(recent, "sleep_score"),
+      },
+      basislijn8tot28Dagen: baseline.length
+        ? {
+            gemRusthartslag: avg(baseline, "resting_hr"),
+            gemHrvMs: avg(baseline, "hrv_ms"),
+            gemSlaapMinuten: avg(baseline, "sleep_minutes"),
+          }
+        : null,
+      recenteDagen: wellnessLogs.slice(0, 7).map((w) => ({
+        datum: w.date,
+        rusthartslag: w.resting_hr,
+        hrv_ms: w.hrv_ms,
+        slaap_minuten: w.sleep_minutes,
+        slaapscore: w.sleep_score,
+      })),
+    };
+  }
+
   const payload = {
     vandaag: calc.todayStr(),
     vandaagWeekdag: calc.weekdayNameForDate(calc.todayStr()),
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     lichaamsgewicht: weightSummary,
+    herstel,
     trainingsbelasting: currentLoad
       ? {
           ctlFitness: currentLoad.ctl,

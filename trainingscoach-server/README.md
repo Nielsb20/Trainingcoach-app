@@ -14,6 +14,8 @@ nooit in de browser terechtkomt.
   evenementen, coach, en import/export
 - `src/routes/coach.js` — bouwt exact dezelfde payload als de artifact-versie en roept
   het taalmodel aan met je eigen sleutel (uit `.env`, nooit blootgesteld aan de client)
+- `src/routes/analysis.js` — zoneverdeling per week en de vermogenscurve
+- `src/routes/planned.js` — gepland vs. daadwerkelijk gedaan
 - `src/lib/llmProvider.js` — providerlaag: ondersteunt **Google Gemini** én **Anthropic**,
   omschakelbaar via één instelling in `.env`
 - `src/routes/strava.js` + `src/lib/strava.js` — volledige Strava-integratie: OAuth,
@@ -199,3 +201,95 @@ server én de tunnel moeten op dat moment draaien.
 **Beveiliging:** de app zelf heeft geen authenticatie. Zet daarom in Cloudflare
 alleen het pad `/api/strava/webhook` open en houd de rest privé — dat ene endpoint
 accepteert niets anders dan een activiteits-ID en geeft nooit data terug.
+
+
+## Analyse: zoneverdeling en vermogenscurve
+
+Bij het importeren vanuit Strava wordt per sessie afgeleide analysedata berekend
+en opgeslagen:
+
+- **Histogrammen** — seconden per hartslagwaarde en per wattage
+- **Vermogenscurve** — beste gemiddelde vermogen over 1s t/m 60min
+
+Bewust histogrammen in plaats van ruwe secondedata: een paar honderd getallen per
+sessie in plaats van tienduizenden, én je kunt er elke zoneverdeling uit afleiden.
+Pas je later je FTP of max. hartslag aan, dan wordt je hele geschiedenis meteen
+opnieuw ingedeeld in plaats van vast te zitten aan de zones van toen.
+
+Te zien onder **Analyse** in de app:
+
+| Tabblad | Wat het laat zien |
+|---|---|
+| Zoneverdeling | Tijd per zone per week — het beeld dat je nodig hebt voor gepolariseerd trainen |
+| Vermogenscurve | Beste vermogen per tijdsduur, aller-tijden versus recent, plus een FTP-schatting |
+| Gepland vs. gedaan | De cardiovoorstellen van de coach, automatisch afgevinkt op basis van je logs |
+
+**Let op:** deze analyse werkt alleen voor sessies die na deze update zijn
+geïmporteerd, want oudere sessies hebben de histogrammen nog niet. Synchroniseer
+opnieuw met Strava om je geschiedenis bij te werken — bestaande sessies worden
+vervangen, niet gedupliceerd.
+
+De FTP-schatting gebruikt een gemeten uurinspanning als die er is, anders 95% van
+je beste 20 minuten. Wijkt dat meer dan 15 W af van wat je hebt ingevuld, dan
+krijg je een melding — die waarde voedt namelijk ook je vermogenszones en de
+TSS-berekening.
+
+
+## Herstelgegevens (Garmin)
+
+Rusthartslag, HRV en slaap zijn de ontbrekende schakel in de coaching: zonder
+herstelcontext kan de coach alleen naar belasting kijken, niet naar of je die
+belasting aankunt. Onder **Herstel** in de app voer je die gegevens in, en de
+coach vergelijkt ze met je eigen basislijn over de voorgaande drie weken.
+
+### Handmatig (altijd betrouwbaar)
+
+Vul in wat je hebt. Alleen ingevulde velden worden opgeslagen, dus je kunt een
+dag later aanvullen zonder eerdere waarden te overschrijven.
+
+### Automatisch ophalen uit Garmin (fragiel, optioneel)
+
+**Lees dit eerst.** Garmin heeft geen API voor particulieren: het
+partnerprogramma vereist een rechtspersoon en wijst persoonlijk gebruik af. De
+enige route is een onofficiële bibliotheek, en die is aantoonbaar broos —
+in maart 2026 wijzigde Garmin zijn authenticatie, waarna `garth` (waar vrijwel
+het hele ecosysteem op leunde, inclusief alle JavaScript-varianten) werd
+stopgezet. Alleen de Python-variant is hersteld.
+
+Dat betekent: **dit kan zonder aankondiging stoppen met werken.** Het staat
+daarom bewust apart van de rest van de applicatie. Valt het om, dan blijft alles
+werken en voer je je gegevens handmatig in.
+
+Installeren op de Pi:
+
+```bash
+sudo apt install -y python3-pip python3-venv
+cd ~/Trainingcoach-app/trainingscoach-server/scripts
+python3 -m venv garmin-venv
+./garmin-venv/bin/pip install garminconnect
+```
+
+Gebruiken:
+
+```bash
+cd ~/Trainingcoach-app/trainingscoach-server
+npm run garmin -- --days 7          # laatste 7 dagen ophalen
+npm run garmin -- --days 30 --dry-run  # eerst kijken wat er komt
+```
+
+De eerste keer vraagt hij om je inloggegevens (en MFA-code indien ingesteld).
+Daarna worden alleen tokens bewaard in `~/.garminconnect`, niet je wachtwoord.
+
+Automatisch elke ochtend, via `crontab -e`:
+
+```
+0 7 * * * cd ~/Trainingcoach-app/trainingscoach-server && npm run garmin -- --days 3 >> ~/garmin-fetch.log 2>&1
+```
+
+Wat het ophaalt: rusthartslag, HRV, slaapduur en -score, Body Battery, stress,
+en gewicht + vetpercentage van een Index-weegschaal.
+
+**Als het stopt met werken:** probeer eerst
+`./scripts/garmin-venv/bin/pip install --upgrade garminconnect`. Helpt dat niet,
+dan heeft Garmin waarschijnlijk opnieuw iets gewijzigd en moet je wachten tot de
+bibliotheek is bijgewerkt. Handmatige invoer blijft ondertussen gewoon werken.

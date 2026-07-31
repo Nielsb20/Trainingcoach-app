@@ -146,3 +146,44 @@ CREATE TABLE IF NOT EXISTS strava_imported_activities (
   cardio_log_id TEXT,
   imported_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Derived analysis data, computed once at import from the raw streams.
+-- Stored as histograms/curves rather than raw per-second series: a fraction of
+-- the size, and time-in-zone can be recomputed from a histogram whenever the
+-- athlete's max HR or FTP changes.
+ALTER TABLE cardio_logs ADD COLUMN hr_histogram_json TEXT;
+ALTER TABLE cardio_logs ADD COLUMN power_histogram_json TEXT;
+ALTER TABLE cardio_logs ADD COLUMN power_curve_json TEXT;
+
+-- Cardio sessions the coach proposed, so "planned vs actual" can be tracked.
+CREATE TABLE IF NOT EXISTS planned_sessions (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,              -- YYYY-MM-DD the session is planned for
+  weekday TEXT,                    -- as the coach phrased it
+  type TEXT NOT NULL,
+  description TEXT NOT NULL,       -- the coach's "invulling"
+  source_coach_entry_id TEXT,      -- which coach answer produced this
+  completed_cardio_log_id TEXT,    -- filled in when matched to an actual session
+  status TEXT NOT NULL DEFAULT 'gepland',  -- 'gepland' | 'gedaan' | 'overgeslagen'
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_planned_sessions_date ON planned_sessions(date);
+
+-- Daily wellness / recovery metrics. Deliberately source-agnostic: rows can
+-- come from an automatic Garmin fetch, a CSV export, or manual entry. The
+-- coach only cares that the numbers are there, not where they came from —
+-- which matters because the unofficial Garmin route is known to break.
+CREATE TABLE IF NOT EXISTS wellness_logs (
+  date TEXT PRIMARY KEY,           -- one row per day
+  resting_hr INTEGER,
+  hrv_ms INTEGER,                  -- overnight HRV (RMSSD-style, ms)
+  sleep_minutes INTEGER,
+  sleep_score INTEGER,             -- 0-100 if the device reports one
+  body_battery_max INTEGER,
+  body_battery_min INTEGER,
+  stress_avg INTEGER,
+  notes TEXT,
+  source TEXT NOT NULL DEFAULT 'manual',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_wellness_logs_date ON wellness_logs(date);

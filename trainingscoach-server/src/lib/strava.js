@@ -283,6 +283,20 @@ function stravaToSession(activity, streams) {
     }
   }
 
+  // Derived analysis data, computed here while we still have the raw streams.
+  // Only the compact results are stored; the per-second series is discarded.
+  let hrHistogram = null;
+  let powerHistogram = null;
+  let powerCurve = null;
+  if (streams?.time?.data) {
+    const t = streams.time.data;
+    if (streams.heartrate?.data) hrHistogram = calc.computeHistogram(t, streams.heartrate.data, 1);
+    if (streams.watts?.data) {
+      powerHistogram = calc.computeHistogram(t, streams.watts.data, 5); // 5 W bins
+      powerCurve = calc.computePowerCurve(t, streams.watts.data);
+    }
+  }
+
   return {
     id: `strava-${activity.id}`,
     date: (activity.start_date_local || activity.start_date || "").slice(0, 10),
@@ -304,6 +318,9 @@ function stravaToSession(activity, streams) {
     calories: activity.calories ? Math.round(activity.calories) : null,
     notes: activity.name || "",
     profile,
+    hr_histogram: hrHistogram,
+    power_histogram: powerHistogram,
+    power_curve: powerCurve,
   };
 }
 

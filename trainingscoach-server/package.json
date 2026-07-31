@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node src/lib/calculations.test.js && node src/lib/strava.test.js && node src/lib/stravaTokens.test.js && node src/lib/stravaDedupe.test.js",
-    "dedupe": "node scripts/dedupe-cardio.js"
+    "test": "node src/lib/calculations.test.js && node src/lib/analysis.test.js && node src/lib/strava.test.js && node src/lib/stravaTokens.test.js && node src/lib/stravaDedupe.test.js && node src/routes/planned.test.js && node src/routes/wellness.test.js",
+    "dedupe": "node scripts/dedupe-cardio.js",
+    "garmin": "./scripts/garmin-venv/bin/python scripts/garmin-fetch.py"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

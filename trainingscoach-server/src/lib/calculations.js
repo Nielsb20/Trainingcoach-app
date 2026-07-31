@@ -372,6 +372,141 @@ function computeStrengthHistorySummary(workoutLogs) {
   };
 }
 
+
+/* ---------------------------------------------------------------------- */
+/* Histograms, power curve, time-in-zone                                  */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Builds a histogram of seconds spent at each value, from parallel
+ * time/value arrays (as produced by a Strava stream or a GPX track).
+ *
+ * Storing a histogram rather than the raw per-second series is a deliberate
+ * trade-off: it's a few hundred numbers instead of tens of thousands, and —
+ * crucially — time-in-zone can be recomputed from it for ANY zone definition.
+ * So when you later adjust your FTP or max heart rate, historical sessions
+ * re-bucket correctly instead of being stuck with whatever zones applied on
+ * the day they were imported.
+ *
+ * @param {number[]} timeSec - seconds since start, ascending
+ * @param {Array<number|null>} values
+ * @param {number} binSize - bucket width (1 for bpm, 5 or 10 for watts)
+ * @returns {Object<string, number>} bin lower bound -> seconds
+ */
+function computeHistogram(timeSec, values, binSize = 1) {
+  if (!Array.isArray(timeSec) || !Array.isArray(values) || timeSec.length < 2) return null;
+  const hist = {};
+  let counted = 0;
+  for (let i = 0; i < timeSec.length - 1; i++) {
+    const v = values[i];
+    if (v === null || v === undefined || isNaN(v)) continue;
+    // Gaps (auto-pause, lost signal) would otherwise be charged to whatever
+    // value happened to precede them, so ignore implausibly long steps.
+    const dt = timeSec[i + 1] - timeSec[i];
+    if (!(dt > 0) || dt > 30) continue;
+    const bin = Math.floor(v / binSize) * binSize;
+    hist[bin] = (hist[bin] || 0) + dt;
+    counted += dt;
+  }
+  return counted > 0 ? hist : null;
+}
+
+/** Total seconds represented by a histogram. */
+function histogramTotalSeconds(hist) {
+  if (!hist) return 0;
+  return Object.values(hist).reduce((a, b) => a + b, 0);
+}
+
+/**
+ * Distributes a histogram over zone definitions, returning seconds per zone.
+ * Works for both heart rate zones (computeHrZones) and power zones
+ * (computePowerZones) — pass the matching bound accessor.
+ */
+function timeInZones(hist, zones, lowerKey, upperKey) {
+  if (!hist || !zones) return null;
+  const result = zones.map((z) => ({ zone: z.zone, naam: z.naam, seconden: 0 }));
+  Object.entries(hist).forEach(([binStr, seconds]) => {
+    const value = Number(binStr);
+    let idx = zones.findIndex(
+      (z) => value >= z[lowerKey] && (z[upperKey] === null || value <= z[upperKey])
+    );
+    // Anything under zone 1 counts as zone 1; anything above the top zone as the top zone.
+    if (idx === -1) idx = value < zones[0][lowerKey] ? 0 : zones.length - 1;
+    result[idx].seconden += seconds;
+  });
+  return result.map((r) => ({ ...r, minuten: Math.round((r.seconden / 60) * 10) / 10 }));
+}
+
+const timeInHrZones = (hist, hrZones) => timeInZones(hist, hrZones, "vanBpm", "totBpm");
+const timeInPowerZones = (hist, powerZones) => timeInZones(hist, powerZones, "vanW", "totW");
+
+/** Durations (seconds) the power curve is sampled at — the conventional set. */
+const POWER_CURVE_DURATIONS = [1, 5, 15, 30, 60, 120, 300, 480, 720, 1200, 1800, 3600];
+
+/**
+ * Mean maximal power: for each duration, the best average power sustained over
+ * any window of that length. This is the standard way to track cycling
+ * progress, and the 20-minute figure is what FTP is usually estimated from.
+ *
+ * Uses a prefix-sum so each duration costs one linear pass rather than
+ * re-summing every window.
+ */
+function computePowerCurve(timeSec, watts) {
+  if (!Array.isArray(timeSec) || !Array.isArray(watts) || timeSec.length < 2) return null;
+
+  // Resample onto a 1 Hz grid: Strava streams are usually 1 Hz already, but
+  // smart recording and GPX exports are not, and the windowing below assumes
+  // evenly spaced samples.
+  const totalSec = Math.floor(timeSec[timeSec.length - 1]);
+  if (totalSec < 1) return null;
+  const series = new Array(totalSec + 1).fill(null);
+  let idx = 0;
+  for (let t = 0; t <= totalSec; t++) {
+    while (idx < timeSec.length - 1 && timeSec[idx + 1] <= t) idx++;
+    const v = watts[idx];
+    series[t] = v === null || v === undefined || isNaN(v) ? 0 : v;
+  }
+
+  const prefix = new Array(series.length + 1).fill(0);
+  for (let i = 0; i < series.length; i++) prefix[i + 1] = prefix[i] + series[i];
+
+  const curve = {};
+  for (const d of POWER_CURVE_DURATIONS) {
+    if (d > series.length) break;
+    let best = 0;
+    for (let start = 0; start + d <= series.length; start++) {
+      const avg = (prefix[start + d] - prefix[start]) / d;
+      if (avg > best) best = avg;
+    }
+    if (best > 0) curve[d] = Math.round(best);
+  }
+  return Object.keys(curve).length > 0 ? curve : null;
+}
+
+/**
+ * Estimates FTP from a power curve. Prefers a real 60-minute effort when one
+ * exists, otherwise falls back to the conventional 95% of best 20-minute
+ * power. Returns null when there's nothing long enough to judge from.
+ */
+function estimateFtpFromCurve(curve) {
+  if (!curve) return null;
+  if (curve[3600]) return { ftp: curve[3600], basis: "60 minuten (gemeten)" };
+  if (curve[1200]) return { ftp: Math.round(curve[1200] * 0.95), basis: "95% van beste 20 minuten" };
+  if (curve[480]) return { ftp: Math.round(curve[480] * 0.9), basis: "90% van beste 8 minuten (ruwe schatting)" };
+  return null;
+}
+
+/** Best value per duration across many sessions — the all-time power curve. */
+function mergePowerCurves(curves) {
+  const merged = {};
+  curves.filter(Boolean).forEach((curve) => {
+    Object.entries(curve).forEach(([d, w]) => {
+      if (!merged[d] || w > merged[d]) merged[d] = w;
+    });
+  });
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
 module.exports = {
   WEEKDAYS,
   todayStr,
@@ -392,4 +527,13 @@ module.exports = {
   avgOf,
   computeCardioHistorySummary,
   computeStrengthHistorySummary,
+  computeHistogram,
+  histogramTotalSeconds,
+  timeInZones,
+  timeInHrZones,
+  timeInPowerZones,
+  computePowerCurve,
+  estimateFtpFromCurve,
+  mergePowerCurves,
+  POWER_CURVE_DURATIONS,
 };

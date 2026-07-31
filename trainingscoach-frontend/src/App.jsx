@@ -11,6 +11,8 @@ import WeightTab from "./components/WeightTab";
 import EventsTab from "./components/EventsTab";
 import GeschiedenisTab from "./components/GeschiedenisTab";
 import CoachTab from "./components/CoachTab";
+import AnalyseTab from "./components/AnalyseTab";
+import WellnessTab from "./components/WellnessTab";
 
 const EMPTY_SCHEMA = { days: [], cardioDays: [], profile: {} };
 
@@ -246,6 +248,7 @@ export default function App() {
         {tab === "gewicht" && (
           <WeightTab weightLogs={weightLogs} addWeightLog={addWeightLog} deleteWeightLog={deleteWeightLog} />
         )}
+        {tab === "herstel" && <WellnessTab />}
         {tab === "evenementen" && <EventsTab events={events} addEvent={addEvent} deleteEvent={deleteEvent} />}
         {tab === "geschiedenis" && (
           <GeschiedenisTab
@@ -257,6 +260,7 @@ export default function App() {
             deleteCardioLog={deleteCardioLog}
           />
         )}
+        {tab === "analyse" && <AnalyseTab />}
         {tab === "coach" && (
           <CoachTab
             schema={schema}

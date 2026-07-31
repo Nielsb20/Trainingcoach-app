@@ -1,12 +1,14 @@
-import { Dumbbell, Activity, MessageCircle, History, Settings, Flag, Scale, Sunrise, Sun, Moon } from "lucide-react";
+import { Dumbbell, Activity, MessageCircle, History, Settings, Flag, Scale, Sunrise, Sun, Moon, PieChart, HeartPulse } from "lucide-react";
 
 export const NAV = [
   { id: "schema", label: "Schema", icon: Settings },
   { id: "kracht", label: "Kracht loggen", icon: Dumbbell },
   { id: "cardio", label: "Cardio loggen", icon: Activity },
   { id: "gewicht", label: "Gewicht", icon: Scale },
+  { id: "herstel", label: "Herstel", icon: HeartPulse },
   { id: "evenementen", label: "Evenementen", icon: Flag },
   { id: "geschiedenis", label: "Geschiedenis", icon: History },
+  { id: "analyse", label: "Analyse", icon: PieChart },
   { id: "coach", label: "Coach", icon: MessageCircle },
 ];
 

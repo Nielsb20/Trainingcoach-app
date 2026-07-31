@@ -185,3 +185,11 @@ html, body, #root {
   margin: 0;
   background: var(--bg);
 }
+
+/* Planned-vs-actual rows: status icon, details, and actions on one line. */
+.tc-planned-row { display: flex; align-items: flex-start; gap: 12px; }
+.tc-planned-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .tc-planned-row { flex-wrap: wrap; }
+  .tc-planned-actions { width: 100%; }
+}

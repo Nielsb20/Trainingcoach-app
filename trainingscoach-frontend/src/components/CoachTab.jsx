@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { Send, Loader2, Trash2 } from "lucide-react";
-import { askCoach as apiAskCoach } from "../api/client";
+import { Send, Loader2, Trash2, CalendarPlus } from "lucide-react";
+import { askCoach as apiAskCoach, createPlanFromCoach } from "../api/client";
 import {
   todayStr, daysUntil, computeHrZones, computeTrainingLoadSeries,
   computeCardioHistorySummary, computeStrengthHistorySummary,
@@ -238,6 +238,7 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
           {entry.cardioVoorstel && entry.cardioVoorstel.length > 0 && (
             <>
               <h3 className="tc-feedback-subtitle">Cardiovoorstel</h3>
+              <PlanButton entryId={entry.id} />
               <div className="tc-proposal-list">
                 {entry.cardioVoorstel.map((p, i) => (
                   <div className="tc-proposal-row" key={i}>
@@ -252,5 +253,43 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
         </div>
       )}
     </details>
+  );
+}
+
+
+/**
+ * Turns a coach proposal into trackable planned sessions. Kept separate from
+ * FeedbackCard so its own loading/success state doesn't re-render the whole
+ * answer.
+ */
+function PlanButton({ entryId }) {
+  const [state, setState] = useState("idle"); // idle | busy | done | error
+  const [message, setMessage] = useState("");
+
+  async function handleClick() {
+    setState("busy");
+    try {
+      const result = await createPlanFromCoach(entryId);
+      const skipped = result.skipped?.length
+        ? ` (${result.skipped.length} zonder herkenbare dag overgeslagen)`
+        : "";
+      setMessage(`${result.created.length} trainingen in de planning gezet${skipped}`);
+      setState("done");
+    } catch (err) {
+      setMessage(err.message);
+      setState("error");
+    }
+  }
+
+  if (state === "done") return <p className="tc-import-help">{message} — zie het tabblad Analyse.</p>;
+
+  return (
+    <div className="tc-actionbar" style={{ marginTop: 0, marginBottom: 10 }}>
+      <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={handleClick} disabled={state === "busy"}>
+        {state === "busy" ? <Loader2 className="spin" size={13} /> : <CalendarPlus size={13} />}
+        Zet in planning
+      </button>
+      {state === "error" && <span className="tc-gpxbatch-error">{message}</span>}
+    </div>
   );
 }
