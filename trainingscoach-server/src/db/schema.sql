@@ -217,3 +217,15 @@ ALTER TABLE planned_sessions ADD COLUMN decline_reason TEXT;
 -- the CTL/ATL model that the coach treats as authoritative.
 ALTER TABLE workout_logs ADD COLUMN rpe INTEGER;
 ALTER TABLE workout_logs ADD COLUMN duration_min INTEGER;
+
+-- Planned sessions now cover both disciplines. Cardio plans match against
+-- cardio_logs when checking what was actually done; strength plans match
+-- against workout_logs.
+ALTER TABLE planned_sessions ADD COLUMN discipline TEXT NOT NULL DEFAULT 'cardio';
+ALTER TABLE coach_history ADD COLUMN kracht_voorstel_json TEXT;
+
+-- Fixed weekdays per strength training day. Cardio already had this via
+-- schema_cardio_days; strength didn't, which forced the coach to infer a
+-- rotation from the logs. Comma-separated because some people run the same
+-- workout twice a week (e.g. "Dinsdag,Vrijdag").
+ALTER TABLE schema_days ADD COLUMN weekdays TEXT;

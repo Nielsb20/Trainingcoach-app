@@ -41,12 +41,12 @@ router.post("/import", (req, res) => {
     db.exec("DELETE FROM schema_exercises; DELETE FROM schema_days; DELETE FROM schema_cardio_days;");
 
     const s = data.schema || { days: [], cardioDays: [], profile: {} };
-    const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order) VALUES (?, ?, ?)");
+    const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order, weekdays) VALUES (?, ?, ?, ?)");
     const insertExercise = db.prepare(
       "INSERT INTO schema_exercises (id, day_id, name, target_sets, target_reps, sort_order) VALUES (?, ?, ?, ?, ?, ?)"
     );
     (s.days || []).forEach((day, dayIdx) => {
-      insertDay.run(day.id, day.name, dayIdx);
+      insertDay.run(day.id, day.name, dayIdx, (day.weekdays || []).join(",") || null);
       (day.exercises || []).forEach((ex, exIdx) =>
         insertExercise.run(ex.id, day.id, ex.name, ex.targetSets || 3, ex.targetReps || 8, exIdx)
       );

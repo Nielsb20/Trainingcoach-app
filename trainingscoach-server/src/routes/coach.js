@@ -146,7 +146,11 @@ router.post("/ask", async (req, res) => {
           methode: schema.profile.ftp ? "vermogen (FTP-gebaseerd, nauwkeurig)" : "hartslag (schatting)",
         }
       : null,
-    schema: schema.days.map((d) => ({ dag: d.name, oefeningen: d.exercises.map((e) => `${e.name} (${e.targetSets}x${e.targetReps})`) })),
+    schema: schema.days.map((d) => ({
+      dag: d.name,
+      vasteWeekdagen: d.weekdays && d.weekdays.length ? d.weekdays : null,
+      oefeningen: d.exercises.map((e) => `${e.name} (${e.targetSets}x${e.targetReps})`),
+    })),
     vasteCardiomomenten: schema.cardioDays.map((c) => ({ dag: c.weekday, type: c.type, notities: c.notes })),
     langetermijnSamenvattingKracht: strengthHistorySummary,
     langetermijnSamenvattingCardio: cardioHistorySummary,
@@ -195,11 +199,12 @@ router.post("/ask", async (req, res) => {
           tips: Array.isArray(structured.tips) ? structured.tips : [],
           waarschuwing: structured.waarschuwing || null,
           cardioVoorstel: Array.isArray(structured.cardioVoorstel) ? structured.cardioVoorstel : [],
+          krachtVoorstel: Array.isArray(structured.krachtVoorstel) ? structured.krachtVoorstel : [],
         }
       : { id: entryId, date: new Date().toISOString(), question, rawFeedback: rawText };
 
     db.prepare(
-      "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback, kracht_voorstel_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).run(
       entry.id,
       entry.date,
@@ -208,7 +213,8 @@ router.post("/ask", async (req, res) => {
       entry.tips ? JSON.stringify(entry.tips) : null,
       entry.waarschuwing || null,
       entry.cardioVoorstel ? JSON.stringify(entry.cardioVoorstel) : null,
-      entry.rawFeedback || null
+      entry.rawFeedback || null,
+      entry.krachtVoorstel ? JSON.stringify(entry.krachtVoorstel) : null
     );
 
     res.json(entry);
@@ -234,6 +240,7 @@ router.get("/history", (req, res) => {
       tips: r.tips_json ? JSON.parse(r.tips_json) : [],
       waarschuwing: r.waarschuwing,
       cardioVoorstel: r.cardio_voorstel_json ? JSON.parse(r.cardio_voorstel_json) : [],
+      krachtVoorstel: r.kracht_voorstel_json ? JSON.parse(r.kracht_voorstel_json) : [],
       rawFeedback: r.raw_feedback,
     }))
   );

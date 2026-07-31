@@ -235,3 +235,23 @@ html, body, #root {
 /* Logged strength sessions in the week view: same row shape as cardio, but
    the strength accent so the two are distinguishable at a glance. */
 .tc-planner-strength { border-left: 3px solid var(--strength); }
+
+/* Planner navigation: the coach plans further ahead than one screen holds. */
+.tc-planner-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.tc-planner-range {
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  color: var(--text-muted); display: flex; align-items: center;
+}
+
+/* Weekday toggles per strength training day. Two-letter labels keep seven
+   buttons on one line even on a phone. */
+.tc-weekday-toggles { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.tc-weekday-toggle {
+  background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; min-width: 30px;
+}
+.tc-weekday-toggle.active { color: var(--strength); border-color: var(--strength); background: var(--strength-dim); }

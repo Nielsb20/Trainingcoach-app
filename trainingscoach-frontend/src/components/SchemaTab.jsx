@@ -71,6 +71,27 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
     const newDay = { id: uid(), name: `Dag ${schema.days.length + 1}`, exercises: [] };
     setSchema({ ...schema, days: [...schema.days, newDay] });
   }
+  /**
+   * Weekdays are toggles rather than a single dropdown: some people run the
+   * same workout twice a week, and forcing one day per workout would mean
+   * duplicating the whole exercise list to express that.
+   */
+  function toggleDayWeekday(dayId, weekday) {
+    setSchema({
+      ...schema,
+      days: schema.days.map((d) => {
+        if (d.id !== dayId) return d;
+        const current = d.weekdays || [];
+        return {
+          ...d,
+          weekdays: current.includes(weekday)
+            ? current.filter((w) => w !== weekday)
+            : [...current, weekday],
+        };
+      }),
+    });
+  }
+
   function updateDayName(dayId, name) {
     setSchema({ ...schema, days: schema.days.map((d) => (d.id === dayId ? { ...d, name } : d)) });
   }
@@ -119,7 +140,11 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
   return (
     <div>
       <h1 className="tc-title">Trainingsschema</h1>
-      <p className="tc-sub">Leg je vaste schema eenmalig vast. Dit gebruik je straks als basis bij het loggen van je krachttraining.</p>
+      <p className="tc-sub">
+        Leg je vaste schema eenmalig vast. Dit is de basis bij het loggen van je krachttraining, en
+        de coach plant je krachttrainingen exact op de weekdagen die je hier aanvinkt — hij verzint
+        er geen eigen rotatie omheen.
+      </p>
 
       {schema.days.length === 0 && (
         <div className="tc-empty">
@@ -144,6 +169,20 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
               <button className="tc-icon-btn" onClick={() => removeDay(day.id)} title="Dag verwijderen">
                 <Trash2 size={15} />
               </button>
+            </div>
+
+            <div className="tc-weekday-toggles">
+              {WEEKDAYS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  className={"tc-weekday-toggle" + ((day.weekdays || []).includes(w) ? " active" : "")}
+                  onClick={() => toggleDayWeekday(day.id, w)}
+                  title={`${day.name} op ${w.toLowerCase()}`}
+                >
+                  {w.slice(0, 2)}
+                </button>
+              ))}
             </div>
 
             <div className="tc-ex-list">

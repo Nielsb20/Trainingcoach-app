@@ -384,3 +384,34 @@ het leeg in plaats van dat er een getal wordt geschat.
 
 In het tabblad **Planning** zie je je gelogde krachttrainingen tussen de
 cardiovoorstellen staan, zodat je week compleet is.
+
+
+## Planning: kracht én cardio, verder vooruit
+
+De coach plant nu beide disciplines. Naast `cardioVoorstel` levert hij ook
+`krachtVoorstel`, gebaseerd op het schema dat je bij **Schema** hebt opgegeven.
+
+**Jouw vaste dagen zijn leidend.** Per trainingsdag in je schema vink je aan op
+welke weekdag(en) je die doet — dezelfde training twee keer per week kan gewoon.
+De coach plant die dag dan exact daar, en verzint er geen eigen rotatie omheen,
+ook niet als een andere volgorde hem theoretisch beter lijkt. Alleen bij een
+duidelijk signaal (zoals oververmoeidheid) mag hij afwijken, en dan moet hij de
+reden expliciet benoemen.
+
+Vink je geen weekdagen aan, dan mag de coach zelf een verstandige verdeling
+voorstellen op basis van je recente logs.
+
+De cardio wordt afgestemd op je vaste krachtdagen in plaats van andersom: staat
+er dinsdag een zware beentraining, dan plant hij geen zware rit op woensdag.
+
+**Kracht en cardio op dezelfde dag botsen niet.** Conflictdetectie werkt per
+discipline, want een gymsessie plus een rit is een normale dubbele dag.
+
+**Afvinken kijkt naar de juiste bron:** cardioplannen worden gematcht tegen je
+cardiologs, krachtplannen tegen je krachtlogs. Doe je Dag A terwijl Dag B
+gepland stond, dan telt dat gewoon als gedaan — een gewisselde schemadag is geen
+gemiste training.
+
+**Bladeren.** Het Planning-tabblad toont twee weken tegelijk, met knoppen om
+vooruit en terug te gaan. Handig, want de coach plant regelmatig drie weken
+vooruit en dat paste niet in een vast venster.

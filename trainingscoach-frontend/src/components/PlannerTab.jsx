@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import * as api from "../api/client";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
@@ -18,10 +18,29 @@ export default function PlannerTab() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  // Offset in 2-week blocks from today. The coach happily plans three weeks
+  // out, so a fixed window would hide part of its own advice.
+  const [blockOffset, setBlockOffset] = useState(0);
+
+  const DAYS_PER_BLOCK = 14;
+  const rangeStart = useMemo(() => {
+    const d = new Date(todayStr() + "T00:00:00");
+    d.setDate(d.getDate() + blockOffset * DAYS_PER_BLOCK);
+    return d;
+  }, [blockOffset]);
+  const rangeEnd = useMemo(() => {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + DAYS_PER_BLOCK - 1);
+    return d;
+  }, [rangeStart]);
+  const isoOf = (d) => {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
 
   async function load() {
     try {
-      setData(await api.getPlannedSessions(4));
+      setData(await api.getPlannedRange(isoOf(rangeStart), isoOf(rangeEnd)));
       setError("");
     } catch (e) {
       setError(e.message);
@@ -30,7 +49,7 @@ export default function PlannerTab() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setLoading(true); load(); }, [blockOffset]);
 
   async function act(fn) {
     setBusy(true);
@@ -54,11 +73,10 @@ export default function PlannerTab() {
   // Sunday evening when this week is done.
   const days = useMemo(() => {
     const out = [];
-    const start = new Date(todayStr() + "T00:00:00");
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(start);
+    for (let i = 0; i < DAYS_PER_BLOCK; i++) {
+      const d = new Date(rangeStart);
       d.setDate(d.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = isoOf(d);
       out.push({
         date: iso,
         weekday: weekdayNameForDate(iso),
@@ -69,7 +87,7 @@ export default function PlannerTab() {
       });
     }
     return out;
-  }, [committed, proposals, strengthSessions]);
+  }, [committed, proposals, strengthSessions, rangeStart]);
 
   if (loading) {
     return (
@@ -93,6 +111,22 @@ export default function PlannerTab() {
 
       {error && <div className="tc-error"><span>{error}</span></div>}
 
+      <div className="tc-planner-nav">
+        <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset - 1)}>
+          <ChevronLeft size={14} /> Vorige
+        </button>
+        <span className="tc-planner-range">
+          {formatDateNL(isoOf(rangeStart))} — {formatDateNL(isoOf(rangeEnd))}
+          {blockOffset !== 0 && (
+            <button className="tc-btn tc-btn-ghost tc-btn-sm" style={{ marginLeft: 10 }}
+              onClick={() => setBlockOffset(0)}>naar vandaag</button>
+          )}
+        </span>
+        <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset + 1)}>
+          Volgende <ChevronRight size={14} />
+        </button>
+      </div>
+
       {proposals.length > 0 && (
         <div className="tc-card tc-import-card">
           <div className="tc-card-head">
@@ -100,6 +134,11 @@ export default function PlannerTab() {
             <span className="tc-hint-badge tc-badge-cardio">
               {additions.length} nieuw{changes.length > 0 ? `, ${changes.length} wijziging(en)` : ""}
             </span>
+            {proposals.some((p) => p.discipline === "kracht") && (
+              <span className="tc-hint-badge tc-badge-strength">
+                incl. {proposals.filter((p) => p.discipline === "kracht").length} krachttraining(en)
+              </span>
+            )}
           </div>
           <p className="tc-import-help">
             Je planning verandert pas als je iets accepteert. Doe je niets, dan blijft alles zoals het
@@ -159,7 +198,12 @@ export default function PlannerTab() {
                   <div className={"tc-planner-session tc-status-" + p.status} key={p.id}>
                     <StatusIcon status={p.status} />
                     <div className="tc-gpxbatch-info">
-                      <span className="tc-planner-type">{p.type}</span>
+                      <span className="tc-planner-type">
+                        {p.discipline === "kracht"
+                          ? <Dumbbell size={12} style={{ marginRight: 5, color: "var(--strength)" }} />
+                          : <Activity size={12} style={{ marginRight: 5, color: "var(--cardio)" }} />}
+                        {p.type}
+                      </span>
                       <span className="tc-event-notes">{p.description}</span>
                     </div>
                     <div className="tc-planned-actions">
@@ -184,7 +228,9 @@ export default function PlannerTab() {
                   const replaced = p.replacesId ? day.committed.find((c) => c.id === p.replacesId) : null;
                   return (
                     <div className="tc-planner-session tc-status-voorgesteld" key={p.id}>
-                      <Clock size={16} style={{ color: "var(--cardio)", flexShrink: 0 }} />
+                      {p.discipline === "kracht"
+                        ? <Dumbbell size={16} style={{ color: "var(--strength)", flexShrink: 0 }} />
+                        : <Clock size={16} style={{ color: "var(--cardio)", flexShrink: 0 }} />}
                       <div className="tc-gpxbatch-info">
                         <span className="tc-planner-type">
                           {p.type}
@@ -233,6 +279,7 @@ export default function PlannerTab() {
 
 function AddSessionForm({ onAdded, onError }) {
   const [date, setDate] = useState(todayStr());
+  const [discipline, setDiscipline] = useState("cardio");
   const [type, setType] = useState(CARDIO_TYPES[0]);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -240,7 +287,7 @@ function AddSessionForm({ onAdded, onError }) {
   async function submit() {
     setSaving(true);
     try {
-      await api.createPlannedSession({ date, type, description });
+      await api.createPlannedSession({ date, type, description, discipline });
       onAdded();
     } catch (e) {
       onError(e.message);
@@ -257,10 +304,25 @@ function AddSessionForm({ onAdded, onError }) {
           <input className="tc-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div>
-          <label className="tc-label">Type</label>
-          <select className="tc-input" value={type} onChange={(e) => setType(e.target.value)}>
-            {CARDIO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          <label className="tc-label">Soort</label>
+          <select className="tc-input" value={discipline}
+            onChange={(e) => { setDiscipline(e.target.value); setType(e.target.value === "kracht" ? "" : CARDIO_TYPES[0]); }}>
+            <option value="cardio">Cardio</option>
+            <option value="kracht">Krachttraining</option>
           </select>
+        </div>
+      </div>
+      <div className="tc-form-row">
+        <div>
+          <label className="tc-label">{discipline === "kracht" ? "Trainingsdag" : "Type"}</label>
+          {discipline === "kracht" ? (
+            <input className="tc-input" value={type} onChange={(e) => setType(e.target.value)}
+              placeholder="bv. Dag A - Push" />
+          ) : (
+            <select className="tc-input" value={type} onChange={(e) => setType(e.target.value)}>
+              {CARDIO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
         </div>
       </div>
       <label className="tc-label">Invulling</label>

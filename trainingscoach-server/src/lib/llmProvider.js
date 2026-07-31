@@ -36,6 +36,18 @@ const COACH_RESPONSE_SCHEMA = {
         required: ["dag", "type", "invulling"],
       },
     },
+    krachtVoorstel: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          dag: { type: "STRING" },
+          schemaDag: { type: "STRING" },
+          invulling: { type: "STRING" },
+        },
+        required: ["dag", "schemaDag", "invulling"],
+      },
+    },
   },
   required: ["analyse", "tips", "cardioVoorstel"],
 };

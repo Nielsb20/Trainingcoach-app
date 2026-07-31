@@ -14,6 +14,7 @@ function getFullSchema() {
   const daysWithExercises = days.map((d) => ({
     id: d.id,
     name: d.name,
+    weekdays: d.weekdays ? d.weekdays.split(",").filter(Boolean) : [],
     exercises: exercises
       .filter((e) => e.day_id === d.id)
       .map((e) => ({ id: e.id, name: e.name, targetSets: e.target_sets, targetReps: e.target_reps })),
@@ -41,12 +42,12 @@ router.put("/", (req, res) => {
     db.prepare("DELETE FROM schema_days").run();
     db.prepare("DELETE FROM schema_cardio_days").run();
 
-    const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order) VALUES (?, ?, ?)");
+    const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order, weekdays) VALUES (?, ?, ?, ?)");
     const insertExercise = db.prepare(
       "INSERT INTO schema_exercises (id, day_id, name, target_sets, target_reps, sort_order) VALUES (?, ?, ?, ?, ?, ?)"
     );
     days.forEach((day, dayIdx) => {
-      insertDay.run(day.id, day.name, dayIdx);
+      insertDay.run(day.id, day.name, dayIdx, (day.weekdays || []).join(",") || null);
       (day.exercises || []).forEach((ex, exIdx) => {
         insertExercise.run(ex.id, day.id, ex.name, ex.targetSets || 3, ex.targetReps || 8, exIdx);
       });

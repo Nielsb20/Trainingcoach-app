@@ -90,6 +90,7 @@ export const getPowerCurve = (days = 90) => request(`/analysis/power-curve?days=
 /* -------------------------------- planned ------------------------------- */
 
 export const getPlannedSessions = (weeks = 4) => request(`/planned?weeks=${weeks}`);
+export const getPlannedRange = (from, to) => request(`/planned?from=${from}&to=${to}`);
 export const createPlanFromCoach = (coachEntryId) =>
   request("/planned/from-coach", { method: "POST", body: JSON.stringify({ coachEntryId }) });
 export const acceptProposal = (id, replaceConflicting = false) =>

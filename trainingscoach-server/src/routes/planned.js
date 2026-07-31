@@ -27,6 +27,7 @@ function serialize(row) {
     status: row.status,
     durationMin: row.duration_min,
     intensity: row.intensity,
+    discipline: row.discipline || 'cardio',
     locked: !!row.locked,
     replacesId: row.replaces_id,
   };
@@ -111,6 +112,12 @@ function weekdayMismatch(dayText, resolvedDate) {
  * same sport. Returns the session id, or null.
  */
 function findCompletion(plan) {
+  if ((plan.discipline || "cardio") === "kracht") {
+    // Any gym session that day fulfils the plan; insisting the schema day
+    // matches exactly would mark a swapped A/B day as missed.
+    const row = db.prepare("SELECT id FROM workout_logs WHERE date = ? LIMIT 1").get(plan.date);
+    return row?.id ?? null;
+  }
   const row = db
     .prepare("SELECT id FROM cardio_logs WHERE date = ? AND type = ? LIMIT 1")
     .get(plan.date, plan.type);
@@ -135,15 +142,31 @@ function refreshCompletions() {
   });
 }
 
-// GET /api/planned?weeks=4
+/**
+ * GET /api/planned?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * (or ?weeks=4 for a trailing window, kept for convenience)
+ *
+ * An explicit range lets the planner page forwards — the coach happily plans
+ * three weeks out, and a fixed two-week window would hide that.
+ */
 router.get("/", (req, res) => {
   refreshCompletions();
-  const weeks = Math.min(Number(req.query.weeks) || 4, 26);
-  const from = new Date();
-  from.setDate(from.getDate() - weeks * 7);
-  const rows = db
-    .prepare("SELECT * FROM planned_sessions WHERE date >= ? ORDER BY date")
-    .all(from.toISOString().slice(0, 10));
+
+  let fromStr, toStr;
+  if (req.query.from) {
+    fromStr = req.query.from;
+    toStr = req.query.to || null;
+  } else {
+    const weeks = Math.min(Number(req.query.weeks) || 4, 26);
+    const from = new Date();
+    from.setDate(from.getDate() - weeks * 7);
+    fromStr = from.toISOString().slice(0, 10);
+    toStr = null;
+  }
+
+  const rows = toStr
+    ? db.prepare("SELECT * FROM planned_sessions WHERE date >= ? AND date <= ? ORDER BY date").all(fromStr, toStr)
+    : db.prepare("SELECT * FROM planned_sessions WHERE date >= ? ORDER BY date").all(fromStr);
 
   const plans = rows.map(serialize);
   const done = plans.filter((p) => p.status === "gedaan").length;
@@ -153,11 +176,9 @@ router.get("/", (req, res) => {
   // Strength sessions aren't planned here (they follow a fixed schema), but
   // they belong in the week view: a plan that hides half your training week
   // isn't much of a plan.
-  const from2 = new Date();
-  from2.setDate(from2.getDate() - weeks * 7);
-  const strength = db
-    .prepare("SELECT id, date, day_name, rpe, duration_min FROM workout_logs WHERE date >= ? ORDER BY date")
-    .all(from2.toISOString().slice(0, 10))
+  const strength = (toStr
+    ? db.prepare("SELECT id, date, day_name, rpe, duration_min FROM workout_logs WHERE date >= ? AND date <= ? ORDER BY date").all(fromStr, toStr)
+    : db.prepare("SELECT id, date, day_name, rpe, duration_min FROM workout_logs WHERE date >= ? ORDER BY date").all(fromStr))
     .map((w) => ({
       id: w.id,
       date: w.date,
@@ -198,7 +219,13 @@ router.post("/from-coach", (req, res) => {
   if (!entry) return res.status(404).json({ error: "Coachantwoord niet gevonden." });
   if (!entry.cardio_voorstel_json) return res.status(400).json({ error: "Dit antwoord bevat geen cardiovoorstel." });
 
-  const proposals = JSON.parse(entry.cardio_voorstel_json);
+  const cardioProposals = JSON.parse(entry.cardio_voorstel_json);
+  const strengthProposals = entry.kracht_voorstel_json ? JSON.parse(entry.kracht_voorstel_json) : [];
+  // One list, tagged by discipline, so the same conflict/lock rules apply to both.
+  const proposals = [
+    ...cardioProposals.map((p) => ({ ...p, discipline: "cardio", label: p.type })),
+    ...strengthProposals.map((p) => ({ ...p, discipline: "kracht", label: p.schemaDag })),
+  ];
 
   // Older proposals you never acted on are superseded by this newer advice.
   // Accepted plans, history and explicit declines are left alone.
@@ -206,11 +233,13 @@ router.post("/from-coach", (req, res) => {
 
   const insert = db.prepare(
     `INSERT INTO planned_sessions
-       (id, date, weekday, type, description, source_coach_entry_id, status, replaces_id)
-     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?)`
+       (id, date, weekday, type, description, source_coach_entry_id, status, replaces_id, discipline)
+     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?)`
   );
+  // Conflicts are per discipline: a strength session and a ride on the same
+  // day is a normal double day, not a clash.
   const existingOnDate = db.prepare(
-    "SELECT * FROM planned_sessions WHERE date = ? AND status = 'gepland'"
+    "SELECT * FROM planned_sessions WHERE date = ? AND status = 'gepland' AND discipline = ?"
   );
 
   const created = [];
@@ -225,14 +254,14 @@ router.post("/from-coach", (req, res) => {
       return;
     }
 
-    // Two proposals landing on one day means the coach's advice was ambiguous
-    // or self-contradictory. Keep the first and flag it rather than silently
-    // stacking two sessions on the same date.
-    if (usedDates.has(date)) {
+    // Two proposals for the same discipline on one day means the advice was
+    // ambiguous. Keep the first and flag it rather than stacking silently.
+    const dateKey = `${date}|${p.discipline}`;
+    if (usedDates.has(dateKey)) {
       skipped.push({ dag: p.dag, datum: date, reden: "er stond al een voorstel voor deze dag" });
       return;
     }
-    usedDates.add(date);
+    usedDates.add(dateKey);
 
     const mismatch = weekdayMismatch(p.dag, date);
     if (mismatch) {
@@ -243,7 +272,7 @@ router.post("/from-coach", (req, res) => {
       });
     }
 
-    const existing = existingOnDate.get(date);
+    const existing = existingOnDate.get(date, p.discipline);
 
     if (existing && existing.locked) {
       skipped.push({ dag: p.dag, datum: date, reden: "deze dag staat vast en is overgeslagen" });
@@ -251,13 +280,14 @@ router.post("/from-coach", (req, res) => {
     }
 
     const id = `plan-${coachEntryId}-${i}`;
-    insert.run(id, date, p.dag || null, p.type || "Anders", p.invulling || "", coachEntryId,
-               existing ? existing.id : null);
+    insert.run(id, date, p.dag || null, p.label || "Anders", p.invulling || "", coachEntryId,
+               existing ? existing.id : null, p.discipline);
 
     created.push({
       id,
       date,
-      type: p.type,
+      type: p.label,
+      discipline: p.discipline,
       description: p.invulling,
       soort: existing ? "wijziging" : "nieuw",
       vervangt: existing
@@ -272,6 +302,8 @@ router.post("/from-coach", (req, res) => {
     waarschuwingen,
     nieuw: created.filter((c) => c.soort === "nieuw").length,
     wijzigingen: created.filter((c) => c.soort === "wijziging").length,
+    cardio: created.filter((c) => c.discipline === "cardio").length,
+    kracht: created.filter((c) => c.discipline === "kracht").length,
   });
 });
 
@@ -330,13 +362,14 @@ router.post("/accept-all", (req, res) => {
 
 /** POST /api/planned - add a session yourself, without going via the coach. */
 router.post("/", (req, res) => {
-  const { date, type, description, durationMin, intensity } = req.body || {};
+  const { date, type, description, durationMin, intensity, discipline } = req.body || {};
   if (!date || !type) return res.status(400).json({ error: "Datum en type zijn verplicht." });
   const id = `plan-manual-${Date.now()}`;
   db.prepare(
-    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland')`
-  ).run(id, date, calc.weekdayNameForDate(date), type, description || "", durationMin ?? null, intensity ?? null);
+    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status, discipline)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland', ?)`
+  ).run(id, date, calc.weekdayNameForDate(date), type, description || "", durationMin ?? null,
+        intensity ?? null, discipline === "kracht" ? "kracht" : "cardio");
   refreshCompletions();
   res.status(201).json({ id });
 });
