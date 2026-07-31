@@ -150,8 +150,25 @@ router.get("/", (req, res) => {
   const missed = plans.filter((p) => p.status === "overgeslagen").length;
   const upcoming = plans.filter((p) => p.status === "gepland").length;
 
+  // Strength sessions aren't planned here (they follow a fixed schema), but
+  // they belong in the week view: a plan that hides half your training week
+  // isn't much of a plan.
+  const from2 = new Date();
+  from2.setDate(from2.getDate() - weeks * 7);
+  const strength = db
+    .prepare("SELECT id, date, day_name, rpe, duration_min FROM workout_logs WHERE date >= ? ORDER BY date")
+    .all(from2.toISOString().slice(0, 10))
+    .map((w) => ({
+      id: w.id,
+      date: w.date,
+      dayName: w.day_name,
+      rpe: w.rpe,
+      durationMin: w.duration_min,
+    }));
+
   res.json({
     plans,
+    krachttrainingen: strength,
     samenvatting: {
       totaal: plans.length,
       gedaan: done,

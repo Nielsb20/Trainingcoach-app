@@ -9,6 +9,8 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
   const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay());
   const [formSets, setFormSets] = useState({});
   const [notes, setNotes] = useState("");
+  const [rpe, setRpe] = useState("");
+  const [durationMin, setDurationMin] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
 
   const day = schema.days.find((d) => d.id === dayId);
@@ -68,9 +70,13 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
 
     if (exercises.length === 0) return;
 
-    const entry = { id: uid(), date, timeOfDay, dayId: day.id, dayName: day.name, exercises, notes };
+    const entry = {
+      id: uid(), date, timeOfDay, dayId: day.id, dayName: day.name, exercises, notes,
+      rpe: rpe ? Number(rpe) : null,
+      durationMin: durationMin ? Number(durationMin) : null,
+    };
     const ok = await addWorkoutLog(entry);
-    setNotes("");
+    setNotes(""); setRpe(""); setDurationMin("");
     const init = {};
     day.exercises.forEach((ex) => {
       init[ex.id] = Array.from({ length: ex.targetSets || 1 }, () => ({ weight: "", reps: "" }));
@@ -151,6 +157,24 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
           })}
         </div>
       )}
+
+      <div className="tc-form-row">
+        <div>
+          <label className="tc-label">Duur (minuten, optioneel)</label>
+          <input className="tc-input tc-mono" type="number" value={durationMin}
+            onChange={(e) => setDurationMin(e.target.value)} placeholder="bv. 60" />
+        </div>
+        <div>
+          <label className="tc-label">Zwaarte / RPE 1–10 (optioneel)</label>
+          <input className="tc-input tc-mono" type="number" min="1" max="10" value={rpe}
+            onChange={(e) => setRpe(e.target.value)} placeholder="bv. 7" />
+        </div>
+      </div>
+      <p className="tc-import-help" style={{ marginTop: -4 }}>
+        Duur en RPE samen geven de coach een maat voor je krachtbelasting. Zonder vermogensmeter is
+        dat de gangbare manier om gymwerk te kwantificeren — handig, want de belastinggrafiek
+        (CTL/ATL/TSB) kijkt alleen naar cardio.
+      </p>
 
       <label className="tc-label">Notities (optioneel)</label>
       <textarea className="tc-input tc-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Hoe voelde de training aan? Vermoeidheid, pijntjes, motivatie..." />

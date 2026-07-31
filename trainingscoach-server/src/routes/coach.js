@@ -64,6 +64,35 @@ router.post("/ask", async (req, res) => {
     };
   }
 
+  // Strength context. The cardio load model (TSS/CTL/ATL) is blind to gym work,
+  // so without this the coach would read "TSB +8, well recovered" the morning
+  // after a heavy leg session and happily propose intervals.
+  let krachtcontext = null;
+  if (workoutLogs.length > 0) {
+    const today = calc.todayStr();
+    const daysBetween = (a, b) =>
+      Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+    const last = workoutLogs[0];
+    const within = (days) => workoutLogs.filter((l) => daysBetween(l.date, today) <= days);
+    const sRpe = (l) => (l.rpe && l.duration_min ? l.rpe * l.duration_min : null);
+
+    krachtcontext = {
+      dagenSindsLaatste: daysBetween(last.date, today),
+      laatsteSessie: {
+        datum: last.date,
+        dag: last.dayName,
+        moment: last.timeOfDay ? timeOfDayLabel(last.timeOfDay) : null,
+        oefeningen: last.exercises.map((e) => e.name),
+        rpe: last.rpe ?? null,
+      },
+      sessiesLaatste7Dagen: within(7).length,
+      sessiesLaatste28Dagen: within(28).length,
+      // sRPE = duur x RPE, de gangbare maat voor krachtbelasting. Alleen
+      // beschikbaar als de cliënt beide invult.
+      sRpeLaatste7Dagen: within(7).map(sRpe).filter(Boolean).reduce((a, b) => a + b, 0) || null,
+    };
+  }
+
   // Recovery context: recent nights plus a baseline to compare against, so the
   // coach can spot "resting HR up / HRV down versus normal" rather than being
   // handed absolute numbers it has no reference for.
@@ -105,6 +134,7 @@ router.post("/ask", async (req, res) => {
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     lichaamsgewicht: weightSummary,
     herstel,
+    krachtcontext,
     huidigePlanning: getUpcomingPlan(14),
     eerderAfgewezenVoorstellen: getRecentDeclines(14),
     trainingsbelasting: currentLoad

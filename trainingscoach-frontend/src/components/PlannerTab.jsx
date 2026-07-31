@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell } from "lucide-react";
 import * as api from "../api/client";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
@@ -46,6 +46,7 @@ export default function PlannerTab() {
   }
 
   const plans = data?.plans || [];
+  const strengthSessions = data?.krachttrainingen || [];
   const proposals = plans.filter((p) => p.status === "voorgesteld");
   const committed = plans.filter((p) => p.status !== "voorgesteld" && p.status !== "afgewezen");
 
@@ -64,10 +65,11 @@ export default function PlannerTab() {
         isToday: iso === todayStr(),
         committed: committed.filter((p) => p.date === iso),
         proposed: proposals.filter((p) => p.date === iso),
+        strength: strengthSessions.filter((s) => s.date === iso),
       });
     }
     return out;
-  }, [committed, proposals]);
+  }, [committed, proposals, strengthSessions]);
 
   if (loading) {
     return (
@@ -84,8 +86,9 @@ export default function PlannerTab() {
     <div>
       <h1 className="tc-title">Planning</h1>
       <p className="tc-sub">
-        Je trainingsweek. Voorstellen van de coach staan hier klaar ter beoordeling — accepteer wat
-        past, negeer de rest. Uitgevoerde trainingen worden automatisch afgevinkt op basis van je logs.
+        Je trainingsweek: cardiovoorstellen van de coach én je gelogde krachttrainingen. Uitgevoerde
+        cardiosessies worden automatisch afgevinkt. De coach houdt bij het plannen rekening met je
+        krachttraining — geen zware rit de dag na een beendag.
       </p>
 
       {error && <div className="tc-error"><span>{error}</span></div>}
@@ -126,7 +129,7 @@ export default function PlannerTab() {
 
       <div className="tc-planner">
         {days.map((day) => {
-          const empty = day.committed.length === 0 && day.proposed.length === 0;
+          const empty = day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0;
           return (
             <div className={"tc-planner-day" + (day.isToday ? " tc-planner-today" : "")} key={day.date}>
               <div className="tc-planner-daylabel">
@@ -137,6 +140,20 @@ export default function PlannerTab() {
 
               <div className="tc-planner-sessions">
                 {empty && <span className="tc-planner-empty">rustdag</span>}
+
+                {day.strength.map((s) => (
+                  <div className="tc-planner-session tc-planner-strength" key={s.id}>
+                    <Dumbbell size={16} style={{ color: "var(--strength)", flexShrink: 0 }} />
+                    <div className="tc-gpxbatch-info">
+                      <span className="tc-planner-type">{s.dayName || "Krachttraining"}</span>
+                      <span className="tc-event-notes">
+                        gedaan
+                        {s.durationMin ? ` · ${s.durationMin} min` : ""}
+                        {s.rpe ? ` · RPE ${s.rpe}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                ))}
 
                 {day.committed.map((p) => (
                   <div className={"tc-planner-session tc-status-" + p.status} key={p.id}>

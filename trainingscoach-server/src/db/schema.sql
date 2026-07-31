@@ -209,3 +209,11 @@ ALTER TABLE strava_imported_activities ADD COLUMN analysis_version INTEGER NOT N
 ALTER TABLE planned_sessions ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE planned_sessions ADD COLUMN replaces_id TEXT;
 ALTER TABLE planned_sessions ADD COLUMN decline_reason TEXT;
+
+-- Optional subjective load for strength sessions. There is no power meter in a
+-- gym, so session-RPE (rate of perceived exertion x duration) is the accepted
+-- way to quantify that load. Kept separate from cardio TSS rather than merged
+-- into it: the two aren't the same unit, and silently adding them would corrupt
+-- the CTL/ATL model that the coach treats as authoritative.
+ALTER TABLE workout_logs ADD COLUMN rpe INTEGER;
+ALTER TABLE workout_logs ADD COLUMN duration_min INTEGER;

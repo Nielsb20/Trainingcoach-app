@@ -351,3 +351,36 @@ blijft alles zoals het was. Je kunt ook zelf trainingen inplannen zonder de coac
 
 Uitgevoerde trainingen worden automatisch afgevinkt tegen je cardiologs — je
 hoeft niets bij te houden.
+
+
+## Krachttraining en de coach
+
+De coach ziet je krachttrainingen wel degelijk, maar het is goed te weten wat
+daar precies mee gebeurt:
+
+**Wat de coach krijgt:**
+- Je laatste 8 sessies met alle oefeningen, gewichten en herhalingen
+- Progressie per oefening sinds je eerste log
+- `krachtcontext`: hoe lang geleden je voor het laatst trainde, welke oefeningen
+  dat waren, en hoeveel sessies je deed in de afgelopen 7 en 28 dagen
+
+**Wat de coach daarmee doet:** hij plant geen zware intervalsessie of lange
+duurrit op de dag na een beentraining. Bovenlichaamwerk is veel minder
+beperkend, dus daar wordt anders mee omgegaan.
+
+**Belangrijk: CTL, ATL en TSB zijn uitsluitend op cardio gebaseerd.**
+Krachttraining zit er niet in, simpelweg omdat er geen vermogensmeter voor
+bestaat en er geen algemeen aanvaarde omrekening is naar TSS. Krachtbelasting
+optellen bij cardio-TSS zou een schijnnauwkeurigheid geven in een getal dat de
+coach als hard aanneemt. Daarom staat het bewust apart: een gunstige TSB
+betekent niet automatisch dat je fris bent, en de coach heeft de instructie om
+altijd óók naar de krachtcontext te kijken.
+
+**Optioneel: duur en RPE.** Vul je bij een krachttraining de duur en een
+zwaarte-inschatting (RPE 1–10) in, dan berekent de app sRPE (duur x RPE) — de
+gangbare maat voor krachtbelasting zonder vermogensmeter. De coach gebruikt dat
+als extra signaal voor je totale weekbelasting. Vul je het niet in, dan blijft
+het leeg in plaats van dat er een getal wordt geschat.
+
+In het tabblad **Planning** zie je je gelogde krachttrainingen tussen de
+cardiovoorstellen staan, zodat je week compleet is.

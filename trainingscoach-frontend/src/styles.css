@@ -231,3 +231,7 @@ html, body, #root {
    instead of losing what you had without seeing it. */
 .tc-planner-diff { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
 .tc-planner-diff-old { color: var(--text-muted); text-decoration: line-through; }
+
+/* Logged strength sessions in the week view: same row shape as cardio, but
+   the strength accent so the two are distinguishable at a glance. */
+.tc-planner-strength { border-left: 3px solid var(--strength); }

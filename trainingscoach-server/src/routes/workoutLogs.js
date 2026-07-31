@@ -23,6 +23,8 @@ function serializeWorkoutLog(row) {
     dayId: row.day_id,
     dayName: row.day_name,
     notes: row.notes,
+    rpe: row.rpe,
+    durationMin: row.duration_min,
     exercises,
   };
 }
@@ -38,8 +40,9 @@ router.post("/", (req, res) => {
   const entry = req.body;
   const insert = db.transaction(() => {
     db.prepare(
-      "INSERT INTO workout_logs (id, date, time_of_day, day_id, day_name, notes) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(entry.id, entry.date, entry.timeOfDay || null, entry.dayId || null, entry.dayName || null, entry.notes || null);
+      "INSERT INTO workout_logs (id, date, time_of_day, day_id, day_name, notes, rpe, duration_min) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(entry.id, entry.date, entry.timeOfDay || null, entry.dayId || null, entry.dayName || null,
+          entry.notes || null, entry.rpe ?? null, entry.durationMin ?? null);
 
     const insertExercise = db.prepare(
       "INSERT INTO workout_log_exercises (id, workout_log_id, name, sort_order) VALUES (?, ?, ?, ?)"
