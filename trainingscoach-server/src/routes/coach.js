@@ -5,7 +5,7 @@ const { db } = require("../db/db");
 const { getFullSchema } = require("./schema");
 const { serializeWorkoutLog } = require("./workoutLogs");
 const { serialize: serializeCardioLog } = require("./cardioLogs");
-const { getUpcomingPlan } = require("./planned");
+const { getUpcomingPlan, getRecentDeclines } = require("./planned");
 const calc = require("../lib/calculations");
 const { buildCoachSystemPrompt } = require("../lib/coachPrompt");
 const { callCoachModel, describeProvider } = require("../lib/llmProvider");
@@ -106,6 +106,7 @@ router.post("/ask", async (req, res) => {
     lichaamsgewicht: weightSummary,
     herstel,
     huidigePlanning: getUpcomingPlan(14),
+    eerderAfgewezenVoorstellen: getRecentDeclines(14),
     trainingsbelasting: currentLoad
       ? {
           ctlFitness: currentLoad.ctl,

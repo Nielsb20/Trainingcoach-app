@@ -199,3 +199,13 @@ ALTER TABLE planned_sessions ADD COLUMN intensity TEXT;
 -- instead of skipping them as "already imported" — which is exactly what went
 -- wrong when histograms and the power curve were added after the first import.
 ALTER TABLE strava_imported_activities ADD COLUMN analysis_version INTEGER NOT NULL DEFAULT 0;
+
+-- Stability controls for the plan. Without these, every coach answer behaves
+-- like "here is your new week", which makes the plan feel unstable and
+-- overwrites commitments the athlete has already made.
+--   locked      - never touched by coach proposals (club ride, fixed commitment)
+--   replaces_id - marks a proposal as a CHANGE to an existing session rather
+--                 than a competing extra one
+ALTER TABLE planned_sessions ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE planned_sessions ADD COLUMN replaces_id TEXT;
+ALTER TABLE planned_sessions ADD COLUMN decline_reason TEXT;

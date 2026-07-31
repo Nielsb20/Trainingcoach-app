@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight } from "lucide-react";
 import * as api from "../api/client";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
@@ -47,7 +47,7 @@ export default function PlannerTab() {
 
   const plans = data?.plans || [];
   const proposals = plans.filter((p) => p.status === "voorgesteld");
-  const committed = plans.filter((p) => p.status !== "voorgesteld");
+  const committed = plans.filter((p) => p.status !== "voorgesteld" && p.status !== "afgewezen");
 
   // Two weeks from today, so "what's coming" is always visible even on a
   // Sunday evening when this week is done.
@@ -77,7 +77,8 @@ export default function PlannerTab() {
     );
   }
 
-  const conflicts = proposals.filter((p) => committed.some((c) => c.date === p.date && c.status === "gepland"));
+  const changes = proposals.filter((p) => p.replacesId);
+  const additions = proposals.filter((p) => !p.replacesId);
 
   return (
     <div>
@@ -92,25 +93,24 @@ export default function PlannerTab() {
       {proposals.length > 0 && (
         <div className="tc-card tc-import-card">
           <div className="tc-card-head">
-            <span className="tc-ex-name">{proposals.length} voorstel(len) van de coach</span>
-            {conflicts.length > 0 && (
-              <span className="tc-hint-badge tc-badge-warning">
-                <AlertTriangle size={12} style={{ verticalAlign: "middle" }} /> {conflicts.length} botsen met je planning
-              </span>
-            )}
+            <span className="tc-ex-name">Voorstellen van de coach</span>
+            <span className="tc-hint-badge tc-badge-cardio">
+              {additions.length} nieuw{changes.length > 0 ? `, ${changes.length} wijziging(en)` : ""}
+            </span>
           </div>
           <p className="tc-import-help">
-            Deze staan nog niet in je planning. Een nieuw advies vervangt eerdere voorstellen die je
-            niet hebt geaccepteerd — wat je al accepteerde blijft staan.
+            Je planning verandert pas als je iets accepteert. Doe je niets, dan blijft alles zoals het
+            was. Wijzigingen laten zien wat er zou veranderen, zodat je kunt beoordelen of je het
+            ermee eens bent.
           </p>
           <div className="tc-actionbar">
             <button className="tc-btn tc-btn-cardio" disabled={busy}
-              onClick={() => act(() => api.acceptAllProposals(conflicts.length > 0))}>
-              <Check size={15} /> Alles accepteren{conflicts.length > 0 ? " (vervang botsingen)" : ""}
+              onClick={() => act(() => api.acceptAllProposals())}>
+              <Check size={15} /> Alles accepteren
             </button>
             <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
-              onClick={() => act(async () => { for (const p of proposals) await api.deletePlannedSession(p.id); })}>
-              Alles verwerpen
+              onClick={() => act(async () => { for (const p of proposals) await api.declineProposal(p.id, null); })}>
+              Alles afwijzen
             </button>
           </div>
         </div>
@@ -147,8 +147,15 @@ export default function PlannerTab() {
                     </div>
                     <div className="tc-planned-actions">
                       {p.status === "gepland" && (
-                        <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
-                          onClick={() => act(() => api.updatePlannedSession(p.id, "gedaan"))}>Gedaan</button>
+                        <>
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+                            onClick={() => act(() => api.updatePlannedSession(p.id, "gedaan"))}>Gedaan</button>
+                          <button className="tc-icon-btn" disabled={busy}
+                            title={p.locked ? "Vaste afspraak — coach laat deze met rust" : "Vastzetten: coach mag deze niet wijzigen"}
+                            onClick={() => act(() => api.lockPlannedSession(p.id, !p.locked))}>
+                            {p.locked ? <Lock size={13} style={{ color: "var(--strength)" }} /> : <Unlock size={13} />}
+                          </button>
+                        </>
                       )}
                       <button className="tc-icon-btn" disabled={busy}
                         onClick={() => act(() => api.deletePlannedSession(p.id))}><Trash2 size={13} /></button>
@@ -157,28 +164,35 @@ export default function PlannerTab() {
                 ))}
 
                 {day.proposed.map((p) => {
-                  const clashes = day.committed.some((c) => c.status === "gepland");
+                  const replaced = p.replacesId ? day.committed.find((c) => c.id === p.replacesId) : null;
                   return (
                     <div className="tc-planner-session tc-status-voorgesteld" key={p.id}>
                       <Clock size={16} style={{ color: "var(--cardio)", flexShrink: 0 }} />
                       <div className="tc-gpxbatch-info">
                         <span className="tc-planner-type">
-                          {p.type} <span className="tc-planner-proposed-tag">voorstel</span>
+                          {p.type}
+                          <span className="tc-planner-proposed-tag">
+                            {replaced ? "wijziging" : "nieuw voorstel"}
+                          </span>
                         </span>
-                        <span className="tc-event-notes">{p.description}</span>
-                        {clashes && (
-                          <span className="tc-gpxbatch-error">
-                            Botst met wat je al gepland had op deze dag
+                        {replaced && (
+                          <span className="tc-planner-diff">
+                            <span className="tc-planner-diff-old">{replaced.description}</span>
+                            <ArrowRight size={12} />
+                            <span>{p.description}</span>
                           </span>
                         )}
+                        {!replaced && <span className="tc-event-notes">{p.description}</span>}
                       </div>
                       <div className="tc-planned-actions">
                         <button className="tc-btn tc-btn-cardio tc-btn-sm" disabled={busy}
-                          onClick={() => act(() => api.acceptProposal(p.id, clashes))}>
-                          {clashes ? "Vervang" : "Accepteer"}
+                          onClick={() => act(() => api.acceptProposal(p.id))}>
+                          {replaced ? "Wijzig" : "Accepteer"}
                         </button>
-                        <button className="tc-icon-btn" disabled={busy}
-                          onClick={() => act(() => api.deletePlannedSession(p.id))}><X size={14} /></button>
+                        <button className="tc-icon-btn" title="Afwijzen — de coach onthoudt dit"
+                          disabled={busy} onClick={() => act(() => api.declineProposal(p.id, null))}>
+                          <X size={14} />
+                        </button>
                       </div>
                     </div>
                   );

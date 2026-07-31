@@ -96,6 +96,10 @@ export const acceptProposal = (id, replaceConflicting = false) =>
   request(`/planned/${id}/accept`, { method: "POST", body: JSON.stringify({ replaceConflicting }) });
 export const acceptAllProposals = (replaceConflicting = false) =>
   request("/planned/accept-all", { method: "POST", body: JSON.stringify({ replaceConflicting }) });
+export const lockPlannedSession = (id, locked) =>
+  request(`/planned/${id}/lock`, { method: "POST", body: JSON.stringify({ locked }) });
+export const declineProposal = (id, reason) =>
+  request(`/planned/${id}/decline`, { method: "POST", body: JSON.stringify({ reason }) });
 export const createPlannedSession = (entry) =>
   request("/planned", { method: "POST", body: JSON.stringify(entry) });
 export const updatePlannedSession = (id, status) =>

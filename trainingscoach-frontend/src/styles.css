@@ -226,3 +226,8 @@ html, body, #root {
   .tc-planner-day { flex-direction: column; gap: 8px; }
   .tc-planner-daylabel { flex-direction: row; align-items: baseline; gap: 8px; width: auto; }
 }
+
+/* A proposed change shows old -> new inline, so you can judge the swap
+   instead of losing what you had without seeing it. */
+.tc-planner-diff { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.tc-planner-diff-old { color: var(--text-muted); text-decoration: line-through; }

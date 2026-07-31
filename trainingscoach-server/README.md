@@ -331,10 +331,23 @@ lost twee problemen op die er eerst in zaten:
    `huidigePlanning` mee, met de instructie erop voort te bouwen in plaats van
    eroverheen — en om niet twee zware dagen achter elkaar te zetten.
 
-In het tabblad **Planning** zie je twee weken vooruit. Per voorstel kun je
-accepteren of verwerpen, en botst het met iets wat je al had ingepland, dan wordt
-dat expliciet gemeld met de keuze om te vervangen. Je kunt er ook zelf een
-training inplannen zonder de coach.
+### De middenweg: interactief, maar stabiel
+
+Een plan werkt alleen als het blijft staan. Drie mechanismen zorgen dat de coach
+kan bijsturen zonder je week telkens te herschrijven:
+
+| Mechanisme | Wat het doet |
+|---|---|
+| **Vastzetten** (slotje) | Een sessie die vaststaat — clubrit, vaste afspraak. De coach stelt op die dag niets voor en kan hem niet vervangen. |
+| **Wijziging vs. nieuw** | Staat er al iets op een dag, dan komt een voorstel binnen als *wijziging*, met oude en nieuwe invulling naast elkaar. Je ziet dus wat je zou opgeven. |
+| **Afwijzingen onthouden** | Wijs je iets af, dan krijgt de coach dat mee — inclusief eventuele reden — zodat hij niet volgende week hetzelfde voorstelt. |
+
+Daarbovenop krijgt de coach de instructie dat stabiliteit vóór optimalisatie
+gaat: lege dagen aanvullen, gevulde dagen met rust laten, en als hij tóch iets
+wil wijzigen daar expliciet een reden bij noemen.
+
+**Je planning verandert nooit vanzelf.** Doe je niets met een voorstel, dan
+blijft alles zoals het was. Je kunt ook zelf trainingen inplannen zonder de coach.
 
 Uitgevoerde trainingen worden automatisch afgevinkt tegen je cardiologs — je
 hoeft niets bij te houden.

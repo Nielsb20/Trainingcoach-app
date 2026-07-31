@@ -270,10 +270,15 @@ function PlanButton({ entryId }) {
     setState("busy");
     try {
       const result = await createPlanFromCoach(entryId);
-      const skipped = result.skipped?.length
-        ? ` (${result.skipped.length} zonder herkenbare dag overgeslagen)`
-        : "";
-      setMessage(`${result.created.length} trainingen in de planning gezet${skipped}`);
+      const parts = [`${result.created.length} trainingen in de planning gezet`];
+      if (result.wijzigingen > 0) parts.push(`${result.wijzigingen} daarvan wijzigen iets bestaands`);
+      if (result.skipped?.length) parts.push(`${result.skipped.length} overgeslagen`);
+      // A weekday that doesn't match its date means the advice was internally
+      // inconsistent; worth showing rather than quietly following the date.
+      if (result.waarschuwingen?.length) {
+        parts.push(result.waarschuwingen.map((w) => w.melding).join("; "));
+      }
+      setMessage(parts.join(" — "));
       setState("done");
     } catch (err) {
       setMessage(err.message);
