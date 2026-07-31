@@ -391,7 +391,7 @@ cardiovoorstellen staan, zodat je week compleet is.
 De coach plant nu beide disciplines. Naast `cardioVoorstel` levert hij ook
 `krachtVoorstel`, gebaseerd op het schema dat je bij **Schema** hebt opgegeven.
 
-**Jouw vaste dagen zijn leidend.** Per trainingsdag in je schema vink je aan op
+**Jij bepaalt wanneer, de coach bepaalt wat.** Per trainingsdag in je schema vink je aan op
 welke weekdag(en) je die doet — dezelfde training twee keer per week kan gewoon.
 De coach plant die dag dan exact daar, en verzint er geen eigen rotatie omheen,
 ook niet als een andere volgorde hem theoretisch beter lijkt. Alleen bij een
@@ -443,3 +443,27 @@ Een avondtraining gevolgd door een ochtendsessie geeft ongeveer twaalf uur
 herstel; dezelfde twee sessies andersom ruim zesendertig. De coach plant dus geen
 zware ochtendrit na een zware avondtraining, ook al staan ze op verschillende
 dagen. Vul je geen tijdstip in, dan rekent hij met hele dagen.
+
+
+## Wat de coach met je krachttraining doet
+
+De vaste dagen liggen vast, maar dat betekent niet dat de coach er verder niets
+mee doet — de invulling is juist zijn werk:
+
+- **Concrete gewichten.** Hij krijgt per oefening je laatst gelogde sets mee, dus
+  hij kan zeggen "squat 3x5 op 102,5 kg, 2,5 kg meer dan vorige week" in plaats
+  van iets vaags. Haalde je je herhalingen niet, dan ziet hij dat ook.
+- **Stagnatie signaleren.** Blijft een oefening meerdere sessies hangen, dan
+  benoemt hij dat en stelt hij iets voor: herhalingen aanpassen, een week
+  terugschakelen, of aandacht voor techniek.
+- **Afstemmen op de week.** Staat er een lange rit kort na een krachtdag, dan
+  stelt hij een lichtere variant voor — minder volume, verder van falen af — in
+  plaats van de sessie te schrappen.
+- **Deload adviseren.** Wijzen je herstelgegevens of trainingsbelasting op
+  oververmoeidheid, dan mag hij een lichtere week of het overslaan van een sessie
+  adviseren. Maar alleen bij een duidelijk signaal, en altijd met de reden erbij,
+  zodat je zelf kunt beoordelen of je het ermee eens bent.
+
+Zo'n voorstel komt binnen als **wijziging** op de sessie die er al staat, met de
+oude en nieuwe invulling naast elkaar. Je planning verandert pas als je
+accepteert.

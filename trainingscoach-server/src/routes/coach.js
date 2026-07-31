@@ -150,7 +150,19 @@ router.post("/ask", async (req, res) => {
       dag: d.name,
       vasteWeekdagen: d.weekdays && d.weekdays.length ? d.weekdays : null,
       moment: d.timeOfDay ? timeOfDayLabel(d.timeOfDay) : null,
-      oefeningen: d.exercises.map((e) => `${e.name} (${e.targetSets}x${e.targetReps})`),
+      // The last logged sets per exercise, so the coach can propose a concrete
+      // next step ("squat 3x5 at 102.5, up from 100") instead of vague advice.
+      oefeningen: d.exercises.map((e) => {
+        const lastLog = workoutLogs.find((l) => l.exercises.some((x) => x.name === e.name && x.sets.length));
+        const lastSets = lastLog
+          ? lastLog.exercises.find((x) => x.name === e.name).sets.map((s) => `${s.weight}kg x ${s.reps}`)
+          : null;
+        return {
+          naam: e.name,
+          doel: `${e.targetSets}x${e.targetReps}`,
+          laatstGelogd: lastSets ? { datum: lastLog.date, sets: lastSets } : null,
+        };
+      }),
     })),
     vasteCardiomomenten: schema.cardioDays.map((c) => ({ dag: c.weekday, type: c.type, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, notities: c.notes })),
     langetermijnSamenvattingKracht: strengthHistorySummary,
