@@ -5,6 +5,7 @@ const { db } = require("../db/db");
 const { getFullSchema } = require("./schema");
 const { serializeWorkoutLog } = require("./workoutLogs");
 const { serialize: serializeCardioLog } = require("./cardioLogs");
+const { getUpcomingPlan } = require("./planned");
 const calc = require("../lib/calculations");
 const { buildCoachSystemPrompt } = require("../lib/coachPrompt");
 const { callCoachModel, describeProvider } = require("../lib/llmProvider");
@@ -104,6 +105,7 @@ router.post("/ask", async (req, res) => {
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     lichaamsgewicht: weightSummary,
     herstel,
+    huidigePlanning: getUpcomingPlan(14),
     trainingsbelasting: currentLoad
       ? {
           ctlFitness: currentLoad.ctl,

@@ -193,3 +193,36 @@ html, body, #root {
   .tc-planned-row { flex-wrap: wrap; }
   .tc-planned-actions { width: 100%; }
 }
+
+/* Week planner: one row per day, so the shape of the training week is
+   readable at a glance rather than as a flat list. */
+.tc-planner { display: flex; flex-direction: column; gap: 6px; }
+.tc-planner-day {
+  display: flex; gap: 14px; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+}
+.tc-planner-today { border-color: var(--strength); }
+.tc-planner-daylabel {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 120px; flex-shrink: 0;
+}
+.tc-planner-weekday { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; }
+.tc-planner-date { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.tc-planner-sessions { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tc-planner-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+.tc-planner-session {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surface-alt); border-radius: 7px; padding: 8px 10px;
+}
+.tc-planner-session.tc-status-voorgesteld { border: 1px dashed var(--cardio); background: var(--cardio-dim); }
+.tc-planner-session.tc-status-gedaan { opacity: 0.7; }
+.tc-planner-session.tc-status-overgeslagen { opacity: 0.5; }
+.tc-planner-type { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 13.5px; }
+.tc-planner-proposed-tag {
+  font-family: 'Inter', sans-serif; font-weight: 500; font-size: 10.5px;
+  color: var(--cardio); text-transform: uppercase; letter-spacing: 0.5px; margin-left: 6px;
+}
+@media (max-width: 760px) {
+  .tc-planner-day { flex-direction: column; gap: 8px; }
+  .tc-planner-daylabel { flex-direction: row; align-items: baseline; gap: 8px; width: auto; }
+}

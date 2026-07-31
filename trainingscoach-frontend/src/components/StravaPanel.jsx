@@ -15,11 +15,16 @@ export default function StravaPanel({ onImported }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [backfill, setBackfill] = useState(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState(null);
   const [error, setError] = useState("");
 
   async function loadStatus() {
     try {
-      setStatus(await api.getStravaStatus());
+      const s = await api.getStravaStatus();
+      setStatus(s);
+      if (s.connected) setBackfill(await api.getStravaBackfillStatus());
       setError("");
     } catch (err) {
       setError(err.message);
@@ -44,6 +49,26 @@ export default function StravaPanel({ onImported }) {
       setError(err.message);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  /**
+   * Re-fetches activities imported before the analysis features existed, so
+   * histograms and power curves appear for your history too. Batched, because
+   * each activity costs two Strava calls against a 100-per-15-minutes limit.
+   */
+  async function handleBackfill() {
+    setBackfilling(true);
+    setError("");
+    try {
+      const result = await api.backfillStrava(25);
+      setBackfillResult(result);
+      setBackfill(await api.getStravaBackfillStatus());
+      await onImported();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBackfilling(false);
     }
   }
 
@@ -112,6 +137,29 @@ export default function StravaPanel({ onImported }) {
             "Nu synchroniseren" haal je de laatste 20 activiteiten handmatig op — handig om bij te
             werken of de koppeling te testen.
           </p>
+          {backfill?.verouderd > 0 && (
+            <div className="tc-warning-box">
+              <strong>{backfill.verouderd} activiteiten missen analysedata.</strong> Ze zijn geïmporteerd
+              voordat de zoneverdeling en vermogenscurve bestonden, dus die tabbladen blijven leeg voor
+              je geschiedenis. Werk ze bij om ze mee te laten tellen — dit gebeurt in blokken van 25
+              vanwege Strava's limiet, dus bij een lange historie klik je een paar keer.
+              <div className="tc-actionbar">
+                <button className="tc-btn tc-btn-cardio" onClick={handleBackfill} disabled={backfilling}>
+                  {backfilling ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+                  {backfilling ? "Bezig met bijwerken…" : `Analysedata bijwerken (${backfill.verouderd} te gaan)`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {backfillResult && (
+            <p className="tc-import-help">
+              {backfillResult.bijgewerkt} bijgewerkt
+              {backfillResult.mislukt > 0 ? `, ${backfillResult.mislukt} mislukt` : ""}.
+              {backfillResult.hint ? ` ${backfillResult.hint}` : " Alles is bij."}
+            </p>
+          )}
+
           <div className="tc-actionbar">
             <button className="tc-btn tc-btn-cardio" onClick={handleSync} disabled={syncing}>
               <RefreshCw size={15} className={syncing ? "spin" : ""} />

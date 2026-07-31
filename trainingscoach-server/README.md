@@ -222,12 +222,21 @@ Te zien onder **Analyse** in de app:
 |---|---|
 | Zoneverdeling | Tijd per zone per week — het beeld dat je nodig hebt voor gepolariseerd trainen |
 | Vermogenscurve | Beste vermogen per tijdsduur, aller-tijden versus recent, plus een FTP-schatting |
-| Gepland vs. gedaan | De cardiovoorstellen van de coach, automatisch afgevinkt op basis van je logs |
+| (planning verhuisd naar het eigen tabblad **Planning**) | |
 
-**Let op:** deze analyse werkt alleen voor sessies die na deze update zijn
-geïmporteerd, want oudere sessies hebben de histogrammen nog niet. Synchroniseer
-opnieuw met Strava om je geschiedenis bij te werken — bestaande sessies worden
-vervangen, niet gedupliceerd.
+**Bestaande sessies bijwerken.** Sessies die je vóór deze functie hebt
+geïmporteerd missen de histogrammen, waardoor de analyse leeg blijft. Gewoon
+opnieuw synchroniseren helpt niet: die slaat ze over als "al geïmporteerd".
+
+Daarom houdt de app per activiteit bij met welke analyseversie hij is verwerkt.
+Staat er iets verouderds tussen, dan verschijnt bij **Schema → Strava** een knop
+om het bij te werken. Dat gaat in blokken van 25 vanwege Strava's limiet van 100
+verzoeken per kwartier, dus bij een lange historie klik je een paar keer — de
+voortgang blijft bewaard.
+
+Voegen we later iets nieuws toe dat uit de ruwe data komt, dan volstaat het om
+`ANALYSIS_VERSION` in `src/lib/strava.js` op te hogen; de backfill komt dan
+vanzelf weer in beeld.
 
 De FTP-schatting gebruikt een gemeten uurinspanning als die er is, anders 95% van
 je beste 20 minuten. Wijkt dat meer dan 15 W af van wat je hebt ingevuld, dan
@@ -289,7 +298,43 @@ Automatisch elke ochtend, via `crontab -e`:
 Wat het ophaalt: rusthartslag, HRV, slaapduur en -score, Body Battery, stress,
 en gewicht + vetpercentage van een Index-weegschaal.
 
-**Als het stopt met werken:** probeer eerst
-`./scripts/garmin-venv/bin/pip install --upgrade garminconnect`. Helpt dat niet,
-dan heeft Garmin waarschijnlijk opnieuw iets gewijzigd en moet je wachten tot de
-bibliotheek is bijgewerkt. Handmatige invoer blijft ondertussen gewoon werken.
+### Als het niet werkt
+
+**"429 — IP rate limited by Garmin"**
+Garmin heeft je IP-adres tijdelijk geblokkeerd. Dit is hun botbeveiliging en
+staat los van deze code. Wacht een uur en probeer opnieuw — en probeer vooral
+NIET herhaaldelijk in te loggen, want dat verlengt de blokkade alleen maar.
+
+Zodra een login lukt worden de tokens opgeslagen in `~/.garminconnect`, waarna
+volgende runs de login helemaal overslaan. Het risico op rate limiting zit dus
+vooral bij die eerste keer.
+
+**Andere loginfouten**
+Probeer eerst `./scripts/garmin-venv/bin/pip install --upgrade garminconnect`.
+Helpt dat niet, dan heeft Garmin waarschijnlijk opnieuw iets gewijzigd en moet
+je wachten tot de bibliotheek is bijgewerkt.
+
+In beide gevallen: handmatige invoer bij **Herstel** blijft gewoon werken. Dat
+is precies waarom deze twee dingen los van elkaar staan.
+
+
+## Planning: voorstellen beoordelen in plaats van blind overnemen
+
+Coachvoorstellen komen binnen als **voorstel**, niet als vaststaand plan. Dat
+lost twee problemen op die er eerst in zaten:
+
+1. **Stapelen.** Twee keer om advies vragen zette voorheen twee overlappende
+   weken naast elkaar. Nu vervangt nieuw advies eerdere voorstellen die je niet
+   hebt geaccepteerd; wat je al accepteerde blijft staan.
+2. **De coach werkte blind.** De payload bevatte je planning niet, dus hij stelde
+   elke keer een verse week voor alsof er niets lag. Nu krijgt hij
+   `huidigePlanning` mee, met de instructie erop voort te bouwen in plaats van
+   eroverheen — en om niet twee zware dagen achter elkaar te zetten.
+
+In het tabblad **Planning** zie je twee weken vooruit. Per voorstel kun je
+accepteren of verwerpen, en botst het met iets wat je al had ingepland, dan wordt
+dat expliciet gemeld met de keuze om te vervangen. Je kunt er ook zelf een
+training inplannen zonder de coach.
+
+Uitgevoerde trainingen worden automatisch afgevinkt tegen je cardiologs — je
+hoeft niets bij te houden.

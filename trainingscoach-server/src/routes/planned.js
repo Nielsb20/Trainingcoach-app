@@ -25,6 +25,8 @@ function serialize(row) {
     sourceCoachEntryId: row.source_coach_entry_id,
     completedCardioLogId: row.completed_cardio_log_id,
     status: row.status,
+    durationMin: row.duration_min,
+    intensity: row.intensity,
   };
 }
 
@@ -110,7 +112,13 @@ router.get("/", (req, res) => {
 
 /**
  * POST /api/planned/from-coach  { coachEntryId }
- * Turns a coach answer's cardioVoorstel into trackable planned sessions.
+ *
+ * Turns a coach answer's cardioVoorstel into PROPOSED sessions rather than
+ * committed ones. Previously this wrote straight into the plan, so asking the
+ * coach twice left you with two overlapping weeks. Now new advice supersedes
+ * older advice you hadn't acted on, and anything you already accepted is
+ * flagged as a conflict for you to resolve instead of being silently
+ * duplicated or overwritten.
  */
 router.post("/from-coach", (req, res) => {
   const { coachEntryId } = req.body;
@@ -119,14 +127,18 @@ router.post("/from-coach", (req, res) => {
   if (!entry.cardio_voorstel_json) return res.status(400).json({ error: "Dit antwoord bevat geen cardiovoorstel." });
 
   const proposals = JSON.parse(entry.cardio_voorstel_json);
-  const insert = db.prepare(
-    `INSERT INTO planned_sessions (id, date, weekday, type, description, source_coach_entry_id)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  );
 
-  // Replace any plans previously created from this same answer, so pressing
-  // the button twice doesn't duplicate the week.
-  db.prepare("DELETE FROM planned_sessions WHERE source_coach_entry_id = ?").run(coachEntryId);
+  // Older proposals you never acted on are superseded by this newer advice.
+  // Accepted plans ('gepland') and history are left alone.
+  db.prepare("DELETE FROM planned_sessions WHERE status = 'voorgesteld'").run();
+
+  const insert = db.prepare(
+    `INSERT INTO planned_sessions (id, date, weekday, type, description, source_coach_entry_id, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld')`
+  );
+  const findConflict = db.prepare(
+    "SELECT * FROM planned_sessions WHERE date = ? AND status = 'gepland'"
+  );
 
   const created = [];
   const skipped = [];
@@ -138,17 +150,75 @@ router.post("/from-coach", (req, res) => {
     }
     const id = `plan-${coachEntryId}-${i}`;
     insert.run(id, date, p.dag || null, p.type || "Anders", p.invulling || "", coachEntryId);
-    created.push({ id, date, type: p.type, description: p.invulling });
+    const conflict = findConflict.get(date);
+    created.push({
+      id,
+      date,
+      type: p.type,
+      description: p.invulling,
+      conflictMet: conflict ? { id: conflict.id, type: conflict.type, description: conflict.description } : null,
+    });
   });
 
+  res.status(201).json({
+    created,
+    skipped,
+    conflicten: created.filter((c) => c.conflictMet).length,
+  });
+});
+
+/**
+ * POST /api/planned/:id/accept  { replaceConflicting?: boolean }
+ * Promotes a proposal to a real plan.
+ */
+router.post("/:id/accept", (req, res) => {
+  const plan = db.prepare("SELECT * FROM planned_sessions WHERE id = ?").get(req.params.id);
+  if (!plan) return res.status(404).json({ error: "Voorstel niet gevonden." });
+
+  if (req.body?.replaceConflicting) {
+    db.prepare("DELETE FROM planned_sessions WHERE date = ? AND status = 'gepland' AND id != ?")
+      .run(plan.date, plan.id);
+  }
+  db.prepare("UPDATE planned_sessions SET status = 'gepland' WHERE id = ?").run(plan.id);
   refreshCompletions();
-  res.status(201).json({ created, skipped });
+  res.json({ ok: true });
+});
+
+/** POST /api/planned/accept-all - accept every outstanding proposal at once. */
+router.post("/accept-all", (req, res) => {
+  const proposals = db.prepare("SELECT * FROM planned_sessions WHERE status = 'voorgesteld'").all();
+  const replace = !!req.body?.replaceConflicting;
+  const run = db.transaction(() => {
+    proposals.forEach((p) => {
+      if (replace) {
+        db.prepare("DELETE FROM planned_sessions WHERE date = ? AND status = 'gepland' AND id != ?")
+          .run(p.date, p.id);
+      }
+      db.prepare("UPDATE planned_sessions SET status = 'gepland' WHERE id = ?").run(p.id);
+    });
+  });
+  run();
+  refreshCompletions();
+  res.json({ geaccepteerd: proposals.length });
+});
+
+/** POST /api/planned - add a session yourself, without going via the coach. */
+router.post("/", (req, res) => {
+  const { date, type, description, durationMin, intensity } = req.body || {};
+  if (!date || !type) return res.status(400).json({ error: "Datum en type zijn verplicht." });
+  const id = `plan-manual-${Date.now()}`;
+  db.prepare(
+    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland')`
+  ).run(id, date, calc.weekdayNameForDate(date), type, description || "", durationMin ?? null, intensity ?? null);
+  refreshCompletions();
+  res.status(201).json({ id });
 });
 
 // PATCH /api/planned/:id  { status }  - manual override
 router.patch("/:id", (req, res) => {
   const { status } = req.body;
-  if (!["gepland", "gedaan", "overgeslagen"].includes(status)) {
+  if (!["voorgesteld", "gepland", "gedaan", "overgeslagen"].includes(status)) {
     return res.status(400).json({ error: "Ongeldige status." });
   }
   db.prepare("UPDATE planned_sessions SET status = ? WHERE id = ?").run(status, req.params.id);
@@ -161,4 +231,20 @@ router.delete("/:id", (req, res) => {
   res.status(204).end();
 });
 
-module.exports = { router, resolveDate, refreshCompletions };
+/**
+ * Upcoming committed sessions, for the coach payload — so new advice can build
+ * on the existing plan instead of proposing a fresh week over the top of it.
+ */
+function getUpcomingPlan(days = 14) {
+  const today = calc.todayStr();
+  const until = new Date();
+  until.setDate(until.getDate() + days);
+  return db
+    .prepare(
+      "SELECT * FROM planned_sessions WHERE status = 'gepland' AND date >= ? AND date <= ? ORDER BY date"
+    )
+    .all(today, until.toISOString().slice(0, 10))
+    .map(serialize);
+}
+
+module.exports = { router, resolveDate, refreshCompletions, getUpcomingPlan };

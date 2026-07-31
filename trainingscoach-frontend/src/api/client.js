@@ -92,6 +92,12 @@ export const getPowerCurve = (days = 90) => request(`/analysis/power-curve?days=
 export const getPlannedSessions = (weeks = 4) => request(`/planned?weeks=${weeks}`);
 export const createPlanFromCoach = (coachEntryId) =>
   request("/planned/from-coach", { method: "POST", body: JSON.stringify({ coachEntryId }) });
+export const acceptProposal = (id, replaceConflicting = false) =>
+  request(`/planned/${id}/accept`, { method: "POST", body: JSON.stringify({ replaceConflicting }) });
+export const acceptAllProposals = (replaceConflicting = false) =>
+  request("/planned/accept-all", { method: "POST", body: JSON.stringify({ replaceConflicting }) });
+export const createPlannedSession = (entry) =>
+  request("/planned", { method: "POST", body: JSON.stringify(entry) });
 export const updatePlannedSession = (id, status) =>
   request(`/planned/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deletePlannedSession = (id) => request(`/planned/${id}`, { method: "DELETE" });
@@ -101,6 +107,9 @@ export const deletePlannedSession = (id) => request(`/planned/${id}`, { method: 
 export const getStravaStatus = () => request("/strava/status");
 export const syncStrava = (limit = 20) => request("/strava/sync", { method: "POST", body: JSON.stringify({ limit }) });
 export const disconnectStrava = () => request("/strava/disconnect", { method: "POST" });
+export const getStravaBackfillStatus = () => request("/strava/backfill-status");
+export const backfillStrava = (limit = 25) =>
+  request("/strava/backfill", { method: "POST", body: JSON.stringify({ limit }) });
 
 /* --------------------------------- health ------------------------------ */
 

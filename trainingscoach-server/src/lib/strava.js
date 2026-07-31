@@ -326,13 +326,41 @@ function stravaToSession(activity, streams) {
 
 /* --------------------------- deduplication ----------------------------- */
 
-const wasImported = (stravaActivityId) =>
-  !!db.prepare("SELECT 1 FROM strava_imported_activities WHERE strava_activity_id = ?").get(stravaActivityId);
+/**
+ * Bump this whenever we start deriving something new from the raw streams.
+ * Activities imported under an older version are then re-fetched by the sync
+ * rather than skipped, so the new analysis is backfilled automatically.
+ *
+ *   1 — heart-rate/power histograms and the mean-maximal-power curve
+ */
+const ANALYSIS_VERSION = 1;
+
+/**
+ * True when this activity is already stored AND was processed by the current
+ * analysis generation. An activity imported before a new derived metric existed
+ * reports false, so it gets re-fetched instead of silently staying incomplete.
+ */
+function wasImported(stravaActivityId) {
+  const row = db
+    .prepare("SELECT analysis_version FROM strava_imported_activities WHERE strava_activity_id = ?")
+    .get(stravaActivityId);
+  return !!row && row.analysis_version >= ANALYSIS_VERSION;
+}
+
+/** Activities that are stored but predate the current analysis generation. */
+function findOutdatedImports() {
+  return db
+    .prepare("SELECT strava_activity_id FROM strava_imported_activities WHERE analysis_version < ?")
+    .all(ANALYSIS_VERSION)
+    .map((r) => r.strava_activity_id);
+}
 
 const markImported = (stravaActivityId, cardioLogId) =>
   db
-    .prepare("INSERT OR REPLACE INTO strava_imported_activities (strava_activity_id, cardio_log_id) VALUES (?, ?)")
-    .run(stravaActivityId, cardioLogId);
+    .prepare(
+      "INSERT OR REPLACE INTO strava_imported_activities (strava_activity_id, cardio_log_id, analysis_version) VALUES (?, ?, ?)"
+    )
+    .run(stravaActivityId, cardioLogId, ANALYSIS_VERSION);
 
 /** True when two optional numbers are both absent, or both present and within tolerance. */
 function withinTolerance(a, b, fraction) {
@@ -392,6 +420,8 @@ module.exports = {
   // dedup
   wasImported,
   markImported,
+  findOutdatedImports,
+  ANALYSIS_VERSION,
   findExistingSimilarSession,
   withinTolerance,
 };

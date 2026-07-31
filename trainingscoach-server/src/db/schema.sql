@@ -187,3 +187,15 @@ CREATE TABLE IF NOT EXISTS wellness_logs (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_wellness_logs_date ON wellness_logs(date);
+
+-- Planned sessions gained a 'voorgesteld' (proposed) state: coach suggestions
+-- land there first so they can be reviewed against what's already committed,
+-- rather than silently stacking on top of it.
+ALTER TABLE planned_sessions ADD COLUMN duration_min INTEGER;
+ALTER TABLE planned_sessions ADD COLUMN intensity TEXT;
+
+-- Which generation of derived analysis a stored activity was imported with.
+-- Bumping ANALYSIS_VERSION in strava.js makes the sync re-fetch older rows
+-- instead of skipping them as "already imported" — which is exactly what went
+-- wrong when histograms and the power curve were added after the first import.
+ALTER TABLE strava_imported_activities ADD COLUMN analysis_version INTEGER NOT NULL DEFAULT 0;

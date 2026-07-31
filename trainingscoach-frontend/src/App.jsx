@@ -13,6 +13,7 @@ import GeschiedenisTab from "./components/GeschiedenisTab";
 import CoachTab from "./components/CoachTab";
 import AnalyseTab from "./components/AnalyseTab";
 import WellnessTab from "./components/WellnessTab";
+import PlannerTab from "./components/PlannerTab";
 
 const EMPTY_SCHEMA = { days: [], cardioDays: [], profile: {} };
 
@@ -249,6 +250,7 @@ export default function App() {
           <WeightTab weightLogs={weightLogs} addWeightLog={addWeightLog} deleteWeightLog={deleteWeightLog} />
         )}
         {tab === "herstel" && <WellnessTab />}
+        {tab === "planning" && <PlannerTab />}
         {tab === "evenementen" && <EventsTab events={events} addEvent={addEvent} deleteEvent={deleteEvent} />}
         {tab === "geschiedenis" && (
           <GeschiedenisTab

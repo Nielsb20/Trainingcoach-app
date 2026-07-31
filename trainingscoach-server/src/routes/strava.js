@@ -248,4 +248,78 @@ router.post("/import/:id", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/strava/backfill-status
+ * How many stored activities predate the current analysis generation.
+ */
+router.get("/backfill-status", (req, res) => {
+  if (!strava.isConnected()) {
+    return res.json({ connected: false, verouderd: 0 });
+  }
+  const outdated = strava.findOutdatedImports();
+  res.json({
+    connected: true,
+    verouderd: outdated.length,
+    analyseVersie: strava.ANALYSIS_VERSION,
+  });
+});
+
+/**
+ * POST /api/strava/backfill  { limit?: number }
+ *
+ * Re-fetches activities that were imported before the current derived-analysis
+ * generation existed, so histograms and power curves appear for your history
+ * rather than only for rides imported from now on.
+ *
+ * Batched deliberately: each activity costs two Strava calls and their rate
+ * limit is 100 per 15 minutes, so backfilling a large history has to be done
+ * in chunks rather than in one go.
+ */
+router.post("/backfill", async (req, res) => {
+  if (!strava.isConnected()) {
+    return res.status(400).json({ error: "Strava is nog niet gekoppeld." });
+  }
+  const limit = Math.min(Number(req.body?.limit) || 25, 40);
+  const outdated = strava.findOutdatedImports().slice(0, limit);
+
+  if (outdated.length === 0) {
+    return res.json({ bijgewerkt: 0, resterend: 0, klaar: true });
+  }
+
+  const results = { bijgewerkt: 0, mislukt: 0, details: [] };
+  let rateLimited = false;
+
+  for (const activityId of outdated) {
+    try {
+      const result = await importActivity(activityId, { source: "strava_backfill", force: true });
+      if (result.imported) {
+        results.bijgewerkt++;
+        results.details.push({ id: activityId, status: "bijgewerkt" });
+      } else {
+        results.details.push({ id: activityId, status: result.reason });
+      }
+    } catch (err) {
+      results.mislukt++;
+      results.details.push({ id: activityId, status: `mislukt: ${err.message}` });
+      if (/rate limit/i.test(err.message)) {
+        rateLimited = true;
+        break; // stop immediately; continuing would only extend the block
+      }
+    }
+  }
+
+  const resterend = strava.findOutdatedImports().length;
+  res.json({
+    ...results,
+    resterend,
+    klaar: resterend === 0,
+    rateLimited,
+    hint: rateLimited
+      ? "Strava's limiet is bereikt. Wacht een kwartier en start opnieuw — de voortgang is bewaard."
+      : resterend > 0
+      ? `Nog ${resterend} activiteiten te gaan. Klik nogmaals om verder te gaan.`
+      : null,
+  });
+});
+
 module.exports = { router, importActivity };

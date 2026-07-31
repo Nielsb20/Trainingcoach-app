@@ -3,9 +3,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Loader2, Check, X, Clock } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import * as api from "../api/client";
-import { formatDateNL } from "../lib/calculations";
 
 // One colour per zone, cool (easy) to warm (hard), so the stacked bars read
 // as intensity at a glance.
@@ -30,14 +29,10 @@ export default function AnalyseTab() {
         <button className={"tc-subtab" + (sub === "power" ? " active-event" : "")} onClick={() => setSub("power")}>
           Vermogenscurve
         </button>
-        <button className={"tc-subtab" + (sub === "planning" ? " active-strength" : "")} onClick={() => setSub("planning")}>
-          Gepland vs. gedaan
-        </button>
       </div>
 
       {sub === "zones" && <ZoneDistribution />}
       {sub === "power" && <PowerCurve />}
-      {sub === "planning" && <PlannedSessions />}
     </div>
   );
 }
@@ -205,104 +200,6 @@ function PowerCurve() {
       </table>
     </div>
   );
-}
-
-/* -------------------------- planned sessions ---------------------------- */
-
-function PlannedSessions() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  async function load() {
-    try {
-      setData(await api.getPlannedSessions(4));
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function setStatus(id, status) {
-    try {
-      await api.updatePlannedSession(id, status);
-      await load();
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
-  if (loading) return <Loading />;
-  if (error) return <div className="tc-error"><span>{error}</span></div>;
-
-  const { plans, samenvatting } = data;
-
-  return (
-    <div>
-      <p className="tc-sub" style={{ marginTop: -8 }}>
-        De cardiotrainingen die de coach voorstelde, afgezet tegen wat je daadwerkelijk hebt gedaan.
-        Sessies worden automatisch afgevinkt op basis van je logs — je hoeft niets bij te houden.
-      </p>
-
-      {plans.length === 0 ? (
-        <div className="tc-empty">
-          <p>Nog geen geplande trainingen.</p>
-          <p className="tc-empty-hint">
-            Vraag de coach om feedback en klik daarna bij dat antwoord op "Zet in planning".
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="tc-chiprow">
-            <span className="tc-hint-badge tc-badge-cardio">{samenvatting.gedaan} gedaan</span>
-            <span className="tc-hint-badge tc-badge-warning">{samenvatting.overgeslagen} overgeslagen</span>
-            <span className="tc-hint-badge tc-badge-strength">{samenvatting.gepland} nog te gaan</span>
-            {samenvatting.opvolgingPercentage !== null && (
-              <span className="tc-hint-badge tc-badge-event">{samenvatting.opvolgingPercentage}% opgevolgd</span>
-            )}
-          </div>
-
-          <div className="tc-event-list">
-            {plans.map((p) => (
-              <div className="tc-card tc-planned-row" key={p.id}>
-                <StatusIcon status={p.status} />
-                <div className="tc-gpxbatch-info">
-                  <span className="tc-ex-name">{p.type}</span>
-                  <span className="tc-history-detail">
-                    {formatDateNL(p.date)}
-                    {p.weekday ? ` · ${p.weekday}` : ""}
-                  </span>
-                  <span className="tc-event-notes">{p.description}</span>
-                </div>
-                <div className="tc-planned-actions">
-                  {p.status !== "gedaan" && (
-                    <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setStatus(p.id, "gedaan")}>
-                      Gedaan
-                    </button>
-                  )}
-                  {p.status !== "overgeslagen" && (
-                    <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setStatus(p.id, "overgeslagen")}>
-                      Overslaan
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function StatusIcon({ status }) {
-  if (status === "gedaan") return <Check size={18} style={{ color: "var(--cardio)", flexShrink: 0 }} />;
-  if (status === "overgeslagen") return <X size={18} style={{ color: "#B85C5C", flexShrink: 0 }} />;
-  return <Clock size={18} style={{ color: "var(--text-muted)", flexShrink: 0 }} />;
 }
 
 function Loading() {
