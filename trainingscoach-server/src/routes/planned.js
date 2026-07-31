@@ -28,6 +28,7 @@ function serialize(row) {
     durationMin: row.duration_min,
     intensity: row.intensity,
     discipline: row.discipline || 'cardio',
+    timeOfDay: row.time_of_day,
     locked: !!row.locked,
     replacesId: row.replaces_id,
   };
@@ -358,6 +359,81 @@ router.post("/accept-all", (req, res) => {
   run();
   refreshCompletions();
   res.json({ geaccepteerd: proposals.length });
+});
+
+/**
+ * POST /api/planned/from-schema  { from, to }
+ *
+ * Fills a date range with the athlete's own fixed schedule — the strength days
+ * and cardio slots they set up under Schema. No AI involved: if you've already
+ * decided you train Tuesday and Thursday, waiting for a coach answer to see
+ * that in your planner is backwards.
+ *
+ * Existing sessions are never overwritten; only empty slots are filled, so
+ * running this twice is harmless and it can't clobber a coach proposal you
+ * accepted or a session you locked.
+ */
+router.post("/from-schema", (req, res) => {
+  const from = req.body?.from || calc.todayStr();
+  const to = req.body?.to;
+  if (!to) return res.status(400).json({ error: "Geef een einddatum mee." });
+
+  const strengthDays = db.prepare("SELECT * FROM schema_days WHERE weekdays IS NOT NULL AND weekdays != ''").all();
+  const cardioDays = db.prepare("SELECT * FROM schema_cardio_days").all();
+
+  if (strengthDays.length === 0 && cardioDays.length === 0) {
+    return res.status(400).json({
+      error: "Er staan nog geen vaste dagen in je schema. Vink bij Schema per trainingsdag de weekdag(en) aan.",
+    });
+  }
+
+  const existing = db.prepare(
+    "SELECT date, discipline FROM planned_sessions WHERE date >= ? AND date <= ? AND status IN ('gepland','voorgesteld')"
+  ).all(from, to);
+  const taken = new Set(existing.map((e) => `${e.date}|${e.discipline || "cardio"}`));
+
+  const insert = db.prepare(
+    `INSERT INTO planned_sessions (id, date, weekday, type, description, status, discipline, time_of_day)
+     VALUES (?, ?, ?, ?, ?, 'gepland', ?, ?)`
+  );
+
+  const created = [];
+  const cursor = new Date(from + "T00:00:00");
+  const end = new Date(to + "T00:00:00");
+
+  while (cursor <= end) {
+    const iso = toIso(cursor);
+    const weekday = calc.weekdayNameForDate(iso);
+
+    strengthDays.forEach((d) => {
+      const days = (d.weekdays || "").split(",").filter(Boolean);
+      if (!days.includes(weekday)) return;
+      if (taken.has(`${iso}|kracht`)) return;
+      const id = `plan-schema-k-${d.id}-${iso}`;
+      insert.run(id, iso, weekday, d.name, "volgens je vaste schema", "kracht", d.time_of_day || null);
+      taken.add(`${iso}|kracht`);
+      created.push({ date: iso, discipline: "kracht", type: d.name });
+    });
+
+    cardioDays.forEach((c) => {
+      if (c.weekday !== weekday) return;
+      if (taken.has(`${iso}|cardio`)) return;
+      const id = `plan-schema-c-${c.id}-${iso}`;
+      insert.run(id, iso, weekday, c.type, c.notes || "volgens je vaste schema", "cardio", c.time_of_day || null);
+      taken.add(`${iso}|cardio`);
+      created.push({ date: iso, discipline: "cardio", type: c.type });
+    });
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  refreshCompletions();
+  res.status(201).json({
+    aangemaakt: created.length,
+    kracht: created.filter((c) => c.discipline === "kracht").length,
+    cardio: created.filter((c) => c.discipline === "cardio").length,
+    details: created,
+  });
 });
 
 /** POST /api/planned - add a session yourself, without going via the coach. */

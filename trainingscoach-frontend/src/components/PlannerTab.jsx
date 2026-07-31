@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
 import * as api from "../api/client";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
@@ -18,6 +18,7 @@ export default function PlannerTab() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [fillMessage, setFillMessage] = useState("");
   // Offset in 2-week blocks from today. The coach happily plans three weeks
   // out, so a fixed window would hide part of its own advice.
   const [blockOffset, setBlockOffset] = useState(0);
@@ -159,10 +160,20 @@ export default function PlannerTab() {
       )}
 
       <div className="tc-actionbar" style={{ marginBottom: 14 }}>
+        <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+          onClick={() => act(async () => {
+            const r = await api.fillPlanFromSchema(isoOf(rangeStart), isoOf(rangeEnd));
+            setFillMessage(r.aangemaakt === 0
+              ? "Deze periode was al gevuld — er is niets toegevoegd."
+              : `${r.aangemaakt} sessies toegevoegd (${r.kracht} kracht, ${r.cardio} cardio).`);
+          })}>
+          <CalendarPlus size={14} /> Vul aan vanuit mijn schema
+        </button>
         <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setShowAdd(!showAdd)}>
           <Plus size={14} /> Zelf een training inplannen
         </button>
       </div>
+      {fillMessage && <p className="tc-import-help" style={{ marginTop: -8 }}>{fillMessage}</p>}
 
       {showAdd && <AddSessionForm onAdded={() => { setShowAdd(false); load(); }} onError={setError} />}
 
@@ -203,6 +214,7 @@ export default function PlannerTab() {
                           ? <Dumbbell size={12} style={{ marginRight: 5, color: "var(--strength)" }} />
                           : <Activity size={12} style={{ marginRight: 5, color: "var(--cardio)" }} />}
                         {p.type}
+                        {p.timeOfDay && <span className="tc-planner-moment">{p.timeOfDay}</span>}
                       </span>
                       <span className="tc-event-notes">{p.description}</span>
                     </div>

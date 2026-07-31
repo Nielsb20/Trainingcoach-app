@@ -255,3 +255,9 @@ html, body, #root {
   cursor: pointer; font-family: 'Inter', sans-serif; min-width: 30px;
 }
 .tc-weekday-toggle.active { color: var(--strength); border-color: var(--strength); background: var(--strength-dim); }
+
+/* Time of day on a planned session — secondary to the session type itself. */
+.tc-planner-moment {
+  font-family: 'Inter', sans-serif; font-weight: 500; font-size: 10.5px;
+  color: var(--text-muted); text-transform: lowercase; margin-left: 6px;
+}

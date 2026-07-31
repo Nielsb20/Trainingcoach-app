@@ -101,6 +101,8 @@ export const lockPlannedSession = (id, locked) =>
   request(`/planned/${id}/lock`, { method: "POST", body: JSON.stringify({ locked }) });
 export const declineProposal = (id, reason) =>
   request(`/planned/${id}/decline`, { method: "POST", body: JSON.stringify({ reason }) });
+export const fillPlanFromSchema = (from, to) =>
+  request("/planned/from-schema", { method: "POST", body: JSON.stringify({ from, to }) });
 export const createPlannedSession = (entry) =>
   request("/planned", { method: "POST", body: JSON.stringify(entry) });
 export const updatePlannedSession = (id, status) =>

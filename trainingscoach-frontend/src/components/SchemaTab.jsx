@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2 } from "lucide-react";
-import { CARDIO_TYPES } from "../lib/constants";
+import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
 import { WEEKDAYS, uid, todayStr, computeHrZones, computePowerZones } from "../lib/calculations";
 import * as api from "../api/client";
 import StravaPanel from "./StravaPanel";
@@ -92,6 +92,16 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
     });
   }
 
+  function setDayTimeOfDay(dayId, timeOfDay) {
+    setSchema({
+      ...schema,
+      // Clicking the active option clears it — not every session has a fixed slot.
+      days: schema.days.map((d) =>
+        d.id === dayId ? { ...d, timeOfDay: d.timeOfDay === timeOfDay ? null : timeOfDay } : d
+      ),
+    });
+  }
+
   function updateDayName(dayId, name) {
     setSchema({ ...schema, days: schema.days.map((d) => (d.id === dayId ? { ...d, name } : d)) });
   }
@@ -143,7 +153,8 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
       <p className="tc-sub">
         Leg je vaste schema eenmalig vast. Dit is de basis bij het loggen van je krachttraining, en
         de coach plant je krachttrainingen exact op de weekdagen die je hier aanvinkt — hij verzint
-        er geen eigen rotatie omheen.
+        er geen eigen rotatie omheen. Geef je ook een tijdstip op, dan rekent hij met de werkelijke
+        hersteltijd: een avondtraining gevolgd door een ochtendrit is maar twaalf uur ertussen.
       </p>
 
       {schema.days.length === 0 && (
@@ -183,6 +194,20 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
                   {w.slice(0, 2)}
                 </button>
               ))}
+            </div>
+
+            <div className="tc-weekday-toggles">
+              {TIME_OF_DAY.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button key={t.id} type="button"
+                    className={"tc-weekday-toggle" + (day.timeOfDay === t.id ? " active" : "")}
+                    onClick={() => setDayTimeOfDay(day.id, t.id)}
+                    title={`${day.name} in de ${t.label.toLowerCase()}`}>
+                    <Icon size={11} /> {t.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="tc-ex-list">
@@ -253,6 +278,11 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
               </select>
               <select className="tc-input" value={c.type} onChange={(e) => updateCardioDay(c.id, { type: e.target.value })}>
                 {CARDIO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select className="tc-input" value={c.timeOfDay || ""}
+                onChange={(e) => updateCardioDay(c.id, { timeOfDay: e.target.value || null })}>
+                <option value="">tijdstip…</option>
+                {TIME_OF_DAY.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
               <input
                 className="tc-input"

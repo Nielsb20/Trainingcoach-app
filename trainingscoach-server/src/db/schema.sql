@@ -229,3 +229,11 @@ ALTER TABLE coach_history ADD COLUMN kracht_voorstel_json TEXT;
 -- rotation from the logs. Comma-separated because some people run the same
 -- workout twice a week (e.g. "Dinsdag,Vrijdag").
 ALTER TABLE schema_days ADD COLUMN weekdays TEXT;
+
+-- Time of day per scheduled training. The gap between an evening gym session
+-- and a morning ride is ~12 hours; the same pair the other way round is ~36.
+-- That difference matters for recovery, so it belongs in the schedule rather
+-- than only in the logs after the fact.
+ALTER TABLE schema_days ADD COLUMN time_of_day TEXT;
+ALTER TABLE schema_cardio_days ADD COLUMN time_of_day TEXT;
+ALTER TABLE planned_sessions ADD COLUMN time_of_day TEXT;

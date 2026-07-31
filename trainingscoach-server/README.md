@@ -415,3 +415,31 @@ gemiste training.
 **Bladeren.** Het Planning-tabblad toont twee weken tegelijk, met knoppen om
 vooruit en terug te gaan. Handig, want de coach plant regelmatig drie weken
 vooruit en dat paste niet in een vast venster.
+
+
+## Je week vullen zonder de coach
+
+Heb je vaste dagen in je schema staan, dan hoeft daar geen AI aan te pas te
+komen. In het tabblad **Planning** staat de knop **"Vul aan vanuit mijn schema"**,
+die de zichtbare periode vult met je vaste krachtdagen en cardiomomenten.
+
+Twee eigenschappen die dit veilig maken:
+
+- **Het vult alleen lege plekken.** Bestaande sessies — geaccepteerde
+  coachvoorstellen, zelf ingeplande trainingen, vastgezette afspraken — worden
+  nooit overschreven.
+- **Twee keer klikken is onschadelijk.** De tweede keer voegt niets toe.
+
+De coach bouwt daar vervolgens op voort in plaats van naast: hij vult aan wat
+ontbreekt en stelt alleen wijzigingen voor als daar een reden voor is.
+
+## Tijdstip van trainen
+
+Per trainingsdag (kracht) en per cardiomoment kun je een tijdstip opgeven:
+ochtend, middag of avond. Dat is geen cosmetisch detail — de coach rekent
+daarmee de werkelijke hersteltijd uit in plaats van in hele dagen te denken.
+
+Een avondtraining gevolgd door een ochtendsessie geeft ongeveer twaalf uur
+herstel; dezelfde twee sessies andersom ruim zesendertig. De coach plant dus geen
+zware ochtendrit na een zware avondtraining, ook al staan ze op verschillende
+dagen. Vul je geen tijdstip in, dan rekent hij met hele dagen.

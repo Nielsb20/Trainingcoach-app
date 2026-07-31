@@ -149,9 +149,10 @@ router.post("/ask", async (req, res) => {
     schema: schema.days.map((d) => ({
       dag: d.name,
       vasteWeekdagen: d.weekdays && d.weekdays.length ? d.weekdays : null,
+      moment: d.timeOfDay ? timeOfDayLabel(d.timeOfDay) : null,
       oefeningen: d.exercises.map((e) => `${e.name} (${e.targetSets}x${e.targetReps})`),
     })),
-    vasteCardiomomenten: schema.cardioDays.map((c) => ({ dag: c.weekday, type: c.type, notities: c.notes })),
+    vasteCardiomomenten: schema.cardioDays.map((c) => ({ dag: c.weekday, type: c.type, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, notities: c.notes })),
     langetermijnSamenvattingKracht: strengthHistorySummary,
     langetermijnSamenvattingCardio: cardioHistorySummary,
     recenteKrachttrainingen: workoutLogs.slice(0, 8).map((l) => ({
