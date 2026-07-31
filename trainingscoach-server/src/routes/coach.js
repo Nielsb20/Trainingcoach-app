@@ -21,9 +21,15 @@ function timeOfDayLabel(id) {
   return map[id] || null;
 }
 
-// POST /api/coach/ask  { question?: string }
-router.post("/ask", async (req, res) => {
-  const question = req.body.question || null;
+/**
+ * Runs a full coach consultation and stores the answer. Extracted from the
+ * route so the scheduler can call it directly for automatic runs — going back
+ * out through HTTP just to reach our own endpoint would be silly.
+ *
+ * triggerType records why the answer exists ('handmatig', 'wekelijks',
+ * 'signaal') so the athlete can see whether they asked for it or the app did.
+ */
+async function runCoachConsultation({ question = null, triggerType = "handmatig", triggerReason = null }) {
 
   const schema = getFullSchema();
   const workoutLogs = db
@@ -217,7 +223,7 @@ router.post("/ask", async (req, res) => {
       : { id: entryId, date: new Date().toISOString(), question, rawFeedback: rawText };
 
     db.prepare(
-      "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback, kracht_voorstel_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback, kracht_voorstel_json, trigger_type, trigger_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).run(
       entry.id,
       entry.date,
@@ -227,18 +233,30 @@ router.post("/ask", async (req, res) => {
       entry.waarschuwing || null,
       entry.cardioVoorstel ? JSON.stringify(entry.cardioVoorstel) : null,
       entry.rawFeedback || null,
-      entry.krachtVoorstel ? JSON.stringify(entry.krachtVoorstel) : null
+      entry.krachtVoorstel ? JSON.stringify(entry.krachtVoorstel) : null,
+      triggerType,
+      triggerReason
     );
 
-    res.json(entry);
+    return entry;
   } catch (err) {
-    res.status(502).json({ error: err.message });
+    throw err; // surfaced by the caller: the route turns it into a 502, the scheduler logs it
   }
-});
+}
 
 // GET /api/coach/provider - which model is configured (diagnostics)
 router.get("/provider", (req, res) => {
   res.json(describeProvider());
+});
+
+// POST /api/coach/ask  { question?: string }
+router.post("/ask", async (req, res) => {
+  try {
+    const entry = await runCoachConsultation({ question: req.body.question || null });
+    res.json(entry);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 // GET /api/coach/history
@@ -252,6 +270,8 @@ router.get("/history", (req, res) => {
       analyse: r.analyse,
       tips: r.tips_json ? JSON.parse(r.tips_json) : [],
       waarschuwing: r.waarschuwing,
+      triggerType: r.trigger_type || "handmatig",
+      triggerReason: r.trigger_reason,
       cardioVoorstel: r.cardio_voorstel_json ? JSON.parse(r.cardio_voorstel_json) : [],
       krachtVoorstel: r.kracht_voorstel_json ? JSON.parse(r.kracht_voorstel_json) : [],
       rawFeedback: r.raw_feedback,
@@ -266,3 +286,4 @@ router.delete("/history/:id", (req, res) => {
 });
 
 module.exports = router;
+module.exports.runCoachConsultation = runCoachConsultation;

@@ -173,9 +173,12 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
     !!entry.analyse ||
     (entry.tips && entry.tips.length > 0) ||
     !!entry.waarschuwing ||
-    (entry.cardioVoorstel && entry.cardioVoorstel.length > 0);
+    (entry.cardioVoorstel && entry.cardioVoorstel.length > 0) ||
+    (entry.krachtVoorstel && entry.krachtVoorstel.length > 0);
   // `feedback` is the field name used by artifact-era backups; `rawFeedback` by the server.
   const fallbackText = entry.rawFeedback || entry.feedback || null;
+  const hasCardioProposal = entry.cardioVoorstel && entry.cardioVoorstel.length > 0;
+  const hasStrengthProposal = entry.krachtVoorstel && entry.krachtVoorstel.length > 0;
 
   function handleDeleteClick(e) {
     e.preventDefault();
@@ -197,6 +200,11 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
     <details className="tc-feedback-card" open={defaultOpen}>
       <summary>
         <span className="tc-feedback-date">{new Date(entry.date).toLocaleString("nl-NL")}</span>
+        {entry.triggerType && entry.triggerType !== "handmatig" && (
+          <span className={"tc-hint-badge " + (entry.triggerType === "signaal" ? "tc-badge-warning" : "tc-badge-cardio")}>
+            {entry.triggerType === "signaal" ? "automatisch — signaal" : "automatisch — wekelijks"}
+          </span>
+        )}
         {entry.question && <span className="tc-feedback-q">"{entry.question}"</span>}
         <span className="tc-feedback-spacer" />
         {!confirming && (
@@ -213,6 +221,9 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
         )}
       </summary>
 
+      {entry.triggerReason && entry.triggerType !== "handmatig" && (
+        <p className="tc-history-detail" style={{ marginTop: 8 }}>Aanleiding: {entry.triggerReason}</p>
+      )}
       {!hasStructuredContent && fallbackText && <p className="tc-feedback-text">{fallbackText}</p>}
       {!hasStructuredContent && !fallbackText && (
         <p className="tc-feedback-text tc-gpxbatch-error">
@@ -235,15 +246,33 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
             <div className="tc-warning-box">{entry.waarschuwing}</div>
           )}
 
-          {entry.cardioVoorstel && entry.cardioVoorstel.length > 0 && (
+          {/* One button for both disciplines: they're created together, so two
+              buttons would only invite half the plan being taken over. */}
+          {(hasCardioProposal || hasStrengthProposal) && <PlanButton entryId={entry.id} />}
+
+          {hasCardioProposal && (
             <>
               <h3 className="tc-feedback-subtitle">Cardiovoorstel</h3>
-              <PlanButton entryId={entry.id} />
               <div className="tc-proposal-list">
                 {entry.cardioVoorstel.map((p, i) => (
                   <div className="tc-proposal-row" key={i}>
                     <span className="tc-hint-badge tc-badge-cardio">{p.dag}</span>
                     <span className="tc-proposal-type">{p.type}</span>
+                    <span className="tc-proposal-invulling">{p.invulling}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {hasStrengthProposal && (
+            <>
+              <h3 className="tc-feedback-subtitle tc-subtitle-strength">Krachtvoorstel</h3>
+              <div className="tc-proposal-list">
+                {entry.krachtVoorstel.map((p, i) => (
+                  <div className="tc-proposal-row" key={i}>
+                    <span className="tc-hint-badge tc-badge-strength">{p.dag}</span>
+                    <span className="tc-proposal-type">{p.schemaDag}</span>
                     <span className="tc-proposal-invulling">{p.invulling}</span>
                   </div>
                 ))}
@@ -270,7 +299,12 @@ function PlanButton({ entryId }) {
     setState("busy");
     try {
       const result = await createPlanFromCoach(entryId);
-      const parts = [`${result.created.length} trainingen in de planning gezet`];
+      const kinds = [];
+      if (result.cardio > 0) kinds.push(`${result.cardio} cardio`);
+      if (result.kracht > 0) kinds.push(`${result.kracht} kracht`);
+      const parts = [
+        `${result.created.length} trainingen in de planning gezet${kinds.length ? ` (${kinds.join(", ")})` : ""}`,
+      ];
       if (result.wijzigingen > 0) parts.push(`${result.wijzigingen} daarvan wijzigen iets bestaands`);
       if (result.skipped?.length) parts.push(`${result.skipped.length} overgeslagen`);
       // A weekday that doesn't match its date means the advice was internally

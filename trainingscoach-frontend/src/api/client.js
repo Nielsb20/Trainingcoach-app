@@ -75,6 +75,12 @@ export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method
 export const exportAll = () => request("/export");
 export const importAll = (data) => request("/import", { method: "POST", body: JSON.stringify(data) });
 
+/* ------------------------------- automation ----------------------------- */
+
+export const getAutomation = () => request("/automation");
+export const saveAutomation = (settings) => request("/automation", { method: "PUT", body: JSON.stringify(settings) });
+export const runAutomation = (type) => request("/automation/run", { method: "POST", body: JSON.stringify({ type }) });
+
 /* -------------------------------- wellness ------------------------------ */
 
 export const getWellnessLogs = (days = 120) => request(`/wellness?days=${days}`);

@@ -4,6 +4,7 @@ import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
 import { WEEKDAYS, uid, todayStr, computeHrZones, computePowerZones } from "../lib/calculations";
 import * as api from "../api/client";
 import StravaPanel from "./StravaPanel";
+import AutomationPanel from "./AutomationPanel";
 
 export default function SchemaTab({ schema, setSchema, onRestored }) {
   const [pendingImport, setPendingImport] = useState(null);
@@ -370,6 +371,9 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
           </table>
         )}
       </div>
+
+      <h2 className="tc-section-title" style={{ marginTop: 32 }}>Coach</h2>
+      <AutomationPanel />
 
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Strava</h2>
       <StravaPanel onImported={onRestored} />

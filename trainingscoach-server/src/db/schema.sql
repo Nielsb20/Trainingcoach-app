@@ -237,3 +237,24 @@ ALTER TABLE schema_days ADD COLUMN weekdays TEXT;
 ALTER TABLE schema_days ADD COLUMN time_of_day TEXT;
 ALTER TABLE schema_cardio_days ADD COLUMN time_of_day TEXT;
 ALTER TABLE planned_sessions ADD COLUMN time_of_day TEXT;
+
+-- Automatic coach consultation. Off by default: the athlete opts in, and even
+-- then nothing is auto-accepted — runs produce proposals, which still need
+-- reviewing in the planner.
+CREATE TABLE IF NOT EXISTS coach_automation (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  weekly_enabled INTEGER NOT NULL DEFAULT 0,
+  weekly_weekday TEXT NOT NULL DEFAULT 'Zondag',
+  weekly_hour INTEGER NOT NULL DEFAULT 19,
+  signals_enabled INTEGER NOT NULL DEFAULT 0,
+  cooldown_days INTEGER NOT NULL DEFAULT 3,
+  last_weekly_run TEXT,
+  last_signal_run TEXT,
+  last_signal_reason TEXT,
+  last_error TEXT
+);
+INSERT OR IGNORE INTO coach_automation (id) VALUES (1);
+
+-- Why a coach answer exists: asked manually, the weekly slot, or a signal.
+ALTER TABLE coach_history ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'handmatig';
+ALTER TABLE coach_history ADD COLUMN trigger_reason TEXT;

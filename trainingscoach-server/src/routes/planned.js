@@ -214,11 +214,16 @@ router.get("/", (req, res) => {
  *               compare rather than silently losing what you had
  *   (locked sessions are skipped entirely and never proposed over)
  */
-router.post("/from-coach", (req, res) => {
-  const { coachEntryId } = req.body;
+/**
+ * Turns a coach answer into proposals. Extracted from the route so automatic
+ * runs can use exactly the same path as a manual "Zet in planning" click —
+ * same conflict handling, same respect for locked sessions, no second code
+ * path that could drift out of step.
+ */
+function createProposalsFromCoachEntry(coachEntryId) {
   const entry = db.prepare("SELECT * FROM coach_history WHERE id = ?").get(coachEntryId);
-  if (!entry) return res.status(404).json({ error: "Coachantwoord niet gevonden." });
-  if (!entry.cardio_voorstel_json) return res.status(400).json({ error: "Dit antwoord bevat geen cardiovoorstel." });
+  if (!entry) throw new Error("Coachantwoord niet gevonden.");
+  if (!entry.cardio_voorstel_json) return { created: [], skipped: [], waarschuwingen: [], nieuw: 0, wijzigingen: 0, cardio: 0, kracht: 0 };
 
   const cardioProposals = JSON.parse(entry.cardio_voorstel_json);
   const strengthProposals = entry.kracht_voorstel_json ? JSON.parse(entry.kracht_voorstel_json) : [];
@@ -297,7 +302,7 @@ router.post("/from-coach", (req, res) => {
     });
   });
 
-  res.status(201).json({
+  return {
     created,
     skipped,
     waarschuwingen,
@@ -305,7 +310,15 @@ router.post("/from-coach", (req, res) => {
     wijzigingen: created.filter((c) => c.soort === "wijziging").length,
     cardio: created.filter((c) => c.discipline === "cardio").length,
     kracht: created.filter((c) => c.discipline === "kracht").length,
-  });
+  };
+}
+
+router.post("/from-coach", (req, res) => {
+  try {
+    res.status(201).json(createProposalsFromCoachEntry(req.body.coachEntryId));
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
 });
 
 /** POST /api/planned/:id/lock  { locked } - protect a session from coach changes. */
@@ -522,4 +535,4 @@ function getUpcomingPlan(days = 14) {
     .map(serialize);
 }
 
-module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines };
+module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, createProposalsFromCoachEntry };

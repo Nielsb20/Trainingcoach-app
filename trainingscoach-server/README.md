@@ -467,3 +467,47 @@ mee doet — de invulling is juist zijn werk:
 Zo'n voorstel komt binnen als **wijziging** op de sessie die er al staat, met de
 oude en nieuwe invulling naast elkaar. Je planning verandert pas als je
 accepteert.
+
+
+## Automatische planning
+
+De coach kan uit zichzelf naar je gegevens kijken, in plaats van dat je er elke
+keer om moet vragen. Aan te zetten bij **Schema → Coach**; standaard staat alles
+uit.
+
+**Wat er automatisch kan draaien:**
+
+| | Wanneer | Waarvoor |
+|---|---|---|
+| **Wekelijkse planning** | Vaste dag en tijd, bijv. zondagavond | Je komende week inplannen — voorspelbaar ritme |
+| **Bij een signaal** | Alleen als er iets afwijkt | Tussentijds bijsturen wanneer dat nodig is |
+
+**De signalen** (allemaal gemeten tegen je eigen basislijn, niet tegen absolute
+waarden):
+
+- TSB onder -25 — flink opgebouwde vermoeidheid
+- TSB tien dagen boven +20 — ruimte om op te bouwen
+- Rusthartslag twee dagen op rij minstens 5 slagen boven je basislijn
+- HRV twee dagen op rij onder 90% van je basislijn
+- Twee of meer gemiste sessies in een week
+- Een evenement binnen veertien dagen
+
+Een wachttijd (standaard 3 dagen) voorkomt dat hetzelfde signaal dagelijks
+terugkomt. Verschijnt er een *ander* signaal, dan mag dat wel meteen — er is dan
+iets nieuws te melden.
+
+**Waar het landt:**
+
+- **Voorstellen** komen in het tabblad **Planning**, met een teller in het
+  zijmenu zodat je ziet dat er iets klaarstaat
+- **De onderbouwing** staat in het tabblad **Coach**, gemarkeerd als automatisch,
+  met de aanleiding erbij ("TSB is -29")
+
+**Wat er niet gebeurt:** niets wordt automatisch geaccepteerd. Vastgezette
+sessies blijven ongemoeid, geaccepteerde plannen worden niet overschreven, en
+eerdere afwijzingen blijven meetellen. Precies dezelfde regels als wanneer je
+zelf een vraag stelt.
+
+Bij **Schema → Coach** zie je ook welke signalen er op dít moment zijn, zodat je
+kunt beoordelen of de drempels bij je passen voordat je iets aanzet. En met "Nu
+weekplanning maken" test je de opzet zonder tot zondag te wachten.

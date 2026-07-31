@@ -23,6 +23,8 @@ const importExportRoutes = require("./routes/importExport");
 const analysisRoutes = require("./routes/analysis");
 const { router: plannedRoutes } = require("./routes/planned");
 const { router: wellnessRoutes } = require("./routes/wellness");
+const automationRoutes = require("./routes/automation");
+const scheduler = require("./lib/scheduler");
 const { router: stravaRoutes } = require("./routes/strava");
 
 app.use("/api/schema", schemaRoutes);
@@ -34,6 +36,7 @@ app.use("/api/coach", coachRoutes);
 app.use("/api/analysis", analysisRoutes);
 app.use("/api/planned", plannedRoutes);
 app.use("/api/wellness", wellnessRoutes);
+app.use("/api/automation", automationRoutes);
 app.use("/api", importExportRoutes); // /api/export, /api/import
 app.use("/api/strava", stravaRoutes); // OAuth, webhook, sync
 
@@ -52,6 +55,7 @@ app.get("*", (req, res, next) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
+  scheduler.start();
   console.log(`Trainingscoach-server draait op http://localhost:${PORT}`);
   console.log(`  API health check: http://localhost:${PORT}/api/health`);
 });

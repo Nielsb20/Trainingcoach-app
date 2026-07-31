@@ -30,6 +30,7 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [coachHistory, setCoachHistory] = useState([]);
 
+  const [pendingProposals, setPendingProposals] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
 
@@ -51,6 +52,15 @@ export default function App() {
     setWeightLogs(data.weightLogs);
     setEvents(data.events);
     setCoachHistory(data.coachHistory);
+
+    // Automatic runs can add proposals while the app is closed, so surface the
+    // count on the nav rather than leaving them to be discovered by chance.
+    try {
+      const planned = await api.getPlannedSessions(4);
+      setPendingProposals(planned.plans.filter((p) => p.status === "voorgesteld").length);
+    } catch {
+      setPendingProposals(0); // a failure here shouldn't block the whole load
+    }
   }
 
   useEffect(() => {
@@ -199,6 +209,9 @@ export default function App() {
               >
                 <Icon size={17} />
                 <span>{n.label}</span>
+                {n.id === "planning" && pendingProposals > 0 && (
+                  <span className="tc-nav-badge">{pendingProposals}</span>
+                )}
               </button>
             );
           })}
