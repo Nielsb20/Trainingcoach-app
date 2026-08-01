@@ -289,11 +289,22 @@ npm run garmin -- --days 30 --dry-run  # eerst kijken wat er komt
 De eerste keer vraagt hij om je inloggegevens (en MFA-code indien ingesteld).
 Daarna worden alleen tokens bewaard in `~/.garminconnect`, niet je wachtwoord.
 
+**Eerst een keer handmatig inloggen.** De automatische taak werkt op de tokens
+die bij die eerste login worden opgeslagen; zonder die tokens zou het script om
+je wachtwoord moeten vragen, en een cron-taak heeft geen terminal. Draait het
+script zonder tokens vanuit cron, dan stopt het met een uitleg in plaats van dat
+het blijft hangen.
+
 Automatisch elke ochtend, via `crontab -e`:
 
 ```
-0 7 * * * cd ~/Trainingcoach-app/trainingscoach-server && npm run garmin -- --days 3 >> ~/garmin-fetch.log 2>&1
+0 9 * * * cd ~/Trainingcoach-app/trainingscoach-server && npm run garmin -- --days 3 >> ~/garmin-fetch.log 2>&1
 ```
+
+Negen uur is bewuster gekozen dan zeven: je horloge synchroniseert de nacht
+meestal pas als je 's ochtends je telefoon oppakt, dus vroeger draaien levert
+vaak nog niets op. `--days 3` haalt de laatste drie dagen op, zodat een gemiste
+run zichzelf inhaalt.
 
 Wat het ophaalt: rusthartslag, HRV, slaapduur en -score, Body Battery, stress,
 en gewicht + vetpercentage van een Index-weegschaal.

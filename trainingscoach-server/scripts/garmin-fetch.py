@@ -102,10 +102,22 @@ def login():
     try:
         client = Garmin()
         client.login(TOKEN_DIR)
-        print("Ingelogd met opgeslagen tokens.")
+        print("Ingelogd met opgeslagen tokens (geen nieuwe login nodig).")
         return client
-    except Exception:
-        pass  # no valid cached session — fall through to a fresh login
+    except Exception as err:
+        # Worth reporting: a fresh login is the step that can hit Garmin's rate
+        # limiting, so knowing it's about to happen explains a later failure.
+        print(f"Geen bruikbare opgeslagen sessie ({type(err).__name__}); nieuwe login nodig.")
+
+    # A cron job has no terminal, so prompting would raise EOFError and the run
+    # would fail every single night. Say plainly what's wrong instead.
+    if not sys.stdin.isatty():
+        fail(
+            "geen opgeslagen Garmin-sessie gevonden en er is geen terminal om naar in te loggen.",
+            "Log eerst een keer handmatig in; daarna werkt de automatische taak op de bewaarde tokens:\n"
+            "        cd ~/Trainingcoach-app/trainingscoach-server\n"
+            "        npm run garmin -- --days 3",
+        )
 
     email = os.environ.get("GARMIN_EMAIL") or input("Garmin e-mailadres: ")
     password = os.environ.get("GARMIN_PASSWORD")

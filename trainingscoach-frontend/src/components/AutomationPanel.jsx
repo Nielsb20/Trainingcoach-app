@@ -72,6 +72,35 @@ export default function AutomationPanel() {
     );
   }
 
+  // A failed load used to leave `settings` null and crash the render, which
+  // took the whole Schema tab down with it — a broken settings panel should
+  // never hide the rest of the page.
+  if (!settings) {
+    return (
+      <div className="tc-card">
+        <div className="tc-card-head">
+          <span className="tc-ex-name">Automatische planning</span>
+        </div>
+        <div className="tc-error">
+          <span>Kon de instellingen niet ophalen: {error || "onbekende fout"}</span>
+        </div>
+        <p className="tc-import-help">
+          Dit gebeurt meestal als de server nog niet is herstart na een update — de benodigde tabel
+          wordt pas bij het opstarten aangemaakt. Draai op de Pi:
+          <br />
+          <code>pm2 restart trainingscoach</code>
+          <br />
+          en ververs daarna deze pagina.
+        </p>
+        <div className="tc-actionbar">
+          <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => { setLoading(true); load(); }}>
+            Opnieuw proberen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="tc-card">
       <div className="tc-card-head">
