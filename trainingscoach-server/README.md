@@ -309,6 +309,21 @@ run zichzelf inhaalt.
 Wat het ophaalt: rusthartslag, HRV, slaapduur en -score, Body Battery, stress,
 en gewicht + vetpercentage van een Index-weegschaal.
 
+### Bekende valkuilen
+
+**"Display name is not set"** — je Garmin-profiel mist een weergavenaam,
+waardoor rusthartslag, Body Battery en stress niet opgehaald kunnen worden.
+Slaap, HRV en gewicht komen wel binnen. Oplossen op
+https://connect.garmin.com onder je profielinstellingen; daarna is de volgende
+run compleet.
+
+**"De sessie kon niet worden opgeslagen"** — de automatische taak kan dan niet
+inloggen (cron heeft geen terminal), dus die faalt elke ochtend. Het script
+toont welke manieren het geprobeerd heeft. Meestal helpt:
+`./scripts/garmin-venv/bin/pip install --upgrade garminconnect garth`, gevolgd
+door een handmatige run. Controleer daarna dat `~/.garminconnect` bestaat en
+bestanden bevat.
+
 ### Als het niet werkt
 
 **"429 — IP rate limited by Garmin"**

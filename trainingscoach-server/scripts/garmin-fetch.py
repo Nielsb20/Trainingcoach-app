@@ -69,26 +69,48 @@ except ImportError:
 def save_tokens(client):
     """
     Persists the session so the next run doesn't hit Garmin's login at all —
-    which matters, because repeated logins are exactly what triggers their rate
-    limiting. The library has moved this method around between versions, so try
-    the known shapes rather than assuming one.
+    which matters twice over: repeated logins are what triggers Garmin's rate
+    limiting, and a cron job has no terminal to log in from.
+
+    The library has moved this method around between versions and renamed the
+    underlying garth attribute, so try every known shape. Reports which one
+    worked, because a silent fallback here is exactly what let an earlier
+    failure go unnoticed.
     """
-    for attempt in (
-        lambda: client.garth.dump(TOKEN_DIR),
-        lambda: client.dump(TOKEN_DIR),
-        lambda: client.garth_client.dump(TOKEN_DIR),
-    ):
+    candidates = [
+        ("client.garth.dump", lambda: client.garth.dump(TOKEN_DIR)),
+        ("client.dump", lambda: client.dump(TOKEN_DIR)),
+        ("client.garth_client.dump", lambda: client.garth_client.dump(TOKEN_DIR)),
+        ("client.garth.client.dump", lambda: client.garth.client.dump(TOKEN_DIR)),
+        ("garth.save", lambda: __import__("garth").save(TOKEN_DIR)),
+    ]
+
+    problems = []
+    for name, attempt in candidates:
         try:
             attempt()
-            print(f"Tokens opgeslagen in {TOKEN_DIR} (je wachtwoord wordt niet bewaard).")
-            return True
-        except AttributeError:
+        except (AttributeError, ImportError) as err:
+            problems.append(f"{name}: {type(err).__name__}")
             continue
         except Exception as err:
-            print(f"  (waarschuwing: tokens konden niet worden opgeslagen: {err})")
-            return False
-    print("  (waarschuwing: kon geen manier vinden om tokens op te slaan — "
-          "je moet volgende keer opnieuw inloggen)")
+            problems.append(f"{name}: {err}")
+            continue
+
+        # Don't trust the call — verify something actually landed on disk.
+        if os.path.isdir(TOKEN_DIR) and os.listdir(TOKEN_DIR):
+            print(f"Tokens opgeslagen in {TOKEN_DIR} via {name} (je wachtwoord wordt niet bewaard).")
+            return True
+        problems.append(f"{name}: geen bestanden aangemaakt")
+
+    print()
+    print("WAARSCHUWING: de sessie kon niet worden opgeslagen.")
+    print("  Gevolg: de automatische taak kan straks niet inloggen en elke run vraagt")
+    print("  opnieuw om je wachtwoord — wat ook het risico op blokkades vergroot.")
+    print("  Geprobeerd:")
+    for p in problems:
+        print(f"    - {p}")
+    print("  Mogelijk helpt: ./scripts/garmin-venv/bin/pip install --upgrade garminconnect garth")
+    print()
     return False
 
 
@@ -159,13 +181,38 @@ def login():
         )
 
 
+# Some failures are the same account-level problem repeated for every single
+# day. Reporting them once, at the end, keeps the output readable.
+_reported_problems = set()
+
+
 def safe(fn, label):
     """Garmin's endpoints fail independently; one missing metric shouldn't abort the run."""
     try:
         return fn()
     except Exception as err:
-        print(f"  (kon {label} niet ophalen: {err})")
+        message = str(err)
+        if "display name" in message.lower():
+            _reported_problems.add(
+                "display_name:Je Garmin-profiel heeft geen weergavenaam. Daardoor blijven "
+                "rusthartslag, Body Battery en stress leeg.\n"
+                "      Oplossen: ga naar https://connect.garmin.com, open je profielinstellingen "
+                "en vul een weergavenaam in."
+            )
+        else:
+            key = f"{label}:{message[:60]}"
+            if key not in _reported_problems:
+                _reported_problems.add(key)
+                print(f"  (kon {label} niet ophalen: {err})")
         return None
+
+
+def report_problems():
+    """Prints account-level problems once, after the per-day output."""
+    grouped = [p.split(":", 1)[1] for p in _reported_problems if p.startswith("display_name:")]
+    if grouped:
+        print()
+        print("LET OP: " + grouped[0])
 
 
 def collect(client, day):
@@ -263,6 +310,7 @@ def main():
 
     weights = collect_weight(client, start, end)
 
+    report_problems()
     print(f"\nGevonden: {len(entries)} dagen welzijnsdata, {len(weights)} gewichtsmetingen")
 
     if args.dry_run:
