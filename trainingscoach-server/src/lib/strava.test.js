@@ -2,6 +2,7 @@
 // Test the Strava -> session conversion with a realistic interval workout.
 const assert = require("node:assert");
 process.env.DATA_DIR = "/tmp/stravatest-strava";
+require("node:fs").rmSync("/tmp/stravatest-strava", { recursive: true, force: true });
 const strava = require("./strava");
 
 // --- sport type mapping ---

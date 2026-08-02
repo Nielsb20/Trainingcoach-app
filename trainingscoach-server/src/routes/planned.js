@@ -256,6 +256,37 @@ router.get("/", (req, res) => {
       daysUntil: calc.daysUntil(e.date),
     }));
 
+  // Link each event to the session that was actually ridden that day. An event
+  // you've completed shouldn't sit in the planner as an unconnected flag —
+  // and the ride's numbers are the most interesting thing about it afterwards.
+  const eventsWithLogs = events.map((e) => {
+    const log = db
+      .prepare(
+        `SELECT id, type, duration_min, distance_km, avg_hr, max_hr, avg_power,
+                weighted_avg_power, elevation_gain_m
+         FROM cardio_logs WHERE date = ?
+         ORDER BY COALESCE(distance_km, 0) DESC LIMIT 1`
+      )
+      .get(e.date);
+    return {
+      ...e,
+      voltooid: !!log,
+      sessie: log
+        ? {
+            id: log.id,
+            type: log.type,
+            durationMin: log.duration_min,
+            distanceKm: log.distance_km,
+            avgHr: log.avg_hr,
+            maxHr: log.max_hr,
+            avgPower: log.avg_power,
+            normalizedPower: log.weighted_avg_power,
+            elevationGainM: log.elevation_gain_m,
+          }
+        : null,
+    };
+  });
+
   // The next event regardless of the visible range: three weeks out it won't
   // appear in the fortnight on screen, which is precisely when it's easy to
   // forget it's coming.
@@ -276,7 +307,7 @@ router.get("/", (req, res) => {
   res.json({
     plans,
     krachttrainingen: strength,
-    evenementen: events,
+    evenementen: eventsWithLogs,
     volgendEvenement,
     samenvatting: {
       totaal: plans.length,

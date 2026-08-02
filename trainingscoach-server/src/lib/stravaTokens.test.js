@@ -1,6 +1,7 @@
 "use strict";
 const assert = require("node:assert");
 process.env.DATA_DIR = "/tmp/stravatest-stravaTokens";
+require("node:fs").rmSync("/tmp/stravatest-stravaTokens", { recursive: true, force: true });
 process.env.STRAVA_CLIENT_ID = "12345";
 process.env.STRAVA_CLIENT_SECRET = "secret";
 

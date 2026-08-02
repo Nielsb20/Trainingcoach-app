@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy } from "lucide-react";
 import * as api from "../api/client";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
@@ -12,7 +12,7 @@ import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations"
  * review them here, keep what fits, and conflicts with sessions you already
  * committed to are called out rather than resolved behind your back.
  */
-export default function PlannerTab() {
+export default function PlannerTab({ onOpenSession }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -208,14 +208,38 @@ export default function PlannerTab() {
                 {empty && <span className="tc-planner-empty">rustdag</span>}
 
                 {day.events.map((e) => (
-                  <div className="tc-planner-session tc-planner-event" key={e.id}>
-                    <Flag size={16} style={{ color: "var(--event)", flexShrink: 0 }} />
+                  <div className={"tc-planner-session tc-planner-event" + (e.voltooid ? " tc-event-done" : "")} key={e.id}>
+                    {e.voltooid
+                      ? <Trophy size={16} style={{ color: "var(--event)", flexShrink: 0 }} />
+                      : <Flag size={16} style={{ color: "var(--event)", flexShrink: 0 }} />}
                     <div className="tc-gpxbatch-info">
                       <span className="tc-planner-type">{e.name}</span>
-                      <span className="tc-event-notes">
-                        {e.type || "evenement"}
-                        {e.target ? ` · doel: ${e.target}` : ""}
-                      </span>
+                      {e.voltooid ? (
+                        <>
+                          {/* Once ridden, the numbers are the interesting part —
+                              not the fact that it was scheduled. */}
+                          <span className="tc-event-notes">
+                            volbracht
+                            {e.sessie.distanceKm ? ` · ${e.sessie.distanceKm} km` : ""}
+                            {e.sessie.durationMin ? ` · ${Math.floor(e.sessie.durationMin / 60)}u ${Math.round(e.sessie.durationMin % 60)}m` : ""}
+                            {e.sessie.elevationGainM ? ` · ↑${e.sessie.elevationGainM}m` : ""}
+                          </span>
+                          <span className="tc-history-detail">
+                            {e.sessie.avgHr ? `${e.sessie.avgHr}/${e.sessie.maxHr || "–"} bpm` : ""}
+                            {e.sessie.avgPower ? ` · ${e.sessie.avgPower} W${e.sessie.normalizedPower ? ` (NP ${e.sessie.normalizedPower})` : ""}` : ""}
+                          </span>
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm" style={{ marginTop: 6, alignSelf: "flex-start" }}
+                            onClick={() => onOpenSession && onOpenSession(e.sessie.id)}>
+                            Bekijk de rit
+                          </button>
+                        </>
+                      ) : (
+                        <span className="tc-event-notes">
+                          {e.type || "evenement"}
+                          {e.target ? ` · doel: ${e.target}` : ""}
+                          {e.daysUntil >= 0 ? ` · over ${e.daysUntil} dagen` : ""}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

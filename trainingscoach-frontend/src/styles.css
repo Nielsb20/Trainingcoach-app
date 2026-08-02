@@ -285,3 +285,9 @@ html, body, #root {
    so it's obvious which one is being moved. */
 .tc-move-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .tc-move-input { max-width: 170px; padding: 5px 8px; font-size: 12.5px; }
+
+/* A completed event reads as an achievement rather than something pending. */
+.tc-planner-event.tc-event-done { border-left-color: var(--cardio); }
+
+/* Briefly highlight the row you were sent to from the planner. */
+.tc-row-focus { background: var(--event-dim); }

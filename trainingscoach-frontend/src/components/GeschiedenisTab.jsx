@@ -6,7 +6,8 @@ import {
   computeTrainingLoadSeries, getWeightAtDate,
 } from "../lib/calculations";
 
-export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, deleteWorkoutLog, deleteCardioLog }) {
+export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, deleteWorkoutLog, deleteCardioLog,
+                          focusSessionId, onFocusHandled }) {
   const [sub, setSub] = useState("kracht");
   const [expandedProfileId, setExpandedProfileId] = useState(null);
   const [isolatedSeries, setIsolatedSeries] = useState(null);
@@ -132,7 +133,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                 <tbody>
                   {cardioLogs.map((c) => (
                     <Fragment key={c.id}>
-                      <tr>
+                      <tr id={`sessie-${c.id}`} className={focusSessionId === c.id ? "tc-row-focus" : ""}>
                         <td>{formatDateNL(c.date)}</td>
                         <td>{c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : "–"}</td>
                         <td>{c.type}</td>

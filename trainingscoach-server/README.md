@@ -582,6 +582,12 @@ eerstvolgende evenement — ook als dat buiten de zichtbare twee weken valt, wan
 juist dan vergeet je makkelijk dat het eraan komt. Binnen veertien dagen kleurt
 die melding om, als signaal dat het tijd is om af te bouwen.
 
+**Gereden evenementen worden gekoppeld aan de rit.** Staat er een cardiosessie
+op de dag van een evenement, dan toont de planner meteen het resultaat —
+afstand, tijd, hoogtemeters, hartslag en vermogen — met een knop om door te
+klikken naar het volledige verloop in Geschiedenis. Reed je die dag meerdere
+keren, dan telt de langste rit als het evenement.
+
 De coach kiest zijn planningshorizon nu op basis van je evenementen: staat er een
 evenement binnen drie weken, dan plant hij door tot en met die dag, zodat je de
 hele opbouw en afbouw in één keer ziet.
