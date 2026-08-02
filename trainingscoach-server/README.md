@@ -317,12 +317,12 @@ Slaap, HRV en gewicht komen wel binnen. Oplossen op
 https://connect.garmin.com onder je profielinstellingen; daarna is de volgende
 run compleet.
 
-**"De sessie kon niet worden opgeslagen"** — de automatische taak kan dan niet
-inloggen (cron heeft geen terminal), dus die faalt elke ochtend. Het script
-toont welke manieren het geprobeerd heeft. Meestal helpt:
-`./scripts/garmin-venv/bin/pip install --upgrade garminconnect garth`, gevolgd
-door een handmatige run. Controleer daarna dat `~/.garminconnect` bestaat en
-bestanden bevat.
+**"De sessie kon niet bruikbaar worden opgeslagen"** — de automatische taak kan dan niet
+inloggen (cron heeft geen terminal), dus die faalt elke ochtend. Het script toont welke manieren het geprobeerd heeft. Sinds garth in maart 2026
+is stopgezet schrijft de ingebouwde opslag lege bestanden weg; het script valt
+daarom terug op het zelf uitlezen en wegschrijven van de tokens. Controleer na
+een run dat `~/.garminconnect` bestanden bevat die **niet** 0 bytes groot zijn —
+lege bestanden zien er goed uit maar werken niet.
 
 ### Als het niet werkt
 

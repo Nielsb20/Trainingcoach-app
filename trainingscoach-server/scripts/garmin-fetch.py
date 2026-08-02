@@ -71,9 +71,9 @@ def _tokens_look_valid():
     """
     Checks the token files actually contain something.
 
-    Existence alone isn't enough: an earlier version accepted zero-byte files as
-    success, which meant the next run failed with an authentication error while
-    the save step had reported "ok".
+    Existence alone isn't enough: garth's own dump() runs without error but
+    writes empty files in the version we're stuck with, which meant the save
+    step reported success while the next run failed to authenticate.
     """
     if not os.path.isdir(TOKEN_DIR):
         return False
@@ -83,14 +83,68 @@ def _tokens_look_valid():
     return any(os.path.getsize(os.path.join(TOKEN_DIR, f)) > 10 for f in files)
 
 
+def _serialise(obj):
+    """Turns a token object into something json.dump can handle."""
+    for attr in ("model_dump", "dict", "_asdict"):
+        method = getattr(obj, attr, None)
+        if callable(method):
+            try:
+                return method()
+            except Exception:
+                pass
+    if hasattr(obj, "__dict__") and obj.__dict__:
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    if isinstance(obj, dict):
+        return obj
+    return None
+
+
+def _write_tokens_manually(client):
+    """
+    Last resort: read the tokens off the client and write them ourselves.
+
+    garth was deprecated in March 2026 and its dump() silently produces empty
+    files, so relying on the library to persist its own session no longer
+    works. The tokens are still in memory after a successful login — this digs
+    them out and writes the two files garth expects to read back.
+    """
+    holders = [client]
+    for attr in ("garth", "garth_client"):
+        nested = getattr(client, attr, None)
+        if nested is not None:
+            holders.append(nested)
+            inner = getattr(nested, "client", None)
+            if inner is not None:
+                holders.append(inner)
+
+    written = 0
+    for holder in holders:
+        for name, filename in (("oauth1_token", "oauth1_token.json"),
+                               ("oauth2_token", "oauth2_token.json")):
+            token = getattr(holder, name, None)
+            if token is None:
+                continue
+            data = _serialise(token)
+            if not data:
+                continue
+            try:
+                os.makedirs(TOKEN_DIR, exist_ok=True)
+                with open(os.path.join(TOKEN_DIR, filename), "w") as f:
+                    json.dump(data, f, default=str)
+                written += 1
+            except Exception:
+                continue
+        if written:
+            break
+
+    return written > 0
+
+
 def save_tokens(client):
     """
     Persists the session so the next run doesn't hit Garmin's login at all —
     which matters twice over: repeated logins trigger Garmin's rate limiting,
     and a cron job has no terminal to log in from.
-
-    The library has moved this method around between versions, so try every
-    known shape and verify the result rather than trusting the return value.
     """
     candidates = [
         ("client.garth.dump", lambda: client.garth.dump(TOKEN_DIR)),
@@ -99,6 +153,7 @@ def save_tokens(client):
         ("client.garth.client.dump", lambda: client.garth.client.dump(TOKEN_DIR)),
         ("garth.save", lambda: __import__("garth").save(TOKEN_DIR)),
         ("client.garth.save", lambda: client.garth.save(TOKEN_DIR)),
+        ("handmatig wegschrijven", lambda: _write_tokens_manually(client)),
     ]
 
     problems = []
@@ -135,10 +190,8 @@ def save_tokens(client):
     for p in problems:
         print(f"    - {p}")
     print()
-    print("  Meest kansrijke oplossing:")
-    print("    ./scripts/garmin-venv/bin/pip install --upgrade garminconnect garth")
-    print("  Blijft het misgaan, dan kun je de automatische taak overslaan en het")
-    print("  script handmatig draaien wanneer je wilt bijwerken.")
+    print("  De garth-bibliotheek is sinds maart 2026 niet meer onderhouden; dit is")
+    print("  daar een gevolg van. Je kunt het script gewoon handmatig blijven draaien.")
     print()
     return False
 
