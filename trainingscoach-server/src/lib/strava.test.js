@@ -1,7 +1,7 @@
 "use strict";
 // Test the Strava -> session conversion with a realistic interval workout.
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/stravatest";
+process.env.DATA_DIR = "/tmp/stravatest-strava";
 const strava = require("./strava");
 
 // --- sport type mapping ---

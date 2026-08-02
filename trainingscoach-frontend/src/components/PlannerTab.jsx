@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock } from "lucide-react";
 import * as api from "../api/client";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
@@ -19,6 +19,7 @@ export default function PlannerTab() {
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [fillMessage, setFillMessage] = useState("");
+  const [movingId, setMovingId] = useState(null);
   // Offset in 2-week blocks from today. The coach happily plans three weeks
   // out, so a fixed window would hide part of its own advice.
   const [blockOffset, setBlockOffset] = useState(0);
@@ -67,6 +68,7 @@ export default function PlannerTab() {
 
   const plans = data?.plans || [];
   const strengthSessions = data?.krachttrainingen || [];
+  const events = data?.evenementen || [];
   const proposals = plans.filter((p) => p.status === "voorgesteld");
   const committed = plans.filter((p) => p.status !== "voorgesteld" && p.status !== "afgewezen");
 
@@ -85,10 +87,11 @@ export default function PlannerTab() {
         committed: committed.filter((p) => p.date === iso),
         proposed: proposals.filter((p) => p.date === iso),
         strength: strengthSessions.filter((s) => s.date === iso),
+        events: events.filter((e) => e.date === iso),
       });
     }
     return out;
-  }, [committed, proposals, strengthSessions, rangeStart]);
+  }, [committed, proposals, strengthSessions, events, rangeStart]);
 
   if (loading) {
     return (
@@ -98,6 +101,9 @@ export default function PlannerTab() {
     );
   }
 
+  // Show the next event even when it falls outside the visible fortnight —
+  // that's exactly when it's easy to forget it's coming.
+  const upcomingEvent = data?.volgendEvenement || null;
   const changes = proposals.filter((p) => p.replacesId);
   const additions = proposals.filter((p) => !p.replacesId);
 
@@ -111,6 +117,15 @@ export default function PlannerTab() {
       </p>
 
       {error && <div className="tc-error"><span>{error}</span></div>}
+
+      {upcomingEvent && (
+        <div className="tc-chiprow" style={{ marginBottom: 10 }}>
+          <span className={"tc-hint-badge " + (upcomingEvent.daysUntil <= 14 ? "tc-badge-warning" : "tc-badge-event")}>
+            <Flag size={12} style={{ verticalAlign: "middle" }} /> {upcomingEvent.name} over {upcomingEvent.daysUntil} dagen
+            {upcomingEvent.daysUntil <= 14 ? " — tijd om af te bouwen" : ""}
+          </span>
+        </div>
+      )}
 
       <div className="tc-planner-nav">
         <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset - 1)}>
@@ -180,7 +195,7 @@ export default function PlannerTab() {
 
       <div className="tc-planner">
         {days.map((day) => {
-          const empty = day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0;
+          const empty = day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0 && day.events.length === 0;
           return (
             <div className={"tc-planner-day" + (day.isToday ? " tc-planner-today" : "")} key={day.date}>
               <div className="tc-planner-daylabel">
@@ -191,6 +206,19 @@ export default function PlannerTab() {
 
               <div className="tc-planner-sessions">
                 {empty && <span className="tc-planner-empty">rustdag</span>}
+
+                {day.events.map((e) => (
+                  <div className="tc-planner-session tc-planner-event" key={e.id}>
+                    <Flag size={16} style={{ color: "var(--event)", flexShrink: 0 }} />
+                    <div className="tc-gpxbatch-info">
+                      <span className="tc-planner-type">{e.name}</span>
+                      <span className="tc-event-notes">
+                        {e.type || "evenement"}
+                        {e.target ? ` · doel: ${e.target}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                ))}
 
                 {day.strength.map((s) => (
                   <div className="tc-planner-session tc-planner-strength" key={s.id}>
@@ -218,6 +246,23 @@ export default function PlannerTab() {
                         {p.timeOfDay && <span className="tc-planner-moment">{p.timeOfDay}</span>}
                       </span>
                       <span className="tc-event-notes">{p.description}</span>
+                      {movingId === p.id && (
+                        <div className="tc-move-row">
+                          <input className="tc-input tc-move-input" type="date" defaultValue={p.date}
+                            onChange={(e) => {
+                              const newDate = e.target.value;
+                              if (!newDate || newDate === p.date) return;
+                              setMovingId(null);
+                              act(async () => {
+                                const r = await api.movePlannedSession(p.id, newDate);
+                                if (r.waarschuwing) setFillMessage(r.waarschuwing);
+                              });
+                            }} />
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setMovingId(null)}>
+                            Annuleren
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="tc-planned-actions">
                       {p.status === "gepland" && (
@@ -231,6 +276,10 @@ export default function PlannerTab() {
                             title="Deze training gaat niet door"
                             onClick={() => act(() => api.updatePlannedSession(p.id, "overgeslagen"))}>
                             Overslaan
+                          </button>
+                          <button className="tc-icon-btn" disabled={busy} title="Verplaatsen naar een andere dag"
+                            onClick={() => setMovingId(movingId === p.id ? null : p.id)}>
+                            <CalendarClock size={13} />
                           </button>
                           <button className="tc-icon-btn" disabled={busy}
                             title={p.locked ? "Vaste afspraak — coach laat deze met rust" : "Vastzetten: coach mag deze niet wijzigen"}

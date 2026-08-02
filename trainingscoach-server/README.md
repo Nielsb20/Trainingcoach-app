@@ -399,6 +399,16 @@ niets bij te houden. Gaat een training niet door, dan kun je hem zelf op
 **Overslaan** zetten, ook als de dag nog loopt: 's ochtends al besluiten dat het
 niet doorgaat is normaal, en wachten tot middernacht helpt niemand.
 
+**Verplaatsen** kan met het kalender-icoon: kies een andere dag en de sessie
+verhuist mee, inclusief omschrijving en de koppeling met het coachantwoord
+waaruit hij komt. Verplaats je naar een dag waarop je al getraind hebt, dan
+wordt hij meteen afgevinkt.
+
+**Automatisch afvinken is soepel in het matchen.** De coach schrijft
+"Fietsen (Herstel)" terwijl Strava een kale "Fietsen" logt — dat telt gewoon als
+dezelfde sessie. En heb je gefietst terwijl er hardlopen gepland stond, dan is
+dat een gewisselde training, geen gemiste: het telt als gedaan.
+
 Een handmatige keuze wint altijd van de automaat. Train je toch nog nadat je iets
 op overgeslagen hebt gezet, dan blijft je keuze staan — met **Ongedaan maken**
 zet je hem terug op gepland, waarna hij alsnog automatisch wordt afgevinkt.
@@ -562,3 +572,16 @@ zelf een vraag stelt.
 Bij **Schema → Coach** zie je ook welke signalen er op dít moment zijn, zodat je
 kunt beoordelen of de drempels bij je passen voordat je iets aanzet. En met "Nu
 weekplanning maken" test je de opzet zonder tot zondag te wachten.
+
+
+## Evenementen in de planning
+
+Geplande evenementen staan nu ook in het Planning-tabblad, op hun eigen dag, met
+het vlag-icoon. Daarnaast verschijnt bovenaan altijd een aftelling naar het
+eerstvolgende evenement — ook als dat buiten de zichtbare twee weken valt, want
+juist dan vergeet je makkelijk dat het eraan komt. Binnen veertien dagen kleurt
+die melding om, als signaal dat het tijd is om af te bouwen.
+
+De coach kiest zijn planningshorizon nu op basis van je evenementen: staat er een
+evenement binnen drie weken, dan plant hij door tot en met die dag, zodat je de
+hele opbouw en afbouw in één keer ziet.

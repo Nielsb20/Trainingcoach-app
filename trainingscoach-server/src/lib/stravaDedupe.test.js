@@ -6,8 +6,8 @@
  * were already present from another source.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/dedupe-selftest";
-require("node:fs").rmSync("/tmp/dedupe-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/dedupe-selftest-stravaDedupe";
+require("node:fs").rmSync("/tmp/dedupe-selftest-stravaDedupe", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

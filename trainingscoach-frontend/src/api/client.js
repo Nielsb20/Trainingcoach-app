@@ -109,6 +109,8 @@ export const declineProposal = (id, reason) =>
   request(`/planned/${id}/decline`, { method: "POST", body: JSON.stringify({ reason }) });
 export const fillPlanFromSchema = (from, to) =>
   request("/planned/from-schema", { method: "POST", body: JSON.stringify({ from, to }) });
+export const movePlannedSession = (id, date) =>
+  request(`/planned/${id}/move`, { method: "PATCH", body: JSON.stringify({ date }) });
 export const createPlannedSession = (entry) =>
   request("/planned", { method: "POST", body: JSON.stringify(entry) });
 export const updatePlannedSession = (id, status) =>

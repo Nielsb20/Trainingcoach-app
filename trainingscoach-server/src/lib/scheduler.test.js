@@ -6,9 +6,9 @@
  * committed or locked alone.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/scheduler-selftest";
+process.env.DATA_DIR = "/tmp/scheduler-selftest-scheduler";
 process.env.GEMINI_API_KEY = "test";
-require("node:fs").rmSync("/tmp/scheduler-selftest", { recursive: true, force: true });
+require("node:fs").rmSync("/tmp/scheduler-selftest-scheduler", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

@@ -5,8 +5,8 @@
  * the morning after a heavy leg session.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/strength-selftest";
-require("node:fs").rmSync("/tmp/strength-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/strength-selftest-strengthContext";
+require("node:fs").rmSync("/tmp/strength-selftest-strengthContext", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

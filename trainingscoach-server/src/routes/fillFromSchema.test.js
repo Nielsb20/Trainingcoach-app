@@ -5,8 +5,8 @@
  * accepting a coach proposal, must never overwrite what's already there.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/fillschema-selftest";
-require("node:fs").rmSync("/tmp/fillschema-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/fillschema-selftest-fillFromSchema";
+require("node:fs").rmSync("/tmp/fillschema-selftest-fillFromSchema", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

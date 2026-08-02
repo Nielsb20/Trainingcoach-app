@@ -5,8 +5,8 @@
  * normal double day), and completion has to match against the right log table.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/strengthplan-selftest";
-require("node:fs").rmSync("/tmp/strengthplan-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/strengthplan-selftest-strengthPlanning";
+require("node:fs").rmSync("/tmp/strengthplan-selftest-strengthPlanning", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

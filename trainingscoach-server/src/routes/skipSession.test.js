@@ -5,8 +5,8 @@
  * correctable.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/skip-selftest";
-require("node:fs").rmSync("/tmp/skip-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/skip-selftest-skipSession";
+require("node:fs").rmSync("/tmp/skip-selftest-skipSession", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

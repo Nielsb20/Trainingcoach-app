@@ -6,8 +6,8 @@
  * two-week plan into a week of duplicates.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/dates-selftest";
-require("node:fs").rmSync("/tmp/dates-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/dates-selftest-dateResolution";
+require("node:fs").rmSync("/tmp/dates-selftest-dateResolution", { recursive: true, force: true });
 
 const { initSchema } = require("../db/db");
 initSchema();

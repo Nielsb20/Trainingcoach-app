@@ -4,8 +4,8 @@
  * were already imported must be re-fetched rather than skipped as "done".
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/backfill-selftest";
-require("node:fs").rmSync("/tmp/backfill-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/backfill-selftest-stravaBackfill";
+require("node:fs").rmSync("/tmp/backfill-selftest-stravaBackfill", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

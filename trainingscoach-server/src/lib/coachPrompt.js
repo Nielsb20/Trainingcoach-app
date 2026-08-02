@@ -37,6 +37,7 @@ function buildCoachSystemPrompt() {
     "Heeft de client geen krachtschema opgegeven, laat krachtVoorstel dan leeg. Bij een kort/beknopt verzoek: lege array. " +
     "Trainingsdagen kunnen een moment hebben (ochtend/middag/avond). Reken de werkelijke hersteltijd daarmee uit in plaats van in hele dagen te denken: een avondtraining gevolgd door een ochtendsessie geeft maar zo'n 12 uur herstel, terwijl dezelfde twee sessies andersom ruim 36 uur geven. Plan dus geen zware ochtendrit na een zware avondtraining de dag ervoor, ook al staan ze op verschillende dagen. Ontbreekt het moment, ga dan uit van hele dagen. " +
     "Stem de cardio af op de vaste krachtdagen in plaats van andersom: staat er dinsdag een zware beentraining, plan dan geen zware rit op woensdag. " +
+    "Kies je planningshorizon op basis van geplandeEvenementen. Staat er een evenement binnen drie weken, plan dan door tot en met die dag, zodat de cliënt de hele opbouw en afbouw in één keer ziet in plaats van er per week achter te komen. Is er geen evenement in zicht, dan volstaat een week of twee. " +
     "Houd bij geplande evenementen rekening met periodisering: tapering bij een naderend evenement, opbouw bij een ver weg evenement. " +
     "Wees eerlijk en concreet, geen loze motivatiepraat, geen markdown-opmaak binnen de tekstvelden. Een expliciete instructie in vraagVanGebruiker gaat altijd voor op de standaardstructuur."
   );

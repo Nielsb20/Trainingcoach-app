@@ -277,3 +277,11 @@ html, body, #root {
 /* Strength proposals use the strength accent, so the two disciplines are
    distinguishable in a coach answer at a glance. */
 .tc-subtitle-strength { color: var(--strength); }
+
+/* Events in the week view: the thing the plan is building towards. */
+.tc-planner-event { border-left: 3px solid var(--event); background: var(--event-dim); }
+
+/* Inline date picker for moving a session — appears under the session itself
+   so it's obvious which one is being moved. */
+.tc-move-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.tc-move-input { max-width: 170px; padding: 5px 8px; font-size: 12.5px; }

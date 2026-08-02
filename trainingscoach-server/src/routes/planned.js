@@ -112,17 +112,53 @@ function weekdayMismatch(dayText, resolvedDate) {
  * Looks for a logged cardio session that plausibly fulfils a plan: same day,
  * same sport. Returns the session id, or null.
  */
-function findCompletion(plan) {
+/**
+ * Extracts the sport from a plan's type. The coach writes things like
+ * "Fietsen (Herstel)" or "Fietsen - intervallen", while Strava logs a plain
+ * "Fietsen" — matching on the full string meant real sessions were marked as
+ * missed because the wording differed.
+ */
+function baseSport(type) {
+  if (!type) return "";
+  return String(type)
+    .split(/[(\-–—]/)[0]
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Finds the logged session that fulfils a plan.
+ *
+ * `claimed` holds log ids already matched to another plan in this sweep: one
+ * ride can only tick off one planned session. Without that, planning a ride
+ * and a run on the same day and then only riding would mark both as done.
+ */
+function findCompletion(plan, claimed = new Set()) {
   if ((plan.discipline || "cardio") === "kracht") {
     // Any gym session that day fulfils the plan; insisting the schema day
     // matches exactly would mark a swapped A/B day as missed.
-    const row = db.prepare("SELECT id FROM workout_logs WHERE date = ? LIMIT 1").get(plan.date);
+    const row = db
+      .prepare("SELECT id FROM workout_logs WHERE date = ?")
+      .all(plan.date)
+      .find((r) => !claimed.has(r.id));
     return row?.id ?? null;
   }
-  const row = db
-    .prepare("SELECT id FROM cardio_logs WHERE date = ? AND type = ? LIMIT 1")
-    .get(plan.date, plan.type);
-  return row?.id ?? null;
+
+  const sameDay = db
+    .prepare("SELECT id, type FROM cardio_logs WHERE date = ?")
+    .all(plan.date)
+    .filter((log) => !claimed.has(log.id));
+  if (sameDay.length === 0) return null;
+
+  // Same sport first, tolerating the coach's wording: "Fietsen (Herstel)"
+  // should match a plain "Fietsen" from Strava.
+  const wanted = baseSport(plan.type);
+  const match = sameDay.find((log) => baseSport(log.type) === wanted);
+  if (match) return match.id;
+
+  // Nothing of the planned sport, but something else was logged and no other
+  // plan has claimed it: treat that as a swapped session rather than a miss.
+  return sameDay[0].id;
 }
 
 /** Refreshes completion status for all plans that aren't resolved yet. */
@@ -132,9 +168,26 @@ function refreshCompletions() {
   const update = db.prepare(
     "UPDATE planned_sessions SET completed_cardio_log_id = ?, status = ? WHERE id = ?"
   );
-  open.forEach((plan) => {
-    const completedId = findCompletion(plan);
+  // Sessions already tied to a plan, so one workout can't satisfy two.
+  const claimed = new Set(
+    db.prepare("SELECT completed_cardio_log_id AS id FROM planned_sessions WHERE completed_cardio_log_id IS NOT NULL")
+      .all()
+      .map((r) => r.id)
+  );
+
+  // Same-sport matches take priority: check plans whose sport was actually
+  // logged before letting a leftover session count as a swap.
+  const ordered = [...open].sort((a, b) => {
+    const logged = (plan) =>
+      db.prepare("SELECT 1 FROM cardio_logs WHERE date = ? AND LOWER(type) LIKE ?")
+        .get(plan.date, baseSport(plan.type) + "%") ? 0 : 1;
+    return logged(a) - logged(b);
+  });
+
+  ordered.forEach((plan) => {
+    const completedId = findCompletion(plan, claimed);
     if (completedId) {
+      claimed.add(completedId);
       update.run(completedId, "gedaan", plan.id);
     } else if (plan.date < today) {
       // Only mark as missed once the day has actually passed.
@@ -188,9 +241,43 @@ router.get("/", (req, res) => {
       durationMin: w.duration_min,
     }));
 
+  // Events belong in the week view: a plan that hides the race you're building
+  // towards is missing the thing that gives it shape.
+  const events = (toStr
+    ? db.prepare("SELECT * FROM events WHERE date >= ? AND date <= ? ORDER BY date").all(fromStr, toStr)
+    : db.prepare("SELECT * FROM events WHERE date >= ? ORDER BY date").all(fromStr))
+    .map((e) => ({
+      id: e.id,
+      date: e.date,
+      name: e.name,
+      type: e.type,
+      target: e.target,
+      notes: e.notes,
+      daysUntil: calc.daysUntil(e.date),
+    }));
+
+  // The next event regardless of the visible range: three weeks out it won't
+  // appear in the fortnight on screen, which is precisely when it's easy to
+  // forget it's coming.
+  const nextEventRow = db
+    .prepare("SELECT * FROM events WHERE date >= ? ORDER BY date LIMIT 1")
+    .get(calc.todayStr());
+  const volgendEvenement = nextEventRow
+    ? {
+        id: nextEventRow.id,
+        name: nextEventRow.name,
+        date: nextEventRow.date,
+        type: nextEventRow.type,
+        target: nextEventRow.target,
+        daysUntil: calc.daysUntil(nextEventRow.date),
+      }
+    : null;
+
   res.json({
     plans,
     krachttrainingen: strength,
+    evenementen: events,
+    volgendEvenement,
     samenvatting: {
       totaal: plans.length,
       gedaan: done,
@@ -477,6 +564,45 @@ router.post("/from-schema", (req, res) => {
     kracht: created.filter((c) => c.discipline === "kracht").length,
     cardio: created.filter((c) => c.discipline === "cardio").length,
     details: created,
+  });
+});
+
+/**
+ * PATCH /api/planned/:id/move  { date }
+ *
+ * Moves a session to another day. Life happens: a ride gets rained off, work
+ * runs late. Deleting and re-creating would lose the coach's description and
+ * the link to the answer it came from, so move it instead.
+ */
+router.patch("/:id/move", (req, res) => {
+  const { date } = req.body || {};
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: "Geef een geldige datum (JJJJ-MM-DD)." });
+  }
+
+  const plan = db.prepare("SELECT * FROM planned_sessions WHERE id = ?").get(req.params.id);
+  if (!plan) return res.status(404).json({ error: "Training niet gevonden." });
+
+  const clash = db
+    .prepare(
+      "SELECT * FROM planned_sessions WHERE date = ? AND discipline = ? AND status = 'gepland' AND id != ?"
+    )
+    .get(date, plan.discipline || "cardio", plan.id);
+
+  db.prepare("UPDATE planned_sessions SET date = ?, weekday = ?, status = 'gepland' WHERE id = ?")
+    .run(date, calc.weekdayNameForDate(date), plan.id);
+
+  // Moving onto a day that's already trained should count as done straight away.
+  refreshCompletions();
+
+  res.json({
+    ok: true,
+    date,
+    // Reported rather than blocked: two sessions in a day is a legitimate
+    // choice, and the athlete can see it in the planner.
+    waarschuwing: clash
+      ? `Er stond al een ${clash.discipline === "kracht" ? "krachttraining" : "cardiosessie"} op ${date}.`
+      : null,
   });
 });
 

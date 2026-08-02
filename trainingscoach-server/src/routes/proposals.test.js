@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/proposal-test";
-require("node:fs").rmSync("/tmp/proposal-test", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/proposal-test-proposals";
+require("node:fs").rmSync("/tmp/proposal-test-proposals", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

@@ -6,8 +6,8 @@
  * a rotation, which is exactly what we don't want.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/fixeddays-selftest";
-require("node:fs").rmSync("/tmp/fixeddays-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/fixeddays-selftest-fixedStrengthDays";
+require("node:fs").rmSync("/tmp/fixeddays-selftest-fixedStrengthDays", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();

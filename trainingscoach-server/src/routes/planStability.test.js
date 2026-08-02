@@ -5,8 +5,8 @@
  * a proposal as a change rather than a competitor, and remembering declines.
  */
 const assert = require("node:assert");
-process.env.DATA_DIR = "/tmp/stability-selftest";
-require("node:fs").rmSync("/tmp/stability-selftest", { recursive: true, force: true });
+process.env.DATA_DIR = "/tmp/stability-selftest-planStability";
+require("node:fs").rmSync("/tmp/stability-selftest-planStability", { recursive: true, force: true });
 
 const { db, initSchema } = require("../db/db");
 initSchema();
