@@ -311,11 +311,14 @@ en gewicht + vetpercentage van een Index-weegschaal.
 
 ### Bekende valkuilen
 
-**"Display name is not set"** — je Garmin-profiel mist een weergavenaam,
-waardoor rusthartslag, Body Battery en stress niet opgehaald kunnen worden.
-Slaap, HRV en gewicht komen wel binnen. Oplossen op
-https://connect.garmin.com onder je profielinstellingen; daarna is de volgende
-run compleet.
+**"Display name is not set"** — dit is geen instelling die je zelf kunt
+aanzetten. Garmin heeft de instelbare weergavenaam vervangen door een vast
+profiel-ID; nieuwere accounts hebben dat veld simpelweg niet meer. De
+bibliotheek gaat nog uit van het oude model.
+
+Het script haalt de naam daarom zelf op uit je profiel en vult hem in voordat
+het gegevens ophaalt. Lukt dat niet, dan blijven alleen rusthartslag, Body
+Battery en stress leeg — slaap, HRV en gewicht komen gewoon binnen.
 
 **"De sessie kon niet bruikbaar worden opgeslagen"** — de automatische taak kan dan niet
 inloggen (cron heeft geen terminal), dus die faalt elke ochtend. Het script toont welke manieren het geprobeerd heeft. Sinds garth in maart 2026

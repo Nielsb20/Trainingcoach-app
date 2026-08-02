@@ -279,10 +279,12 @@ def safe(fn, label):
         message = str(err)
         if "display name" in message.lower():
             _reported_problems.add(
-                "display_name:Je Garmin-profiel heeft geen weergavenaam. Daardoor blijven "
-                "rusthartslag, Body Battery en stress leeg.\n"
-                "      Oplossen: ga naar https://connect.garmin.com, open je profielinstellingen "
-                "en vul een weergavenaam in."
+                "display_name:Garmin meldt dat je profiel geen weergavenaam heeft, en het "
+                "automatisch bepalen daarvan is niet gelukt.\n"
+                "      Rusthartslag, Body Battery en stress blijven daardoor leeg; slaap, HRV en "
+                "gewicht komen wel binnen.\n"
+                "      Nieuwere Garmin-accounts hebben dit veld niet meer als instelling, dus dit "
+                "is niet iets wat je zelf kunt aanzetten."
             )
         else:
             key = f"{label}:{message[:60]}"
@@ -298,6 +300,55 @@ def report_problems():
     if grouped:
         print()
         print("LET OP: " + grouped[0])
+
+
+def ensure_display_name(client):
+    """
+    Newer Garmin accounts have no editable display name — Garmin replaced it
+    with an opaque profile ID that the user can't change (the old field is now
+    "Full Name"). The library still expects the old model and errors out on
+    endpoints that need it.
+
+    Fetching the profile ourselves and assigning it works around that: the
+    value exists server-side, it just isn't exposed as a setting any more.
+    """
+    for attr in ("display_name", "displayName"):
+        if getattr(client, attr, None):
+            return True
+
+    try:
+        profile = client.get_user_profile()
+    except Exception as err:
+        print(f"  (kon profiel niet ophalen: {err})")
+        return False
+
+    name = None
+    if isinstance(profile, dict):
+        for key in ("displayName", "profileId", "userName", "id"):
+            if profile.get(key):
+                name = str(profile[key])
+                break
+
+    if not name:
+        return False
+
+    for attr in ("display_name", "displayName"):
+        try:
+            setattr(client, attr, name)
+        except Exception:
+            pass
+    # Some calls read it off the nested garth client instead
+    nested = getattr(client, "garth", None)
+    if nested is not None:
+        for attr in ("profile", "display_name"):
+            try:
+                if getattr(nested, attr, None) in (None, ""):
+                    setattr(nested, attr, name)
+            except Exception:
+                pass
+
+    print(f"Weergavenaam automatisch bepaald ({name[:8]}…) — dagstatistieken zijn nu beschikbaar.")
+    return True
 
 
 def collect(client, day):
@@ -391,6 +442,11 @@ def main():
     args = parser.parse_args()
 
     client = login()
+
+    # Do this before fetching: without it every day-stats call fails with
+    # "Display name is not set", and that's not something the user can fix in
+    # Garmin's settings any more.
+    ensure_display_name(client)
 
     end = date.today()
     start = end - timedelta(days=args.days - 1)
