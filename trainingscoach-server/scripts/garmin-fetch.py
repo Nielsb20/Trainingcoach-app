@@ -352,23 +352,39 @@ def ensure_display_name(client):
 
 
 def collect(client, day):
-    """Gathers one day of wellness data. Returns None when nothing usable came back."""
+    """
+    Gathers one day of wellness data.
+
+    Which endpoint holds what was determined empirically (see
+    scripts/garmin-fields.py) rather than from documentation, because Garmin
+    moves fields around and several endpoints return 403 on personal accounts:
+
+      get_stats / get_user_summary / get_rhr_day  -> 403, unusable
+      get_sleep_data   -> sleep duration AND restingHeartRate
+      get_stress_data  -> avgStressLevel
+      get_body_battery -> readings in bodyBatteryValuesArray
+      get_hrv_data     -> HRV when the device records it
+
+    Returns None when nothing usable came back.
+    """
     iso = day.isoformat()
     entry = {"date": iso, "source": "garmin"}
 
-    stats = safe(lambda: client.get_stats(iso), "dagstatistieken")
-    if stats:
-        entry["restingHr"] = stats.get("restingHeartRate")
-        entry["bodyBatteryMax"] = stats.get("bodyBatteryHighestValue")
-        entry["bodyBatteryMin"] = stats.get("bodyBatteryLowestValue")
-        entry["stressAvg"] = stats.get("averageStressLevel")
-
+    # Sleep is the workhorse here: it carries resting heart rate too, which is
+    # the field the (403-blocked) stats endpoint was supposed to provide.
     sleep = safe(lambda: client.get_sleep_data(iso), "slaapgegevens")
     if sleep:
         daily = sleep.get("dailySleepDTO") or {}
+
         seconds = daily.get("sleepTimeSeconds")
         if seconds:
             entry["sleepMinutes"] = round(seconds / 60)
+
+        # Resting HR sits at the top level of the sleep response, not inside
+        # dailySleepDTO where you'd expect it.
+        if sleep.get("restingHeartRate") is not None:
+            entry["restingHr"] = sleep["restingHeartRate"]
+
         scores = daily.get("sleepScores") or {}
         overall = scores.get("overall") or {}
         if overall.get("value") is not None:
@@ -377,10 +393,33 @@ def collect(client, day):
     hrv = safe(lambda: client.get_hrv_data(iso), "HRV")
     if hrv:
         summary = hrv.get("hrvSummary") or {}
-        if summary.get("lastNightAvg") is not None:
-            entry["hrvMs"] = summary["lastNightAvg"]
+        for key in ("lastNightAvg", "lastNight5MinHigh", "weeklyAvg"):
+            if summary.get(key) is not None:
+                entry["hrvMs"] = summary[key]
+                break
 
-    # Only worth sending if at least one real metric came back
+    stress = safe(lambda: client.get_stress_data(iso), "stressgegevens")
+    if stress and stress.get("avgStressLevel") is not None:
+        # Garmin reports -1 when it has no measurement for the day.
+        if stress["avgStressLevel"] >= 0:
+            entry["stressAvg"] = stress["avgStressLevel"]
+
+    battery = safe(lambda: client.get_body_battery(iso), "Body Battery")
+    if battery:
+        # Returned as a list of day-objects, each holding an array of
+        # [timestamp, status, level, ...] readings.
+        readings = []
+        for block in battery if isinstance(battery, list) else [battery]:
+            for sample in (block or {}).get("bodyBatteryValuesArray") or []:
+                if isinstance(sample, (list, tuple)):
+                    for value in sample[1:]:
+                        if isinstance(value, (int, float)) and 0 <= value <= 100:
+                            readings.append(value)
+                            break
+        if readings:
+            entry["bodyBatteryMax"] = max(readings)
+            entry["bodyBatteryMin"] = min(readings)
+
     has_data = any(entry.get(k) is not None for k in
                    ["restingHr", "hrvMs", "sleepMinutes", "sleepScore", "bodyBatteryMax", "stressAvg"])
     return entry if has_data else None

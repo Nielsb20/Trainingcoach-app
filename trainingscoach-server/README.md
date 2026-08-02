@@ -311,6 +311,22 @@ en gewicht + vetpercentage van een Index-weegschaal.
 
 ### Bekende valkuilen
 
+**Ontbrekende velden.** Garmin verplaatst velden tussen endpoints, en op
+persoonlijke accounts geven `get_stats`, `get_user_summary` en `get_rhr_day`
+een 403 terug. De gegevens zitten daarom elders:
+
+| Waarde | Komt uit |
+|---|---|
+| Slaapduur | `get_sleep_data` |
+| Rusthartslag | `get_sleep_data` (bovenin het antwoord, niet in `dailySleepDTO`) |
+| Stress | `get_stress_data` |
+| Body Battery | `get_body_battery` (uit `bodyBatteryValuesArray`) |
+| HRV | `get_hrv_data`, alleen als je horloge dit meet |
+
+Klopt er iets niet, draai dan `scripts/garmin-fields.py`. Dat toont per endpoint
+welke velden Garmin nu daadwerkelijk teruggeeft, zodat de toewijzing te
+corrigeren is zonder gokken.
+
 **"Display name is not set"** — dit is geen instelling die je zelf kunt
 aanzetten. Garmin heeft de instelbare weergavenaam vervangen door een vast
 profiel-ID; nieuwere accounts hebben dat veld simpelweg niet meer. De
