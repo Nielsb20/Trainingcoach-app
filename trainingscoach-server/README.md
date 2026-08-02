@@ -591,3 +591,27 @@ keren, dan telt de langste rit als het evenement.
 De coach kiest zijn planningshorizon nu op basis van je evenementen: staat er een
 evenement binnen drie weken, dan plant hij door tot en met die dag, zodat je de
 hele opbouw en afbouw in één keer ziet.
+
+
+## Sessiedetail: analyse en beoordeling per training
+
+Klik op het vergrootglas bij een cardiosessie (in Geschiedenis) of op "Bekijk de
+rit" bij een gereden evenement, en je krijgt alles over die ene training:
+
+- **Kerncijfers** — afstand, tijd, snelheid, hartslag, vermogen, W/kg, TSS, hoogtemeters
+- **Verloop** — hartslag en vermogen over de sessie
+- **Cardiac drift** — eerste versus tweede helft. Loopt je hartslag op terwijl je
+  vermogen daalt, dan wordt dat expliciet benoemd als vermoeidheidssignaal
+- **Tijd per zone** — uit het opgeslagen histogram
+- **Vergelijking** — eerdere sessies van vergelijkbare afstand (binnen 20%), zodat
+  "sneller dan eerder" ergens op slaat. Een ritje van 20 km wordt niet naast een
+  tocht van 216 km gelegd
+- **Beste vermogen** binnen deze sessie, per tijdsduur
+
+Daaronder kun je de coach om een **beoordeling van deze sessie** vragen. Hij
+krijgt exact dezelfde cijfers als op je scherm staan, plus de vergelijkbare
+eerdere sessies en het bijbehorende evenement met je gestelde doel.
+
+Die beoordeling wordt bewaard: de rit verandert niet, dus opnieuw vragen zou
+tokens kosten voor hetzelfde antwoord. Met "Opnieuw beoordelen" forceer je een
+nieuwe.

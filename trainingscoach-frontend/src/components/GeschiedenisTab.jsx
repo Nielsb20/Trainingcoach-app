@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Trash2, TrendingUp } from "lucide-react";
+import { Trash2, TrendingUp, Search } from "lucide-react";
 import {
   formatDateNL, timeOfDayLabel, computeAvgSpeedKmh, computeHrZones,
   computeTrainingLoadSeries, getWeightAtDate,
 } from "../lib/calculations";
 
-export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, deleteWorkoutLog, deleteCardioLog,
-                          focusSessionId, onFocusHandled }) {
+export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {
   const [sub, setSub] = useState("kracht");
   const [expandedProfileId, setExpandedProfileId] = useState(null);
   const [isolatedSeries, setIsolatedSeries] = useState(null);
@@ -133,7 +132,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                 <tbody>
                   {cardioLogs.map((c) => (
                     <Fragment key={c.id}>
-                      <tr id={`sessie-${c.id}`} className={focusSessionId === c.id ? "tc-row-focus" : ""}>
+                      <tr>
                         <td>{formatDateNL(c.date)}</td>
                         <td>{c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : "–"}</td>
                         <td>{c.type}</td>
@@ -152,6 +151,10 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                         <td className="tc-mono">{c.avg_cadence ? `${c.avg_cadence}` : "–"}{c.max_cadence ? ` / ${c.max_cadence}` : ""}</td>
                         <td className="tc-mono">{c.elevation_gain_m ? `↑${c.elevation_gain_m}m` : "–"}{c.elevation_loss_m ? ` ↓${c.elevation_loss_m}m` : ""}</td>
                         <td>
+                          <button className="tc-icon-btn" title="Analyse en beoordeling"
+                            onClick={() => onOpenSession && onOpenSession(c.id)}>
+                            <Search size={14} />
+                          </button>
                           {c.profile && c.profile.length > 0 && (
                             <button className="tc-icon-btn" title="Toon verloop" onClick={() => toggleProfile(c.id)}>
                               <TrendingUp size={14} />

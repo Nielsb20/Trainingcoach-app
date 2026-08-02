@@ -13,6 +13,7 @@ import GeschiedenisTab from "./components/GeschiedenisTab";
 import CoachTab from "./components/CoachTab";
 import AnalyseTab from "./components/AnalyseTab";
 import WellnessTab from "./components/WellnessTab";
+import SessionDetail from "./components/SessionDetail";
 import PlannerTab from "./components/PlannerTab";
 
 const EMPTY_SCHEMA = { days: [], cardioDays: [], profile: {} };
@@ -31,9 +32,8 @@ export default function App() {
   const [coachHistory, setCoachHistory] = useState([]);
 
   const [pendingProposals, setPendingProposals] = useState(0);
-  // Set when jumping from the planner to a specific ride, so Geschiedenis can
-  // open that session's detail rather than dropping you in a long table.
-  const [focusSessionId, setFocusSessionId] = useState(null);
+  // Which session's detail panel is open, if any.
+  const [detailSessionId, setDetailSessionId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
 
@@ -266,14 +266,7 @@ export default function App() {
           <WeightTab weightLogs={weightLogs} addWeightLog={addWeightLog} deleteWeightLog={deleteWeightLog} />
         )}
         {tab === "herstel" && <WellnessTab />}
-        {tab === "planning" && (
-          <PlannerTab
-            onOpenSession={(id) => {
-              setFocusSessionId(id);
-              setTab("geschiedenis");
-            }}
-          />
-        )}
+        {tab === "planning" && <PlannerTab onOpenSession={setDetailSessionId} />}
         {tab === "evenementen" && <EventsTab events={events} addEvent={addEvent} deleteEvent={deleteEvent} />}
         {tab === "geschiedenis" && (
           <GeschiedenisTab
@@ -283,8 +276,7 @@ export default function App() {
             weightLogs={weightLogs}
             deleteWorkoutLog={deleteWorkoutLog}
             deleteCardioLog={deleteCardioLog}
-            focusSessionId={focusSessionId}
-            onFocusHandled={() => setFocusSessionId(null)}
+            onOpenSession={setDetailSessionId}
           />
         )}
         {tab === "analyse" && <AnalyseTab />}
@@ -301,6 +293,10 @@ export default function App() {
           />
         )}
       </main>
+
+      {detailSessionId && (
+        <SessionDetail sessionId={detailSessionId} onClose={() => setDetailSessionId(null)} />
+      )}
     </div>
   );
 }

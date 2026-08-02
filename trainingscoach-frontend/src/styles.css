@@ -291,3 +291,31 @@ html, body, #root {
 
 /* Briefly highlight the row you were sent to from the planner. */
 .tc-row-focus { background: var(--event-dim); }
+
+/* Session detail: a panel over the app rather than a separate page, so you
+   keep your place in the planner or history table behind it. */
+.tc-detail-overlay {
+  position: fixed; inset: 0; background: rgba(10,13,16,0.75);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 24px 16px; overflow-y: auto; z-index: 50;
+}
+.tc-detail-panel {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px; width: 100%; max-width: 860px; margin-bottom: 40px;
+}
+.tc-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.tc-detail-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px; margin: 14px 0;
+}
+.tc-detail-stat {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 11px; display: flex; flex-direction: column; gap: 1px;
+}
+.tc-detail-stat-label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.tc-detail-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; }
+.tc-detail-stat-unit { font-size: 10.5px; color: var(--text-muted); }
+@media (max-width: 700px) {
+  .tc-detail-overlay { padding: 10px 6px; }
+  .tc-detail-panel { padding: 16px; }
+}

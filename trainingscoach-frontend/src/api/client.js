@@ -75,6 +75,12 @@ export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method
 export const exportAll = () => request("/export");
 export const importAll = (data) => request("/import", { method: "POST", body: JSON.stringify(data) });
 
+/* ------------------------------ session detail --------------------------- */
+
+export const getSessionDetail = (id) => request(`/sessions/${id}`);
+export const getSessionFeedback = (id, force = false) =>
+  request(`/sessions/${id}/feedback`, { method: "POST", body: JSON.stringify({ force }) });
+
 /* ------------------------------- automation ----------------------------- */
 
 export const getAutomation = () => request("/automation");

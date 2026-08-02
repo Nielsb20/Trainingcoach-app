@@ -258,3 +258,15 @@ INSERT OR IGNORE INTO coach_automation (id) VALUES (1);
 -- Why a coach answer exists: asked manually, the weekly slot, or a signal.
 ALTER TABLE coach_history ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'handmatig';
 ALTER TABLE coach_history ADD COLUMN trigger_reason TEXT;
+
+-- Coach feedback on one specific session. Cached rather than regenerated on
+-- every visit: the underlying ride never changes, so asking the model again
+-- would cost tokens for an answer that should be identical.
+CREATE TABLE IF NOT EXISTS session_feedback (
+  cardio_log_id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  analyse TEXT,
+  tips_json TEXT,
+  raw_feedback TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
