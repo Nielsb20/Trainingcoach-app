@@ -378,8 +378,14 @@ wil wijzigen daar expliciet een reden bij noemen.
 **Je planning verandert nooit vanzelf.** Doe je niets met een voorstel, dan
 blijft alles zoals het was. Je kunt ook zelf trainingen inplannen zonder de coach.
 
-Uitgevoerde trainingen worden automatisch afgevinkt tegen je cardiologs — je
-hoeft niets bij te houden.
+Uitgevoerde trainingen worden automatisch afgevinkt tegen je logs — je hoeft
+niets bij te houden. Gaat een training niet door, dan kun je hem zelf op
+**Overslaan** zetten, ook als de dag nog loopt: 's ochtends al besluiten dat het
+niet doorgaat is normaal, en wachten tot middernacht helpt niemand.
+
+Een handmatige keuze wint altijd van de automaat. Train je toch nog nadat je iets
+op overgeslagen hebt gezet, dan blijft je keuze staan — met **Ongedaan maken**
+zet je hem terug op gepland, waarna hij alsnog automatisch wordt afgevinkt.
 
 
 ## Krachttraining en de coach

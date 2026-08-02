@@ -224,12 +224,30 @@ export default function PlannerTab() {
                         <>
                           <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
                             onClick={() => act(() => api.updatePlannedSession(p.id, "gedaan"))}>Gedaan</button>
+                          {/* Deliberately available before the day is over: deciding in the
+                              morning that a session isn't happening is normal, and waiting
+                              for the automatic sweep at midnight helps nobody. */}
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+                            title="Deze training gaat niet door"
+                            onClick={() => act(() => api.updatePlannedSession(p.id, "overgeslagen"))}>
+                            Overslaan
+                          </button>
                           <button className="tc-icon-btn" disabled={busy}
                             title={p.locked ? "Vaste afspraak — coach laat deze met rust" : "Vastzetten: coach mag deze niet wijzigen"}
                             onClick={() => act(() => api.lockPlannedSession(p.id, !p.locked))}>
                             {p.locked ? <Lock size={13} style={{ color: "var(--strength)" }} /> : <Unlock size={13} />}
                           </button>
                         </>
+                      )}
+
+                      {/* A wrong call should be correctable — an accidental "overslaan"
+                          otherwise sticks around in your adherence figures. */}
+                      {(p.status === "gedaan" || p.status === "overgeslagen") && (
+                        <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+                          title="Terugzetten naar gepland"
+                          onClick={() => act(() => api.updatePlannedSession(p.id, "gepland"))}>
+                          Ongedaan maken
+                        </button>
                       )}
                       <button className="tc-icon-btn" disabled={busy}
                         onClick={() => act(() => api.deletePlannedSession(p.id))}><Trash2 size={13} /></button>
