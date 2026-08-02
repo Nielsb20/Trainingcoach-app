@@ -67,16 +67,30 @@ except ImportError:
     )
 
 
+def _tokens_look_valid():
+    """
+    Checks the token files actually contain something.
+
+    Existence alone isn't enough: an earlier version accepted zero-byte files as
+    success, which meant the next run failed with an authentication error while
+    the save step had reported "ok".
+    """
+    if not os.path.isdir(TOKEN_DIR):
+        return False
+    files = [f for f in os.listdir(TOKEN_DIR) if f.endswith(".json")]
+    if not files:
+        return False
+    return any(os.path.getsize(os.path.join(TOKEN_DIR, f)) > 10 for f in files)
+
+
 def save_tokens(client):
     """
     Persists the session so the next run doesn't hit Garmin's login at all —
-    which matters twice over: repeated logins are what triggers Garmin's rate
-    limiting, and a cron job has no terminal to log in from.
+    which matters twice over: repeated logins trigger Garmin's rate limiting,
+    and a cron job has no terminal to log in from.
 
-    The library has moved this method around between versions and renamed the
-    underlying garth attribute, so try every known shape. Reports which one
-    worked, because a silent fallback here is exactly what let an earlier
-    failure go unnoticed.
+    The library has moved this method around between versions, so try every
+    known shape and verify the result rather than trusting the return value.
     """
     candidates = [
         ("client.garth.dump", lambda: client.garth.dump(TOKEN_DIR)),
@@ -84,10 +98,21 @@ def save_tokens(client):
         ("client.garth_client.dump", lambda: client.garth_client.dump(TOKEN_DIR)),
         ("client.garth.client.dump", lambda: client.garth.client.dump(TOKEN_DIR)),
         ("garth.save", lambda: __import__("garth").save(TOKEN_DIR)),
+        ("client.garth.save", lambda: client.garth.save(TOKEN_DIR)),
     ]
 
     problems = []
     for name, attempt in candidates:
+        # Clear anything a previous attempt left behind, so an empty file from
+        # one method can't be mistaken for a success by the next check.
+        if os.path.isdir(TOKEN_DIR):
+            for f in os.listdir(TOKEN_DIR):
+                if f.endswith(".json"):
+                    try:
+                        os.remove(os.path.join(TOKEN_DIR, f))
+                    except OSError:
+                        pass
+
         try:
             attempt()
         except (AttributeError, ImportError) as err:
@@ -97,20 +122,23 @@ def save_tokens(client):
             problems.append(f"{name}: {err}")
             continue
 
-        # Don't trust the call — verify something actually landed on disk.
-        if os.path.isdir(TOKEN_DIR) and os.listdir(TOKEN_DIR):
+        if _tokens_look_valid():
             print(f"Tokens opgeslagen in {TOKEN_DIR} via {name} (je wachtwoord wordt niet bewaard).")
             return True
-        problems.append(f"{name}: geen bestanden aangemaakt")
+        problems.append(f"{name}: bestanden bleven leeg")
 
     print()
-    print("WAARSCHUWING: de sessie kon niet worden opgeslagen.")
-    print("  Gevolg: de automatische taak kan straks niet inloggen en elke run vraagt")
-    print("  opnieuw om je wachtwoord — wat ook het risico op blokkades vergroot.")
+    print("WAARSCHUWING: de sessie kon niet bruikbaar worden opgeslagen.")
+    print("  Gevolg: de automatische taak kan niet inloggen en elke run vraagt")
+    print("  opnieuw om je wachtwoord — wat het risico op blokkades vergroot.")
     print("  Geprobeerd:")
     for p in problems:
         print(f"    - {p}")
-    print("  Mogelijk helpt: ./scripts/garmin-venv/bin/pip install --upgrade garminconnect garth")
+    print()
+    print("  Meest kansrijke oplossing:")
+    print("    ./scripts/garmin-venv/bin/pip install --upgrade garminconnect garth")
+    print("  Blijft het misgaan, dan kun je de automatische taak overslaan en het")
+    print("  script handmatig draaien wanneer je wilt bijwerken.")
     print()
     return False
 
@@ -122,15 +150,18 @@ def is_rate_limited(err):
 
 def login():
     """Logs in, reusing cached tokens when possible so we don't hammer Garmin's login."""
-    try:
-        client = Garmin()
-        client.login(TOKEN_DIR)
-        print("Ingelogd met opgeslagen tokens (geen nieuwe login nodig).")
-        return client
-    except Exception as err:
-        # Worth reporting: a fresh login is the step that can hit Garmin's rate
-        # limiting, so knowing it's about to happen explains a later failure.
-        print(f"Geen bruikbare opgeslagen sessie ({type(err).__name__}); nieuwe login nodig.")
+    if not _tokens_look_valid():
+        print("Geen bruikbare opgeslagen sessie gevonden; nieuwe login nodig.")
+    else:
+        try:
+            client = Garmin()
+            client.login(TOKEN_DIR)
+            print("Ingelogd met opgeslagen tokens (geen nieuwe login nodig).")
+            return client
+        except Exception as err:
+            # Worth reporting: a fresh login is the step that can hit Garmin's
+            # rate limiting, so knowing it's coming explains a later failure.
+            print(f"Opgeslagen sessie werkte niet ({type(err).__name__}); nieuwe login nodig.")
 
     # A cron job has no terminal, so prompting would raise EOFError and the run
     # would fail every single night. Say plainly what's wrong instead.
