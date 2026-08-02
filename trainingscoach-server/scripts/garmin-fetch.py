@@ -43,6 +43,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from datetime import date, timedelta
 
@@ -283,6 +284,17 @@ def post(path, payload):
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read() or "{}")
+    except urllib.error.HTTPError as err:
+        # The server answered, so "can't reach the server" would be misleading.
+        # Show what it actually said — that's what points at the real problem.
+        try:
+            detail = json.loads(err.read() or "{}")
+            detail = detail.get("details") or detail.get("error") or ""
+        except Exception:
+            detail = ""
+        fail(f"de server wees {path} af (HTTP {err.code}){': ' + detail if detail else ''}.",
+             "De server draait dus wel. Controleer of hij de laatste versie draait:\n"
+             "        cd ~/Trainingcoach-app && git pull && pm2 restart trainingscoach")
     except Exception as err:
         fail(f"kon de server niet bereiken op {SERVER_URL}{path}: {err}",
              "Draait de Trainingscoach-server? Controleer met: pm2 status")
@@ -321,10 +333,17 @@ def main():
         result = post("/api/wellness/bulk", {"entries": entries})
         print(f"Welzijnsdata verstuurd: {result}")
 
+    sent = 0
     for w in weights:
-        post("/api/weight-logs", w)
+        try:
+            post("/api/weight-logs", w)
+            sent += 1
+        except SystemExit:
+            # post() already explained the problem; keep going so one bad
+            # measurement doesn't discard the rest.
+            print(f"  (gewichtsmeting van {w['date']} overgeslagen)")
     if weights:
-        print(f"{len(weights)} gewichtsmetingen verstuurd.")
+        print(f"{sent} van {len(weights)} gewichtsmetingen verstuurd.")
 
     print("\nKlaar. Klik in de app op 'Ververs gegevens' om ze te zien.")
 

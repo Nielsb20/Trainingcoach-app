@@ -18,8 +18,23 @@ router.get("/", (req, res) => {
 // POST /api/weight-logs
 router.post("/", (req, res) => {
   const entry = req.body;
+  if (!entry?.date || entry.weight_kg === undefined || entry.weight_kg === null) {
+    return res.status(400).json({ error: "Datum en gewicht zijn verplicht." });
+  }
   try {
-    db.prepare("INSERT INTO weight_logs (id, date, weight_kg, body_fat_pct, notes) VALUES (?, ?, ?, ?, ?)").run(
+    // Upsert rather than plain insert: the Garmin fetch re-sends the last few
+    // days on every run, so re-sending a measurement that's already stored is
+    // normal operation, not an error. A plain INSERT made every scheduled run
+    // fail on the primary key once a reading had been imported.
+    db.prepare(
+      `INSERT INTO weight_logs (id, date, weight_kg, body_fat_pct, notes)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         date = excluded.date,
+         weight_kg = excluded.weight_kg,
+         body_fat_pct = COALESCE(excluded.body_fat_pct, body_fat_pct),
+         notes = COALESCE(excluded.notes, notes)`
+    ).run(
       entry.id,
       entry.date,
       entry.weight_kg,
