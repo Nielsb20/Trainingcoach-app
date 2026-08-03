@@ -1,0 +1,370 @@
+/* styles.css — ported verbatim from the artifact prototype's <Style> component.
+   Dark, utilitarian training-log aesthetic: Oswald for headings/labels,
+   Inter for body text, JetBrains Mono for all numeric data (so weights,
+   times and heart rates line up in columns).
+   Accent colours are semantic: orange = strength, teal = cardio,
+   purple = events/weight/power, green = cadence, gold = elevation. */
+
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg: #14181C;
+  --surface: #1C2227;
+  --surface-alt: #242B31;
+  --border: #2E363D;
+  --text: #E8E6E1;
+  --text-muted: #8B949B;
+  --strength: #C97A3F;
+  --strength-dim: rgba(201,122,63,0.14);
+  --cardio: #4FA8A0;
+  --cardio-dim: rgba(79,168,160,0.14);
+  --event: #8C86C9;
+  --event-dim: rgba(140,134,201,0.14);
+}
+* { box-sizing: border-box; }
+.tc-app { display: flex; min-height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+.tc-loading { display:flex; align-items:center; gap:8px; padding:24px; color: var(--text-muted); font-family:'Inter',sans-serif; background: var(--bg); }
+.spin { animation: tc-spin 1s linear infinite; }
+@keyframes tc-spin { to { transform: rotate(360deg); } }
+
+.tc-sidebar { width: 208px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); padding: 18px 12px; display:flex; flex-direction:column; gap: 22px; }
+.tc-brand { display:flex; align-items:center; gap:9px; padding: 0 6px; }
+.tc-brand-mark { font-family:'Oswald',sans-serif; font-weight:700; background: var(--strength); color:#14181C; border-radius:5px; padding: 3px 7px; font-size:13px; letter-spacing:0.5px; }
+.tc-brand-name { font-family:'Oswald',sans-serif; font-weight:600; font-size:15px; letter-spacing:0.3px; }
+.tc-navlist { display:flex; flex-direction:column; gap:2px; }
+.tc-sidebar-footer { margin-top: auto; display:flex; flex-direction:column; gap:6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.tc-refresh-btn { width: 100%; }
+.tc-refresh-timestamp { font-size: 11px; color: var(--text-muted); padding: 0 11px; font-family:'JetBrains Mono', monospace; }
+.tc-copyright { font-size: 10.5px; color: var(--text-muted); padding: 0 11px; opacity: 0.6; }
+.tc-navitem { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:7px; border:none; background:transparent; color: var(--text-muted); font-family:'Inter',sans-serif; font-size:13.5px; font-weight:500; cursor:pointer; text-align:left; transition: background 0.15s, color 0.15s; }
+.tc-navitem:hover { background: var(--surface-alt); color: var(--text); }
+.tc-navitem.active { background: var(--strength-dim); color: var(--strength); }
+
+.tc-main { flex:1; padding: 26px 32px 60px; overflow-y:auto; max-width: 880px; }
+.tc-savebanner { display:flex; align-items:flex-start; gap:12px; background: rgba(184,92,92,0.14); border:1px solid #B85C5C; color:#E8C9C9; border-radius:9px; padding:12px 14px; margin-bottom:18px; font-size:13px; line-height:1.5; }
+.tc-savebanner span:first-child { flex:1; }
+.tc-backup-card { border-color: var(--border); }
+.tc-backup-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.tc-backup-confirm { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); font-size:13px; }
+.tc-backup-confirm p { margin: 0 0 10px; color: var(--text-muted); }
+.tc-title { font-family:'Oswald',sans-serif; font-weight:700; font-size:26px; letter-spacing:0.3px; margin:0 0 6px; }
+.tc-sub { color: var(--text-muted); font-size:13.5px; margin:0 0 20px; max-width: 560px; }
+
+.tc-card { background: var(--surface); border:1px solid var(--border); border-radius:11px; padding:16px 18px; margin-bottom:14px; }
+.tc-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.tc-daygrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px; }
+
+.tc-label { display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:0.6px; color: var(--text-muted); margin: 10px 0 5px; font-weight:600; }
+.tc-input { width:100%; background: var(--surface-alt); border:1px solid var(--border); color: var(--text); border-radius:7px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13.5px; }
+.tc-input:focus { outline:none; border-color: var(--strength); }
+.tc-input-num { max-width: 82px; }
+.tc-mono { font-family:'JetBrains Mono', monospace; }
+.tc-textarea { min-height: 64px; resize: vertical; }
+.tc-day-name { font-family:'Oswald',sans-serif; font-weight:600; font-size:15px; }
+.tc-select-inline { max-width: 260px; margin-bottom: 12px; }
+
+.tc-form-row { display:flex; gap:16px; flex-wrap:wrap; }
+.tc-form-row > div { flex:1; min-width: 160px; }
+
+.tc-ex-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.tc-ex-row .tc-input:first-child { flex:1; }
+.tc-x { color: var(--text-muted); font-size:12.5px; }
+
+.tc-btn { display:inline-flex; align-items:center; gap:7px; border:none; border-radius:8px; padding:9px 16px; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer; transition: opacity 0.15s, transform 0.1s; }
+.tc-btn:active { transform: scale(0.98); }
+.tc-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.tc-btn-strength { background: var(--strength); color:#14181C; }
+.tc-btn-cardio { background: var(--cardio); color:#0C1618; }
+.tc-btn-event { background: var(--event); color:#16141F; }
+.tc-btn-ghost { background: var(--surface-alt); color: var(--text); border:1px solid var(--border); }
+.tc-btn-sm { padding:5px 10px; font-size:12px; }
+.tc-file-btn { cursor:pointer; display:inline-flex; }
+.tc-file-btn input { position:absolute; }
+
+.tc-icon-btn { background:transparent; border:none; color: var(--text-muted); cursor:pointer; padding:4px; border-radius:5px; display:flex; }
+.tc-icon-btn:hover { color: var(--text); background: var(--surface-alt); }
+
+.tc-empty { border:1px dashed var(--border); border-radius:11px; padding:22px; text-align:center; color: var(--text-muted); margin-bottom:16px; }
+.tc-empty-hint { font-size:12.5px; margin-top:4px; }
+
+.tc-ex-name { font-family:'Oswald',sans-serif; font-weight:600; font-size:15px; }
+.tc-hint-badge { font-size:11.5px; padding:3px 8px; border-radius:6px; font-family:'JetBrains Mono', monospace; }
+.tc-badge-strength { background: var(--strength-dim); color: var(--strength); }
+.tc-badge-cardio { background: var(--cardio-dim); color: var(--cardio); }
+.tc-badge-event { background: var(--event-dim); color: var(--event); }
+.tc-badge-warning { background: rgba(184,92,92,0.14); color: #D08585; }
+.tc-history-summary { border-color: var(--border); }
+.tc-history-grid { display:flex; flex-direction:column; gap:12px; }
+.tc-history-detail { font-size:12.5px; color: var(--text-muted); margin: 6px 0 0; font-family:'JetBrains Mono', monospace; }
+.tc-chiprow { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+
+.tc-import-card { border-color: var(--cardio); }
+.tc-import-help { font-size:12.5px; color: var(--text-muted); margin: 6px 0 12px; line-height:1.5; }
+.tc-import-help code { font-family:'JetBrains Mono', monospace; background: var(--surface-alt); padding:1px 5px; border-radius:4px; }
+.tc-import-preview { margin-top: 16px; border-top:1px solid var(--border); padding-top: 14px; }
+.tc-gpxbatch-list { display:flex; flex-direction:column; gap:8px; margin-bottom: 14px; max-height: 420px; overflow-y:auto; }
+.tc-gpxbatch-row { display:flex; align-items:center; gap:12px; padding: 9px 12px; background: var(--surface-alt); border-radius:8px; }
+.tc-gpxbatch-row.tc-row-disabled { opacity: 0.55; }
+.tc-gpxbatch-info { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+.tc-gpxbatch-filename { font-family:'JetBrains Mono', monospace; font-size:12px; color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tc-gpxbatch-error { font-size:12px; color:#D08585; }
+.tc-import-bulkbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom: 12px; }
+.tc-import-count { font-family:'JetBrains Mono', monospace; font-size:12px; color: var(--text-muted); }
+.tc-import-datefilter { display:flex; align-items:center; gap:6px; font-size:12.5px; color: var(--text-muted); margin-left: auto; }
+.tc-import-datefilter input { width: auto; }
+.tc-import-table { display:block; overflow-x:auto; white-space:nowrap; }
+.tc-input-cell { min-width: 90px; padding:6px 8px; font-size:12.5px; }
+.tc-row-disabled { opacity: 0.4; }
+
+.tc-section-title { font-family:'Oswald',sans-serif; font-weight:600; font-size:16px; margin: 22px 0 10px; color: var(--text-muted); }
+.tc-event-list { display:flex; flex-direction:column; gap:10px; }
+.tc-event-card { border-color: var(--event); }
+.tc-event-past { border-color: var(--border); opacity:0.7; }
+.tc-event-meta { font-size:12.5px; color: var(--text-muted); margin:0; font-family:'JetBrains Mono', monospace; }
+.tc-event-notes { font-size:13px; margin: 8px 0 0; }
+.tc-cardioday-list { display:flex; flex-direction:column; gap:8px; }
+.tc-cardioday-row { display:flex; align-items:center; gap:8px; padding: 10px 14px; }
+.tc-cardioday-row select { max-width: 150px; flex-shrink:0; }
+.tc-cardioday-row input { flex:1; }
+
+.tc-tod-picker { display:flex; gap:6px; margin-bottom: 12px; }
+.tc-tod-btn { display:flex; align-items:center; gap:5px; background: var(--surface-alt); border:1px solid var(--border); color: var(--text-muted); padding:7px 12px; border-radius:7px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; }
+.tc-tod-btn.active { color: var(--strength); border-color: var(--strength); background: var(--strength-dim); }
+
+.tc-feedback-spacer { flex:1; }
+.tc-confirm-row { display:flex; align-items:center; gap:8px; font-size:12px; color: var(--text-muted); }
+.tc-set-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.tc-set-idx { font-size:11.5px; color: var(--text-muted); width: 42px; }
+
+.tc-actionbar { display:flex; align-items:center; gap:12px; margin-top: 14px; }
+.tc-saved-flash { color:#7FA65C; font-size:13px; font-weight:600; }
+
+.tc-subtabs { display:flex; gap:8px; margin-bottom:16px; }
+.tc-subtab { background: var(--surface); border:1px solid var(--border); color: var(--text-muted); padding:7px 14px; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; }
+.tc-subtab.active-strength { color: var(--strength); border-color: var(--strength); background: var(--strength-dim); }
+.tc-subtab.active-cardio { color: var(--cardio); border-color: var(--cardio); background: var(--cardio-dim); }
+.tc-subtab.active-event { color: var(--event); border-color: var(--event); background: var(--event-dim); }
+
+.tc-chart-wrap { background: var(--surface); border:1px solid var(--border); border-radius:11px; padding:14px; margin-bottom:16px; }
+.tc-table { width:100%; border-collapse:collapse; font-size:13px; }
+.tc-table th { text-align:left; color: var(--text-muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.4px; padding:6px 8px; border-bottom:1px solid var(--border); }
+.tc-table td { padding:7px 8px; border-bottom:1px solid var(--border); }
+
+.tc-error { display:flex; align-items:center; gap:12px; color:#D08585; font-size:13px; margin-top:10px; }
+.tc-feedback-list { display:flex; flex-direction:column; gap:10px; margin-top:18px; }
+.tc-feedback-card { background: var(--surface); border:1px solid var(--border); border-radius:11px; padding:12px 16px; }
+.tc-feedback-card summary { cursor:pointer; display:flex; gap:12px; align-items:center; font-size:12.5px; color: var(--text-muted); }
+.tc-feedback-date { font-family:'JetBrains Mono', monospace; font-size:11.5px; }
+.tc-feedback-q { font-style: italic; }
+.tc-feedback-text { white-space: pre-wrap; font-size:13.5px; line-height:1.55; margin-top:10px; }
+.tc-feedback-structured { margin-top: 6px; }
+.tc-tip-list { margin: 10px 0; padding-left: 18px; font-size:13.5px; line-height:1.6; }
+.tc-tip-list li { margin-bottom: 4px; }
+.tc-warning-box { background: rgba(184,92,92,0.12); border:1px solid #B85C5C; color:#D08585; border-radius:8px; padding:9px 12px; font-size:13px; margin: 10px 0; }
+.tc-feedback-subtitle { font-family:'Oswald',sans-serif; font-weight:600; font-size:14px; color: var(--cardio); margin: 14px 0 8px; }
+.tc-proposal-list { display:flex; flex-direction:column; gap:6px; }
+.tc-proposal-row { display:flex; align-items:baseline; gap:10px; background: var(--surface-alt); border-radius:8px; padding:8px 11px; flex-wrap:wrap; }
+.tc-proposal-type { font-family:'Oswald',sans-serif; font-weight:600; font-size:13px; }
+.tc-proposal-invulling { font-size:13px; color: var(--text-muted); flex:1; min-width: 140px; }
+
+@media (max-width: 760px) {
+  .tc-app { flex-direction: column; }
+  .tc-sidebar { width:100%; flex-direction:row; align-items:center; padding: 10px 12px; gap: 10px; }
+  .tc-navlist { flex-direction:row; flex-wrap:wrap; }
+  .tc-navitem span { display:none; }
+  .tc-main { padding: 18px 16px 50px; }
+  .tc-sidebar-footer { margin-top: 0; margin-left: auto; flex-direction:row; align-items:center; border-top:none; padding-top:0; }
+  .tc-refresh-btn { width: auto; }
+  .tc-refresh-timestamp { display: none; }
+  .tc-copyright { display: none; }
+}
+
+/* Vite mounts into #root; the artifact host provided these implicitly. */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+}
+
+/* Planned-vs-actual rows: status icon, details, and actions on one line. */
+.tc-planned-row { display: flex; align-items: flex-start; gap: 12px; }
+.tc-planned-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .tc-planned-row { flex-wrap: wrap; }
+  .tc-planned-actions { width: 100%; }
+}
+
+/* Week planner: one row per day, so the shape of the training week is
+   readable at a glance rather than as a flat list. */
+.tc-planner { display: flex; flex-direction: column; gap: 6px; }
+.tc-planner-day {
+  display: flex; gap: 14px; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+}
+.tc-planner-today { border-color: var(--strength); }
+.tc-planner-daylabel {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 120px; flex-shrink: 0;
+}
+.tc-planner-weekday { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 14px; }
+.tc-planner-date { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.tc-planner-sessions { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tc-planner-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+.tc-planner-session {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surface-alt); border-radius: 7px; padding: 8px 10px;
+}
+.tc-planner-session.tc-status-voorgesteld { border: 1px dashed var(--cardio); background: var(--cardio-dim); }
+.tc-planner-session.tc-status-gedaan { opacity: 0.7; }
+.tc-planner-session.tc-status-overgeslagen { opacity: 0.5; }
+.tc-planner-type { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 13.5px; }
+.tc-planner-proposed-tag {
+  font-family: 'Inter', sans-serif; font-weight: 500; font-size: 10.5px;
+  color: var(--cardio); text-transform: uppercase; letter-spacing: 0.5px; margin-left: 6px;
+}
+@media (max-width: 760px) {
+  .tc-planner-day { flex-direction: column; gap: 8px; }
+  .tc-planner-daylabel { flex-direction: row; align-items: baseline; gap: 8px; width: auto; }
+}
+
+/* A proposed change shows old -> new inline, so you can judge the swap
+   instead of losing what you had without seeing it. */
+.tc-planner-diff { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.tc-planner-diff-old { color: var(--text-muted); text-decoration: line-through; }
+
+/* Logged strength sessions in the week view: same row shape as cardio, but
+   the strength accent so the two are distinguishable at a glance. */
+.tc-planner-strength { border-left: 3px solid var(--strength); }
+
+/* Planner navigation: the coach plans further ahead than one screen holds. */
+.tc-planner-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.tc-planner-range {
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  color: var(--text-muted); display: flex; align-items: center;
+}
+
+/* Weekday toggles per strength training day. Two-letter labels keep seven
+   buttons on one line even on a phone. */
+.tc-weekday-toggles { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.tc-weekday-toggle {
+  background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; min-width: 30px;
+}
+.tc-weekday-toggle.active { color: var(--strength); border-color: var(--strength); background: var(--strength-dim); }
+
+/* Time of day on a planned session — secondary to the session type itself. */
+.tc-planner-moment {
+  font-family: 'Inter', sans-serif; font-weight: 500; font-size: 10.5px;
+  color: var(--text-muted); text-transform: lowercase; margin-left: 6px;
+}
+
+/* Automation settings: checkbox with an explanation beside it. */
+.tc-automation-row { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin-bottom: 6px; }
+.tc-automation-row input { margin-top: 3px; flex-shrink: 0; }
+.tc-automation-row > div { display: flex; flex-direction: column; gap: 2px; }
+
+/* Pending-proposal count on the Planning nav item. */
+.tc-nav-badge {
+  margin-left: auto; background: var(--cardio); color: #0C1618;
+  border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Strength proposals use the strength accent, so the two disciplines are
+   distinguishable in a coach answer at a glance. */
+.tc-subtitle-strength { color: var(--strength); }
+
+/* Events in the week view: the thing the plan is building towards. */
+.tc-planner-event { border-left: 3px solid var(--event); background: var(--event-dim); }
+
+/* Inline date picker for moving a session — appears under the session itself
+   so it's obvious which one is being moved. */
+.tc-move-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.tc-move-input { max-width: 170px; padding: 5px 8px; font-size: 12.5px; }
+
+/* A completed event reads as an achievement rather than something pending. */
+.tc-planner-event.tc-event-done { border-left-color: var(--cardio); }
+
+/* Briefly highlight the row you were sent to from the planner. */
+.tc-row-focus { background: var(--event-dim); }
+
+/* Session detail: a panel over the app rather than a separate page, so you
+   keep your place in the planner or history table behind it. */
+.tc-detail-overlay {
+  position: fixed; inset: 0; background: rgba(10,13,16,0.75);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 24px 16px; overflow-y: auto; z-index: 50;
+}
+.tc-detail-panel {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px; width: 100%; max-width: 860px; margin-bottom: 40px;
+}
+.tc-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.tc-detail-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px; margin: 14px 0;
+}
+.tc-detail-stat {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 11px; display: flex; flex-direction: column; gap: 1px;
+}
+.tc-detail-stat-label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.tc-detail-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; }
+.tc-detail-stat-unit { font-size: 10.5px; color: var(--text-muted); }
+@media (max-width: 700px) {
+  .tc-detail-overlay { padding: 10px 6px; }
+  .tc-detail-panel { padding: 16px; }
+}
+
+/* Mobile planner layout.
+   On a narrow screen the action buttons were winning the fight for width,
+   squeezing the description down to one word per line and pushing themselves
+   up alongside the status icon. Below ~620px the session becomes a two-row
+   block: text first, buttons underneath on their own line. */
+@media (max-width: 620px) {
+  .tc-planner-session {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "icon info"
+      "actions actions";
+    gap: 8px 10px;
+    align-items: start;
+  }
+  /* The leading icon is the first child in every variant (status, dumbbell,
+     flag or clock), so target it positionally rather than by class. */
+  .tc-planner-session > svg:first-child { grid-area: icon; margin-top: 2px; }
+  .tc-planner-session .tc-gpxbatch-info { grid-area: info; min-width: 0; }
+  .tc-planner-session .tc-planned-actions {
+    grid-area: actions;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  /* Long words (zone descriptions, URLs) shouldn't force a horizontal scroll. */
+  .tc-planner-session .tc-event-notes,
+  .tc-planner-session .tc-planner-type {
+    overflow-wrap: anywhere;
+  }
+  /* Bigger tap targets: these get used mid-workout with one hand. */
+  .tc-planner-session .tc-btn-sm { padding: 7px 12px; }
+  .tc-planner-session .tc-icon-btn { padding: 7px; }
+}
+
+/* Wide tables (history, comparisons) should scroll sideways on a phone rather
+   than squashing every column into unreadable slivers. */
+@media (max-width: 620px) {
+  .tc-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .tc-detail-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* What a completed session actually delivered, shown under the plan itself. */
+.tc-planner-result {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--cardio); margin-top: 3px;
+}
+.tc-planner-analyse { align-self: flex-start; margin-top: 6px; }
