@@ -49,6 +49,31 @@ from datetime import date, timedelta
 
 SERVER_URL = os.environ.get("TRAININGSCOACH_URL", "http://localhost:3001")
 TOKEN_DIR = os.path.expanduser("~/.garminconnect")
+ENV_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+
+
+def load_env_file():
+    """
+    Reads GARMIN_* settings from the server's .env.
+
+    Storing credentials there is the only way to run this unattended: garth's
+    session saving is broken in the version that still works with Garmin's
+    current login, so every run has to authenticate afresh.
+    """
+    if not os.path.isfile(ENV_FILE):
+        return
+    with open(ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key.startswith("GARMIN_") and key not in os.environ:
+                os.environ[key] = value.strip().strip('"').strip("'")
+
+
+load_env_file()
 
 
 def fail(message, hint=None):
@@ -216,18 +241,20 @@ def login():
             # rate limiting, so knowing it's coming explains a later failure.
             print(f"Opgeslagen sessie werkte niet ({type(err).__name__}); nieuwe login nodig.")
 
-    # A cron job has no terminal, so prompting would raise EOFError and the run
-    # would fail every single night. Say plainly what's wrong instead.
-    if not sys.stdin.isatty():
+    email = os.environ.get("GARMIN_EMAIL")
+    password = os.environ.get("GARMIN_PASSWORD")
+
+    # Without a terminal (cron) and without stored credentials there's no way
+    # in — say so plainly rather than raising EOFError on an input() prompt.
+    if not sys.stdin.isatty() and not (email and password):
         fail(
-            "geen opgeslagen Garmin-sessie gevonden en er is geen terminal om naar in te loggen.",
-            "Log eerst een keer handmatig in; daarna werkt de automatische taak op de bewaarde tokens:\n"
-            "        cd ~/Trainingcoach-app/trainingscoach-server\n"
-            "        npm run garmin -- --days 3",
+            "geen Garmin-inloggegevens gevonden en er is geen terminal om ze te vragen.",
+            "Zet GARMIN_EMAIL en GARMIN_PASSWORD in trainingscoach-server/.env,\n"
+            "        of draai dit script handmatig vanuit een terminal.",
         )
 
-    email = os.environ.get("GARMIN_EMAIL") or input("Garmin e-mailadres: ")
-    password = os.environ.get("GARMIN_PASSWORD")
+    if not email:
+        email = input("Garmin e-mailadres: ")
     if not password:
         import getpass
         password = getpass.getpass("Garmin wachtwoord: ")
@@ -243,6 +270,12 @@ def login():
 
         # Newer library versions signal MFA by returning a tuple
         if isinstance(result, tuple) and result and result[0] == "needs_mfa":
+            if not sys.stdin.isatty():
+                fail(
+                    "Garmin vraagt om een MFA-code, en die kan een automatische taak niet invullen.",
+                    "Automatisch ophalen werkt niet met tweestapsverificatie aan. Draai het script\n"
+                    "        handmatig, of schakel MFA uit voor dit account als je dat acceptabel vindt.",
+                )
             code = input("MFA-code uit je authenticator-app: ")
             client.resume_login(result[1], code)
 
