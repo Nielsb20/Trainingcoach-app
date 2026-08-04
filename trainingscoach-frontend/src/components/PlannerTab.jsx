@@ -12,6 +12,13 @@ import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations"
  * review them here, keep what fits, and conflicts with sessions you already
  * committed to are called out rather than resolved behind your back.
  */
+const formatDuration = (min) => {
+  if (!min) return "";
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return h > 0 ? `${h}u ${m}m` : `${m}m`;
+};
+
 export default function PlannerTab({ onOpenSession }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -270,6 +277,34 @@ export default function PlannerTab({ onOpenSession }) {
                         {p.timeOfDay && <span className="tc-planner-moment">{p.timeOfDay}</span>}
                       </span>
                       <span className="tc-event-notes">{p.description}</span>
+
+                      {/* What actually happened, for a session that's been done —
+                          the same treatment a completed event gets. */}
+                      {p.sessie && p.sessie.discipline === "cardio" && (
+                        <>
+                          <span className="tc-planner-result">
+                            {p.sessie.distanceKm ? `${p.sessie.distanceKm} km` : ""}
+                            {p.sessie.durationMin ? ` · ${formatDuration(p.sessie.durationMin)}` : ""}
+                            {p.sessie.avgHr ? ` · ${p.sessie.avgHr}${p.sessie.maxHr ? `/${p.sessie.maxHr}` : ""} bpm` : ""}
+                            {p.sessie.avgPower ? ` · ${p.sessie.avgPower} W${p.sessie.normalizedPower ? ` (NP ${p.sessie.normalizedPower})` : ""}` : ""}
+                            {p.sessie.elevationGainM ? ` · ↑${p.sessie.elevationGainM}m` : ""}
+                          </span>
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm tc-planner-analyse"
+                            onClick={() => onOpenSession && onOpenSession(p.sessie.id)}>
+                            Bekijk analyse
+                          </button>
+                        </>
+                      )}
+                      {p.sessie && p.sessie.discipline === "kracht" && (
+                        <span className="tc-planner-result">
+                          {p.sessie.oefeningen && p.sessie.oefeningen.length
+                            ? p.sessie.oefeningen.join(" · ")
+                            : "gedaan"}
+                          {p.sessie.durationMin ? ` · ${p.sessie.durationMin} min` : ""}
+                          {p.sessie.rpe ? ` · RPE ${p.sessie.rpe}` : ""}
+                        </span>
+                      )}
+
                       {movingId === p.id && (
                         <div className="tc-move-row">
                           <input className="tc-input tc-move-input" type="date" defaultValue={p.date}

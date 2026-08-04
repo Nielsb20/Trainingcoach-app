@@ -5,7 +5,7 @@ const { db } = require("../db/db");
 const { getFullSchema } = require("./schema");
 const { serializeWorkoutLog } = require("./workoutLogs");
 const { serialize: serializeCardioLog } = require("./cardioLogs");
-const { getUpcomingPlan, getRecentDeclines } = require("./planned");
+const { getUpcomingPlan, getRecentDeclines, getRecentMoves } = require("./planned");
 const calc = require("../lib/calculations");
 const { buildCoachSystemPrompt } = require("../lib/coachPrompt");
 const { callCoachModel, describeProvider } = require("../lib/llmProvider");
@@ -142,6 +142,7 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
     herstel,
     krachtcontext,
     huidigePlanning: getUpcomingPlan(14),
+    recenteVerplaatsingen: getRecentMoves(14),
     eerderAfgewezenVoorstellen: getRecentDeclines(14),
     trainingsbelasting: currentLoad
       ? {

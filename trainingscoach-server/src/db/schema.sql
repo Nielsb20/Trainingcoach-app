@@ -270,3 +270,9 @@ CREATE TABLE IF NOT EXISTS session_feedback (
   raw_feedback TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Where a session was moved from, and when. Without this the coach sees a day
+-- the athlete deliberately emptied as simply free, and fills it straight back
+-- in — undoing a reorganisation they made on purpose.
+ALTER TABLE planned_sessions ADD COLUMN moved_from TEXT;
+ALTER TABLE planned_sessions ADD COLUMN moved_at TEXT;

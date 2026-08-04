@@ -28,6 +28,7 @@ function serialize(row) {
     durationMin: row.duration_min,
     intensity: row.intensity,
     discipline: row.discipline || 'cardio',
+    movedFrom: row.moved_from,
     timeOfDay: row.time_of_day,
     locked: !!row.locked,
     replacesId: row.replaces_id,
@@ -222,7 +223,60 @@ router.get("/", (req, res) => {
     ? db.prepare("SELECT * FROM planned_sessions WHERE date >= ? AND date <= ? ORDER BY date").all(fromStr, toStr)
     : db.prepare("SELECT * FROM planned_sessions WHERE date >= ? ORDER BY date").all(fromStr);
 
-  const plans = rows.map(serialize);
+  // Attach the session that fulfilled each completed plan. A tick alone tells
+  // you it happened; the numbers tell you how it went — the same reason events
+  // show their result rather than just a flag.
+  const cardioStmt = db.prepare(
+    `SELECT id, type, duration_min, distance_km, avg_hr, max_hr, avg_power,
+            weighted_avg_power, elevation_gain_m
+     FROM cardio_logs WHERE id = ?`
+  );
+  const strengthStmt = db.prepare(
+    "SELECT id, day_name, rpe, duration_min FROM workout_logs WHERE id = ?"
+  );
+
+  const plans = rows.map((row) => {
+    const plan = serialize(row);
+    if (!row.completed_cardio_log_id) return plan;
+
+    if ((row.discipline || "cardio") === "kracht") {
+      const log = strengthStmt.get(row.completed_cardio_log_id);
+      if (!log) return plan;
+      const exercises = db
+        .prepare("SELECT name FROM workout_log_exercises WHERE workout_log_id = ? ORDER BY sort_order")
+        .all(log.id)
+        .map((e) => e.name);
+      return {
+        ...plan,
+        sessie: {
+          id: log.id,
+          discipline: "kracht",
+          dayName: log.day_name,
+          rpe: log.rpe,
+          durationMin: log.duration_min,
+          oefeningen: exercises,
+        },
+      };
+    }
+
+    const log = cardioStmt.get(row.completed_cardio_log_id);
+    if (!log) return plan;
+    return {
+      ...plan,
+      sessie: {
+        id: log.id,
+        discipline: "cardio",
+        type: log.type,
+        durationMin: log.duration_min,
+        distanceKm: log.distance_km,
+        avgHr: log.avg_hr,
+        maxHr: log.max_hr,
+        avgPower: log.avg_power,
+        normalizedPower: log.weighted_avg_power,
+        elevationGainM: log.elevation_gain_m,
+      },
+    };
+  });
   const done = plans.filter((p) => p.status === "gedaan").length;
   const missed = plans.filter((p) => p.status === "overgeslagen").length;
   const upcoming = plans.filter((p) => p.status === "gepland").length;
@@ -239,7 +293,10 @@ router.get("/", (req, res) => {
       dayName: w.day_name,
       rpe: w.rpe,
       durationMin: w.duration_min,
-    }));
+    }))
+    // Skip any already shown as the completion of a planned session, or the
+    // same workout would appear twice on the same day.
+    .filter((w) => !plans.some((p) => p.completedCardioLogId === w.id));
 
   // Events belong in the week view: a plan that hides the race you're building
   // towards is missing the thing that gives it shape.
@@ -620,8 +677,15 @@ router.patch("/:id/move", (req, res) => {
     )
     .get(date, plan.discipline || "cardio", plan.id);
 
-  db.prepare("UPDATE planned_sessions SET date = ?, weekday = ?, status = 'gepland' WHERE id = ?")
-    .run(date, calc.weekdayNameForDate(date), plan.id);
+  // Remember where it came from: a day the athlete emptied on purpose should
+  // not be treated by the coach as simply free.
+  db.prepare(
+    `UPDATE planned_sessions
+     SET date = ?, weekday = ?, status = 'gepland',
+         completed_cardio_log_id = NULL,
+         moved_from = COALESCE(moved_from, ?), moved_at = ?
+     WHERE id = ?`
+  ).run(date, calc.weekdayNameForDate(date), plan.date, new Date().toISOString(), plan.id);
 
   // Moving onto a day that's already trained should count as done straight away.
   refreshCompletions();
@@ -657,7 +721,19 @@ router.patch("/:id", (req, res) => {
   if (!["voorgesteld", "gepland", "gedaan", "overgeslagen", "afgewezen"].includes(status)) {
     return res.status(400).json({ error: "Ongeldige status." });
   }
-  db.prepare("UPDATE planned_sessions SET status = ? WHERE id = ?").run(status, req.params.id);
+  // Reopening a session must also release the workout it was tied to.
+  // Leaving the link in place kept that workout marked as "already claimed",
+  // so the automatic sweep could never match it again and the session stayed
+  // open forever — the exact symptom of a ride that refused to tick itself off
+  // after being undone or moved.
+  const reopening = status === "gepland" || status === "voorgesteld";
+  if (reopening) {
+    db.prepare("UPDATE planned_sessions SET status = ?, completed_cardio_log_id = NULL WHERE id = ?")
+      .run(status, req.params.id);
+    refreshCompletions(); // it may well be completable again straight away
+  } else {
+    db.prepare("UPDATE planned_sessions SET status = ? WHERE id = ?").run(status, req.params.id);
+  }
   res.json({ ok: true });
 });
 
@@ -680,6 +756,30 @@ function getRecentDeclines(days = 14) {
     .map((r) => ({ datum: r.date, type: r.type, voorstel: r.description, reden: r.decline_reason }));
 }
 
+/**
+ * Sessions the athlete moved in the last fortnight, with the day they came
+ * from. The coach needs both halves: the new day is now taken, and the old day
+ * was emptied deliberately rather than by accident.
+ */
+function getRecentMoves(days = 14) {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  return db
+    .prepare(
+      `SELECT * FROM planned_sessions
+       WHERE moved_from IS NOT NULL AND moved_at >= ?
+       ORDER BY moved_at DESC`
+    )
+    .all(since.toISOString())
+    .map((r) => ({
+      type: r.type,
+      discipline: r.discipline || "cardio",
+      vanDatum: r.moved_from,
+      naarDatum: r.date,
+      status: r.status,
+    }));
+}
+
 function getUpcomingPlan(days = 14) {
   const today = calc.todayStr();
   const until = new Date();
@@ -692,4 +792,4 @@ function getUpcomingPlan(days = 14) {
     .map(serialize);
 }
 
-module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, createProposalsFromCoachEntry };
+module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, getRecentMoves, createProposalsFromCoachEntry };

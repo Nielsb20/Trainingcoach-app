@@ -5,9 +5,10 @@ const express = require("express");
 const cors = require("cors");
 const path = require("node:path");
 
-const { initSchema } = require("./db/db");
+const { initSchema, repairOrphanedCompletions } = require("./db/db");
 
 initSchema();
+repairOrphanedCompletions();
 
 const app = express();
 app.use(cors());

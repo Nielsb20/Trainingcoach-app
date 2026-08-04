@@ -319,3 +319,52 @@ html, body, #root {
   .tc-detail-overlay { padding: 10px 6px; }
   .tc-detail-panel { padding: 16px; }
 }
+
+/* Mobile planner layout.
+   On a narrow screen the action buttons were winning the fight for width,
+   squeezing the description down to one word per line and pushing themselves
+   up alongside the status icon. Below ~620px the session becomes a two-row
+   block: text first, buttons underneath on their own line. */
+@media (max-width: 620px) {
+  .tc-planner-session {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "icon info"
+      "actions actions";
+    gap: 8px 10px;
+    align-items: start;
+  }
+  /* The leading icon is the first child in every variant (status, dumbbell,
+     flag or clock), so target it positionally rather than by class. */
+  .tc-planner-session > svg:first-child { grid-area: icon; margin-top: 2px; }
+  .tc-planner-session .tc-gpxbatch-info { grid-area: info; min-width: 0; }
+  .tc-planner-session .tc-planned-actions {
+    grid-area: actions;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  /* Long words (zone descriptions, URLs) shouldn't force a horizontal scroll. */
+  .tc-planner-session .tc-event-notes,
+  .tc-planner-session .tc-planner-type {
+    overflow-wrap: anywhere;
+  }
+  /* Bigger tap targets: these get used mid-workout with one hand. */
+  .tc-planner-session .tc-btn-sm { padding: 7px 12px; }
+  .tc-planner-session .tc-icon-btn { padding: 7px; }
+}
+
+/* Wide tables (history, comparisons) should scroll sideways on a phone rather
+   than squashing every column into unreadable slivers. */
+@media (max-width: 620px) {
+  .tc-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .tc-detail-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* What a completed session actually delivered, shown under the plan itself. */
+.tc-planner-result {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--cardio); margin-top: 3px;
+}
+.tc-planner-analyse { align-self: flex-start; margin-top: 6px; }

@@ -42,4 +42,25 @@ function initSchema() {
   });
 }
 
-module.exports = { db, initSchema, DB_PATH };
+/**
+ * Clears completion links on sessions that are open again.
+ *
+ * An earlier version left `completed_cardio_log_id` in place when a session
+ * was undone or moved, which made the workout count as already claimed and
+ * stopped the session from ever being ticked off automatically. Rows saved in
+ * that state need cleaning up once.
+ */
+function repairOrphanedCompletions() {
+  const result = db
+    .prepare(
+      `UPDATE planned_sessions SET completed_cardio_log_id = NULL
+       WHERE completed_cardio_log_id IS NOT NULL
+         AND status IN ('gepland', 'voorgesteld')`
+    )
+    .run();
+  if (result.changes > 0) {
+    console.log(`[db] ${result.changes} openstaande sessie(s) losgekoppeld van hun oude training`);
+  }
+}
+
+module.exports = { db, initSchema, repairOrphanedCompletions, DB_PATH };
