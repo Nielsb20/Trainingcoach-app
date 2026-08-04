@@ -289,11 +289,34 @@ npm run garmin -- --days 30 --dry-run  # eerst kijken wat er komt
 De eerste keer vraagt hij om je inloggegevens (en MFA-code indien ingesteld).
 Daarna worden alleen tokens bewaard in `~/.garminconnect`, niet je wachtwoord.
 
-**Eerst een keer handmatig inloggen.** De automatische taak werkt op de tokens
-die bij die eerste login worden opgeslagen; zonder die tokens zou het script om
-je wachtwoord moeten vragen, en een cron-taak heeft geen terminal. Draait het
-script zonder tokens vanuit cron, dan stopt het met een uitleg in plaats van dat
-het blijft hangen.
+**Sessies bewaren werkt niet meer.** De bibliotheek die dat deed (garth) is in
+maart 2026 stopgezet; de opslagfunctie draait wel maar schrijft lege bestanden,
+en de inlogroute die op moderne accounts nog werkt levert helemaal geen
+herbruikbare tokens op. Alle zeven manieren die het script probeert falen
+daarop — dat is geen instelfout, maar het einde van die weg.
+
+**Wil je toch automatisch ophalen**, dan moet elke run zelf inloggen. Zet
+daarvoor je gegevens in `trainingscoach-server/.env`:
+
+```
+GARMIN_EMAIL=jouw@email.nl
+GARMIN_PASSWORD=jouwwachtwoord
+```
+
+Twee dingen om af te wegen voordat je dat doet:
+
+- **Je wachtwoord staat dan leesbaar op de Pi.** Het bestand staat in
+  `.gitignore`, dus het komt niet in je repo terecht, maar wie bij de Pi kan
+  komen kan het lezen. Beperk de rechten met `chmod 600 .env`.
+- **Elke run logt opnieuw in**, en dat is precies wat Garmin's blokkade (429)
+  uitlokt. Eén keer per dag is doorgaans geen probleem; vaker vragen om
+  problemen.
+
+Heb je tweestapsverificatie aan, dan werkt automatisch ophalen sowieso niet —
+een cron-taak kan die code niet invullen.
+
+Zonder deze gegevens draait het script gewoon handmatig, en stopt het vanuit
+cron met een nette uitleg in plaats van een foutmelding.
 
 Automatisch elke ochtend, via `crontab -e`:
 
