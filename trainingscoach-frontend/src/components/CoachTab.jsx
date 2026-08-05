@@ -93,25 +93,26 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
           <div className="tc-history-grid">
             {strengthHistorySummary && (
               <div>
+                <p className="tc-history-label">Krachttraining</p>
                 <span className="tc-hint-badge tc-badge-strength">
-                  {strengthHistorySummary.totaalAantalSessiesOoit} krachtsessies · {strengthHistorySummary.periode}
+                  {strengthHistorySummary.totaalAantalSessiesOoit} sessies · {strengthHistorySummary.periode}
                 </span>
                 {strengthHistorySummary.voortgangPerOefeningSindsEersteLog.length > 0 && (
                   <p className="tc-history-detail">
-                    {strengthHistorySummary.voortgangPerOefeningSindsEersteLog.map((p) => `${p.oefening}: ${p.eersteLog}→${p.laatsteLog}kg`).join(" · ")}
+                    voortgang: {strengthHistorySummary.voortgangPerOefeningSindsEersteLog.map((p) => `${p.oefening} ${p.eersteLog}→${p.laatsteLog}kg`).join(" · ")}
                   </p>
                 )}
                 {strengthLoad && (
                   <p className="tc-history-detail">
                     {strengthLoad.thisWeek ? (
                       <>
-                        Krachtbelasting: {strengthLoad.thisWeek.sRpe} sRPE deze week
+                        belasting: {strengthLoad.thisWeek.sRpe} sRPE deze week
                         {strengthLoad.prevWeek ? ` · ${strengthLoad.prevWeek.sRpe} sRPE de week ervoor` : ""}
                         {strengthLoad.unrated > 0 && ` · ${strengthLoad.unrated} sessie${strengthLoad.unrated === 1 ? "" : "s"} zonder duur/RPE tellen niet mee`}
                       </>
                     ) : (
                       <>
-                        Krachtbelasting: nog niet te berekenen — vul bij het loggen duur én RPE in
+                        belasting: nog niet te berekenen — vul bij het loggen duur én RPE in
                         (of vul ze aan via het potlood in Geschiedenis → Kracht), dan weegt de coach je gymwerk mee.
                       </>
                     )}
@@ -121,8 +122,9 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
             )}
             {cardioHistorySummary && (
               <div>
+                <p className="tc-history-label">Cardio</p>
                 <span className="tc-hint-badge tc-badge-cardio">
-                  {cardioHistorySummary.totaalAantalSessiesOoit} cardiosessies · {cardioHistorySummary.periode}
+                  {cardioHistorySummary.totaalAantalSessiesOoit} sessies · {cardioHistorySummary.periode}
                 </span>
                 <p className="tc-history-detail">
                   laatste 4 weken: {cardioHistorySummary.laatste4Weken.km}km / {cardioHistorySummary.laatste4Weken.minuten}min
@@ -141,11 +143,14 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
             )}
             {currentLoad && (
               <div>
+                <p className="tc-history-label">Trainingsbelasting</p>
                 <span className="tc-hint-badge tc-badge-event">
                   CTL {currentLoad.ctl} · ATL {currentLoad.atl} · TSB {currentLoad.tsb > 0 ? "+" : ""}{currentLoad.tsb}
                 </span>
                 <p className="tc-history-detail">
-                  Trainingsbelasting ({schema.profile?.ftp ? "op basis van vermogen/FTP" : "geschat op basis van hartslag"}) — zie Geschiedenis → Belasting voor de grafiek.
+                  fitness · vermoeidheid · vorm, {schema.profile?.ftp ? "op basis van vermogen/FTP" : "geschat op basis van hartslag"}
+                  <br />
+                  alleen cardio — zie Geschiedenis → Belasting voor de grafiek
                 </p>
               </div>
             )}

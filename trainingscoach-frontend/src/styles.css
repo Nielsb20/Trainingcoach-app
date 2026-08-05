@@ -94,8 +94,17 @@
 .tc-badge-event { background: var(--event-dim); color: var(--event); }
 .tc-badge-warning { background: rgba(184,92,92,0.14); color: #D08585; }
 .tc-history-summary { border-color: var(--border); }
-.tc-history-grid { display:flex; flex-direction:column; gap:12px; }
+.tc-history-grid { display:flex; flex-direction:column; gap:16px; }
 .tc-history-detail { font-size:12.5px; color: var(--text-muted); margin: 6px 0 0; font-family:'JetBrains Mono', monospace; }
+/* One heading style for every block in the summary, so the eye can tell a
+   label from a value. Without it the coloured badges doubled as headings while
+   carrying different kinds of content — a count in one block, live metrics in
+   the next — which read as arbitrary emphasis. */
+.tc-history-label {
+  font-family:'Oswald',sans-serif; font-weight:600; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:0.8px; color: var(--text-muted);
+  margin: 0 0 6px;
+}
 .tc-chiprow { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 
 .tc-import-card { border-color: var(--cardio); }
