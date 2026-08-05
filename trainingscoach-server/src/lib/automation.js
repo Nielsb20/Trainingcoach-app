@@ -13,6 +13,11 @@
  * it's worth interrupting a plan the athlete already committed to.
  */
 
+// calculations.js is equally pure (no db, no network), so leaning on it for
+// date formatting keeps this module testable while avoiding a second, subtly
+// different copy of the timezone-safe date logic.
+const calc = require("./calculations");
+
 const DEFAULTS = {
   // Training Stress Balance. Sustained deep negatives mean accumulated fatigue;
   // a long stretch of high positives usually means the plan has gone too easy.
@@ -126,7 +131,7 @@ function detectSignals({ loadSeries, wellness = [], plans = [], events = [], tod
 
   const weekAgo = new Date(today + "T00:00:00");
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekAgoStr = weekAgo.toISOString().slice(0, 10);
+  const weekAgoStr = calc.toDateStr(weekAgo);
   const missed = plans.filter(
     (p) => p.status === "overgeslagen" && p.date >= weekAgoStr && p.date < today
   );

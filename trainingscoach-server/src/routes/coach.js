@@ -58,7 +58,7 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
     const latest = sorted[sorted.length - 1];
     const cutoff = new Date(calc.todayStr() + "T00:00:00");
     cutoff.setDate(cutoff.getDate() - 56);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const cutoffStr = calc.toDateStr(cutoff);
     const older = sorted.filter((w) => w.date <= cutoffStr);
     const reference = older.length > 0 ? older[older.length - 1] : sorted[0];
     weightSummary = {
