@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import { uid, todayStr, formatDateNL } from "../lib/calculations";
 
 export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog }) {
@@ -94,7 +95,7 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
                   <td>{formatDateNL(w.date)}</td>
                   <td className="tc-mono">{w.weight_kg} kg</td>
                   <td className="tc-mono">{w.body_fat_pct != null ? `${w.body_fat_pct}%` : "–"}</td>
-                  <td><button className="tc-icon-btn" onClick={() => deleteWeightLog(w.id)}><Trash2 size={14} /></button></td>
+                  <td><ConfirmDeleteButton onConfirm={() => deleteWeightLog(w.id)} title="Deze meting verwijderen" /></td>
                 </tr>
               ))}
             </tbody>

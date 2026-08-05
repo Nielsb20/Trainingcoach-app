@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Trash2, TrendingUp, Search, Pencil } from "lucide-react";
+import { TrendingUp, Search, Pencil } from "lucide-react";
+import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import {
   formatDateNL, timeOfDayLabel, computeAvgSpeedKmh, computeHrZones,
   computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad,
@@ -128,7 +129,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                             <Pencil size={14} />
                           </button>
                         </td>
-                        <td><button className="tc-icon-btn" onClick={() => deleteWorkoutLog(l.id)}><Trash2 size={14} /></button></td>
+                        <td><ConfirmDeleteButton onConfirm={() => deleteWorkoutLog(l.id)} title="Deze training verwijderen" /></td>
                       </tr>
                     );
                   })}
@@ -193,7 +194,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                             </button>
                           )}
                         </td>
-                        <td><button className="tc-icon-btn" onClick={() => deleteCardioLog(c.id)}><Trash2 size={14} /></button></td>
+                        <td><ConfirmDeleteButton onConfirm={() => deleteCardioLog(c.id)} title="Deze sessie verwijderen" /></td>
                       </tr>
                       {expandedProfileId === c.id && c.profile && (
                         <tr>
