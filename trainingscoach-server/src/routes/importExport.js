@@ -10,14 +10,14 @@ const router = express.Router();
 // re-imported here with zero conversion.
 router.get("/export", (req, res) => {
   const { getFullSchema } = require("./schema");
-  const { serializeWorkoutLog } = require("./workoutLogs");
+  const { serializeWorkoutLogs } = require("./workoutLogs");
   const { serialize: serializeCardioLog } = require("./cardioLogs");
   const { serialize: serializeWeightLog } = require("./weightLogs");
   const { serialize: serializeEvent } = require("./events");
 
   const backup = {
     schema: getFullSchema(),
-    workoutLogs: db.prepare("SELECT * FROM workout_logs ORDER BY date DESC").all().map(serializeWorkoutLog),
+    workoutLogs: serializeWorkoutLogs(db.prepare("SELECT * FROM workout_logs ORDER BY date DESC").all()),
     cardioLogs: db.prepare("SELECT * FROM cardio_logs ORDER BY date DESC").all().map(serializeCardioLog),
     events: db.prepare("SELECT * FROM events ORDER BY date ASC").all().map(serializeEvent),
     weightLogs: db.prepare("SELECT * FROM weight_logs ORDER BY date ASC").all().map(serializeWeightLog),

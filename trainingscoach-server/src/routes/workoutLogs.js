@@ -5,17 +5,7 @@ const { db } = require("../db/db");
 
 const router = express.Router();
 
-function serializeWorkoutLog(row) {
-  const exercises = db
-    .prepare("SELECT * FROM workout_log_exercises WHERE workout_log_id = ? ORDER BY sort_order")
-    .all(row.id)
-    .map((ex) => ({
-      exerciseId: ex.id,
-      name: ex.name,
-      sets: db
-        .prepare("SELECT weight, reps FROM workout_log_sets WHERE exercise_id = ? ORDER BY sort_order")
-        .all(ex.id),
-    }));
+function baseFields(row) {
   return {
     id: row.id,
     date: row.date,
@@ -25,14 +15,71 @@ function serializeWorkoutLog(row) {
     notes: row.notes,
     rpe: row.rpe,
     durationMin: row.duration_min,
-    exercises,
   };
+}
+
+/**
+ * Serializes many logs with a fixed number of queries instead of one per log
+ * and one more per exercise.
+ *
+ * The per-row version below is fine for a single log, but the list endpoint ran
+ * it in a loop: at three sessions a week for five years that became ~7000
+ * prepare-and-execute round trips, measured at six seconds on a development
+ * machine and considerably worse on the Raspberry Pi this is meant to run on.
+ * Grouping in memory keeps it flat as the log grows.
+ *
+ * Ids are chunked into the IN-lists because SQLite caps the number of bound
+ * parameters per statement; the cap is high, but a training log is exactly the
+ * kind of thing that keeps growing for years.
+ */
+function serializeWorkoutLogs(rows) {
+  if (rows.length === 0) return [];
+
+  const chunked = (ids, size = 500) => {
+    const out = [];
+    for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+    return out;
+  };
+  const fetchIn = (sql, ids) =>
+    chunked(ids).flatMap((chunk) =>
+      db.prepare(sql.replace("?ids", chunk.map(() => "?").join(","))).all(...chunk)
+    );
+
+  const exercises = fetchIn(
+    "SELECT * FROM workout_log_exercises WHERE workout_log_id IN (?ids) ORDER BY sort_order",
+    rows.map((r) => r.id)
+  );
+  const sets = fetchIn(
+    "SELECT exercise_id, weight, reps FROM workout_log_sets WHERE exercise_id IN (?ids) ORDER BY sort_order",
+    exercises.map((e) => e.id)
+  );
+
+  const setsByExercise = new Map();
+  for (const s of sets) {
+    if (!setsByExercise.has(s.exercise_id)) setsByExercise.set(s.exercise_id, []);
+    setsByExercise.get(s.exercise_id).push({ weight: s.weight, reps: s.reps });
+  }
+  const exercisesByLog = new Map();
+  for (const ex of exercises) {
+    if (!exercisesByLog.has(ex.workout_log_id)) exercisesByLog.set(ex.workout_log_id, []);
+    exercisesByLog.get(ex.workout_log_id).push({
+      exerciseId: ex.id,
+      name: ex.name,
+      sets: setsByExercise.get(ex.id) || [],
+    });
+  }
+
+  return rows.map((row) => ({ ...baseFields(row), exercises: exercisesByLog.get(row.id) || [] }));
+}
+
+function serializeWorkoutLog(row) {
+  return serializeWorkoutLogs([row])[0];
 }
 
 // GET /api/workout-logs
 router.get("/", (req, res) => {
   const rows = db.prepare("SELECT * FROM workout_logs ORDER BY date DESC, created_at DESC").all();
-  res.json(rows.map(serializeWorkoutLog));
+  res.json(serializeWorkoutLogs(rows));
 });
 
 // POST /api/workout-logs
@@ -143,4 +190,4 @@ router.delete("/:id", (req, res) => {
   res.status(204).end();
 });
 
-module.exports = { router, serializeWorkoutLog, replaceWorkoutLog };
+module.exports = { router, serializeWorkoutLog, serializeWorkoutLogs, replaceWorkoutLog };
