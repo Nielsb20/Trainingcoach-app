@@ -126,6 +126,12 @@ export default function App() {
       setWorkoutLogs(await api.getWorkoutLogs());
     }, "Training opslaan mislukt");
 
+  const updateWorkoutLog = (id, entry) =>
+    withErrorHandling(async () => {
+      await api.updateWorkoutLog(id, entry);
+      setWorkoutLogs(await api.getWorkoutLogs());
+    }, "Training bijwerken mislukt");
+
   const deleteWorkoutLog = (id) =>
     withErrorHandling(async () => {
       await api.deleteWorkoutLog(id);
@@ -274,6 +280,7 @@ export default function App() {
             workoutLogs={workoutLogs}
             cardioLogs={cardioLogs}
             weightLogs={weightLogs}
+            updateWorkoutLog={updateWorkoutLog}
             deleteWorkoutLog={deleteWorkoutLog}
             deleteCardioLog={deleteCardioLog}
             onOpenSession={setDetailSessionId}

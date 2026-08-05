@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Trash2, TrendingUp, Search } from "lucide-react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { Trash2, TrendingUp, Search, Pencil } from "lucide-react";
 import {
   formatDateNL, timeOfDayLabel, computeAvgSpeedKmh, computeHrZones,
-  computeTrainingLoadSeries, getWeightAtDate,
+  computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad,
 } from "../lib/calculations";
+import WorkoutLogEditor from "./WorkoutLogEditor";
 
-export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {
+export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {
   const [sub, setSub] = useState("kracht");
   const [expandedProfileId, setExpandedProfileId] = useState(null);
   const [isolatedSeries, setIsolatedSeries] = useState(null);
+  const [editingLogId, setEditingLogId] = useState(null);
 
   function toggleProfile(id) {
     setExpandedProfileId((prev) => (prev === id ? null : id));
@@ -60,6 +62,23 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
   const latestLoad = trainingLoadSeries ? trainingLoadSeries[trainingLoadSeries.length - 1] : null;
   const recentLoadSeries = trainingLoadSeries ? trainingLoadSeries.slice(-90) : null;
 
+  // Strength load lives on its own scale (sRPE, not TSS) and so gets its own
+  // chart rather than a second line on the PMC — mixing the two units would
+  // suggest a relationship the numbers don't have.
+  const weeklyStrengthLoad = useMemo(() => computeWeeklyStrengthLoad(workoutLogs, 12), [workoutLogs]);
+  const strengthLoadWeeks = weeklyStrengthLoad?.filter((w) => w.sRpe !== null) || [];
+  const thisWeekSRpe = strengthLoadWeeks.length ? strengthLoadWeeks[strengthLoadWeeks.length - 1] : null;
+  const prevWeekSRpe = strengthLoadWeeks.length > 1 ? strengthLoadWeeks[strengthLoadWeeks.length - 2] : null;
+  const sRpeChangePct =
+    thisWeekSRpe && prevWeekSRpe && prevWeekSRpe.sRpe > 0
+      ? Math.round(((thisWeekSRpe.sRpe - prevWeekSRpe.sRpe) / prevWeekSRpe.sRpe) * 100)
+      : null;
+  // Sessions logged without RPE/duration are invisible in the load numbers;
+  // say so explicitly rather than letting them read as rest.
+  const unratedSessions = workoutLogs.filter((l) => computeSessionRpe(l) === null).length;
+
+  const editingLog = editingLogId ? workoutLogs.find((l) => l.id === editingLogId) : null;
+
   return (
     <div>
       <h1 className="tc-title">Geschiedenis &amp; progressie</h1>
@@ -90,21 +109,34 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                 </ResponsiveContainer>
               </div>
               <table className="tc-table">
-                <thead><tr><th>Datum</th><th>Moment</th><th>Sets</th><th></th></tr></thead>
+                <thead><tr><th>Datum</th><th>Moment</th><th>Sets</th><th>Duur</th><th>RPE</th><th>sRPE</th><th></th><th></th></tr></thead>
                 <tbody>
                   {workoutLogs.filter((l) => l.exercises.some((e) => e.name === selectedEx)).map((l) => {
                     const ex = l.exercises.find((e) => e.name === selectedEx);
+                    const sRpe = computeSessionRpe(l);
                     return (
                       <tr key={l.id}>
                         <td>{formatDateNL(l.date)}</td>
                         <td>{l.timeOfDay ? timeOfDayLabel(l.timeOfDay) : "–"}</td>
                         <td className="tc-mono">{ex.sets.map((s) => `${s.weight}×${s.reps}`).join(", ")}</td>
+                        <td className="tc-mono">{l.durationMin ? `${l.durationMin} min` : "–"}</td>
+                        <td className="tc-mono">{l.rpe ?? "–"}</td>
+                        <td className="tc-mono">{sRpe ?? "–"}</td>
+                        <td>
+                          <button className="tc-icon-btn" title="Deze training bewerken"
+                            onClick={() => setEditingLogId(l.id)}>
+                            <Pencil size={14} />
+                          </button>
+                        </td>
                         <td><button className="tc-icon-btn" onClick={() => deleteWorkoutLog(l.id)}><Trash2 size={14} /></button></td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+              <p className="tc-import-help">
+                Klik op het potlood om een gelogde training te corrigeren — gewichten, herhalingen, duur, RPE en datum.
+              </p>
             </>
           )}
         </div>
@@ -217,6 +249,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
 
       {sub === "belasting" && (
         <div>
+          <h2 className="tc-section-title">Cardio — Performance Management Chart</h2>
           {!schema.profile?.ftp && !schema.profile?.maxHr ? (
             <div className="tc-empty">
               <p>Vul je FTP en/of max. hartslag in bij Schema → Persoonlijk profiel om trainingsbelasting (TSS/CTL/ATL) te berekenen.</p>
@@ -253,7 +286,67 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
               </p>
             </>
           )}
+
+          <h2 className="tc-section-title" style={{ marginTop: 32 }}>Kracht — weekbelasting (sRPE)</h2>
+          {!weeklyStrengthLoad ? (
+            <div className="tc-empty"><p>Nog geen krachttraining gelogd.</p></div>
+          ) : strengthLoadWeeks.length === 0 ? (
+            <div className="tc-empty">
+              <p>
+                Je hebt {workoutLogs.length} krachtsessie{workoutLogs.length === 1 ? "" : "s"} gelogd, maar zonder duur en RPE.
+                Vul die bij het loggen in — of corrigeer ze via het potlood in de Kracht-tab — om je krachtbelasting te zien.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="tc-sub" style={{ marginTop: -8 }}>
+                sRPE = duur × RPE, per week opgeteld. Dit is de gymtegenhanger van de grafiek hierboven: krachttraining
+                zit bewust niet in CTL/ATL/TSB, omdat daar geen vermogensmeter voor is en de eenheden niet vergelijkbaar zijn.
+              </p>
+              <div className="tc-chiprow">
+                <span className="tc-hint-badge tc-badge-strength">Deze week: {thisWeekSRpe.sRpe} sRPE</span>
+                {prevWeekSRpe && <span className="tc-hint-badge tc-badge-event">Vorige week: {prevWeekSRpe.sRpe} sRPE</span>}
+                {sRpeChangePct !== null && (
+                  <span className={"tc-hint-badge " + (sRpeChangePct > 30 ? "tc-badge-warning" : "tc-badge-cardio")}>
+                    {sRpeChangePct > 0 ? "+" : ""}{sRpeChangePct}% t.o.v. vorige week
+                  </span>
+                )}
+              </div>
+              <div className="tc-chart-wrap">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={weeklyStrengthLoad}>
+                    <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
+                    <XAxis dataKey="label" stroke="#8B949B" fontSize={11} />
+                    <YAxis stroke="#8B949B" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }}
+                      formatter={(value, name, entry) => [
+                        `${value} sRPE (${entry.payload.sessionsRated} van ${entry.payload.sessions} sessies beoordeeld)`,
+                        "Weekbelasting",
+                      ]}
+                      labelFormatter={(label) => `Week van ${label}`}
+                    />
+                    <Bar dataKey="sRpe" fill="#C97A3F" name="Weekbelasting (sRPE)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="tc-import-help">
+                Vuistregel: een stijging van meer dan ongeveer 30% ten opzichte van de week ervoor is een flinke sprong —
+                nuttig als je bewust opbouwt, maar reden om cardio die week wat rustiger te plannen.
+                {unratedSessions > 0 && ` ${unratedSessions} sessie${unratedSessions === 1 ? "" : "s"} zonder duur of RPE tellen hier niet in mee.`}
+              </p>
+            </>
+          )}
         </div>
+      )}
+
+      {editingLog && (
+        <WorkoutLogEditor
+          log={editingLog}
+          schema={schema}
+          onSave={updateWorkoutLog}
+          onClose={() => setEditingLogId(null)}
+        />
       )}
     </div>
   );

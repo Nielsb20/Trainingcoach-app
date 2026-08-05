@@ -70,10 +70,77 @@ router.post("/", (req, res) => {
   }
 });
 
+/**
+ * Replaces a logged session in place.
+ *
+ * The row id is deliberately the caller-supplied one and is never taken from
+ * the body: planned_sessions.completed_cardio_log_id points at workout_logs.id
+ * for strength sessions, so re-creating the log under a new id would silently
+ * detach it from the plan it completed. Correcting a typo in a rep count must
+ * not undo "afgerond" in the planner.
+ *
+ * Throws an Error carrying a `status` so the route can map it to a response
+ * without the caller having to know about HTTP.
+ */
+function replaceWorkoutLog(id, entry) {
+  const existing = db.prepare("SELECT id FROM workout_logs WHERE id = ?").get(id);
+  if (!existing) {
+    const err = new Error("Training niet gevonden");
+    err.status = 404;
+    throw err;
+  }
+
+  const exercises = (entry.exercises || []).filter((ex) => (ex.sets || []).length > 0);
+  if (exercises.length === 0) {
+    // Saving an empty session would wipe the log while leaving an orphan row
+    // behind; deleting is a separate, explicit action.
+    const err = new Error("Een training moet minstens één set bevatten.");
+    err.status = 400;
+    throw err;
+  }
+
+  const update = db.transaction(() => {
+    db.prepare(
+      "UPDATE workout_logs SET date = ?, time_of_day = ?, day_id = ?, day_name = ?, notes = ?, rpe = ?, duration_min = ? WHERE id = ?"
+    ).run(entry.date, entry.timeOfDay || null, entry.dayId || null, entry.dayName || null,
+          entry.notes || null, entry.rpe ?? null, entry.durationMin ?? null, id);
+
+    // Rewrite the children wholesale rather than diffing set by set: sets have
+    // no stable identity of their own, so a diff would be guesswork.
+    db.prepare("DELETE FROM workout_log_exercises WHERE workout_log_id = ?").run(id); // cascades to sets
+
+    const insertExercise = db.prepare(
+      "INSERT INTO workout_log_exercises (id, workout_log_id, name, sort_order) VALUES (?, ?, ?, ?)"
+    );
+    const insertSet = db.prepare("INSERT INTO workout_log_sets (exercise_id, weight, reps, sort_order) VALUES (?, ?, ?, ?)");
+
+    exercises.forEach((ex, exIdx) => {
+      const exerciseRowId = `${id}-ex${exIdx}`;
+      insertExercise.run(exerciseRowId, id, ex.name, exIdx);
+      (ex.sets || []).forEach((s, setIdx) => insertSet.run(exerciseRowId, s.weight, s.reps, setIdx));
+    });
+  });
+
+  update();
+  return serializeWorkoutLog(db.prepare("SELECT * FROM workout_logs WHERE id = ?").get(id));
+}
+
+// PUT /api/workout-logs/:id
+router.put("/:id", (req, res) => {
+  try {
+    res.json(replaceWorkoutLog(req.params.id, req.body));
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({
+      error: status === 500 ? `Kon training niet bijwerken: ${err.message}` : err.message,
+    });
+  }
+});
+
 // DELETE /api/workout-logs/:id
 router.delete("/:id", (req, res) => {
   db.prepare("DELETE FROM workout_logs WHERE id = ?").run(req.params.id); // cascades to exercises/sets
   res.status(204).end();
 });
 
-module.exports = { router, serializeWorkoutLog };
+module.exports = { router, serializeWorkoutLog, replaceWorkoutLog };

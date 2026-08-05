@@ -42,6 +42,8 @@ export const saveSchema = (schema) => request("/schema", { method: "PUT", body: 
 
 export const getWorkoutLogs = () => request("/workout-logs");
 export const createWorkoutLog = (entry) => request("/workout-logs", { method: "POST", body: JSON.stringify(entry) });
+export const updateWorkoutLog = (id, entry) =>
+  request(`/workout-logs/${id}`, { method: "PUT", body: JSON.stringify(entry) });
 export const deleteWorkoutLog = (id) => request(`/workout-logs/${id}`, { method: "DELETE" });
 
 /* ------------------------------ cardio logs ---------------------------- */
