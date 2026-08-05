@@ -12,6 +12,14 @@
  * 2. Editing a logged session must not detach it from the plan it completed.
  */
 const assert = require("node:assert");
+
+// Pin a timezone east of UTC before anything touches Date. The week bucketing
+// below passed for months in UTC while being a day off on the Raspberry Pi this
+// actually runs on: local midnight stringified through toISOString() lands on
+// the previous day. Running the assertions under Europe/Amsterdam means a
+// UTC-only machine can no longer give this a false pass.
+process.env.TZ = "Europe/Amsterdam";
+
 process.env.DATA_DIR = "/tmp/strength-selftest-workoutLogEditing";
 require("node:fs").rmSync("/tmp/strength-selftest-workoutLogEditing", { recursive: true, force: true });
 

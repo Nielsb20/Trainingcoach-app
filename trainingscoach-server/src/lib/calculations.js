@@ -19,8 +19,28 @@
 
 const WEEKDAYS = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"];
 
+/**
+ * Formats a Date back to YYYY-MM-DD using its *local* calendar components.
+ *
+ * Never use toISOString().slice(0,10) for this. That converts to UTC first, so
+ * on any host east of Greenwich a date parsed as local midnight stringifies
+ * back to the previous day. On a Pi in Europe/Amsterdam that shifted every week
+ * bucket a day early and pushed today's session out of the load series
+ * entirely — while every test passed, because CI runs in UTC where the two
+ * agree.
+ *
+ * Everything in this app is a calendar date without a time, so the local
+ * components are the correct reading.
+ */
+function toDateStr(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return toDateStr(new Date());
 }
 
 function weekdayNameForDate(dateStr) {
@@ -231,7 +251,7 @@ function computeTrainingLoadSeries(cardioLogs, ftp, hrZones) {
   let atl = 0;
   const series = [];
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = toDateStr(d);
     const tss = tssByDate[dateStr] || 0;
     ctl = ctl + (tss - ctl) / 42;
     atl = atl + (tss - atl) / 7;
@@ -409,7 +429,7 @@ function computeWeeklyStrengthLoad(workoutLogs, weeks = 12) {
     // getDay(): 0 = Sunday. Shift so Monday starts the week.
     const offset = (d.getDay() + 6) % 7;
     d.setDate(d.getDate() - offset);
-    return d.toISOString().slice(0, 10);
+    return toDateStr(d);
   };
 
   const buckets = new Map();
@@ -575,6 +595,7 @@ function mergePowerCurves(curves) {
 
 module.exports = {
   WEEKDAYS,
+  toDateStr,
   todayStr,
   weekdayNameForDate,
   daysUntil,
