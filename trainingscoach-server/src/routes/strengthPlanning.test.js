@@ -11,8 +11,9 @@ require("node:fs").rmSync("/tmp/strengthplan-selftest-strengthPlanning", { recur
 const { db, initSchema } = require("../db/db");
 initSchema();
 const { refreshCompletions } = require("./planned");
+const calc = require("../lib/calculations");
 
-const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); };
+const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return calc.toDateStr(d); };
 const addPlan = (id, date, type, discipline, status = "gepland") =>
   db.prepare("INSERT INTO planned_sessions (id,date,type,description,status,discipline) VALUES (?,?,?,?,?,?)")
     .run(id, date, type, "test", status, discipline);

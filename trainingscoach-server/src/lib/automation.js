@@ -199,7 +199,7 @@ function shouldConsult({ signals, lastRunAt, lastReason, cooldownDays = 3, now =
  * server restart can't cause a second run in the same week.
  */
 function isWeeklySlotDue({ weekday, hour, lastRunAt, now = new Date(), weekdayNameForDate }) {
-  const todayName = weekdayNameForDate(now.toISOString().slice(0, 10));
+  const todayName = weekdayNameForDate(calc.toDateStr(now));
   if (todayName !== weekday) return false;
   if (now.getHours() < hour) return false;
 

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import { EVENT_TYPES } from "../lib/constants";
-import { uid, todayStr, formatDateNL, daysUntil } from "../lib/calculations";
+import { todayStr, formatDateNL, daysUntil } from "../lib/calculations";
+import { uid } from "../lib/uiHelpers";
 
 export default function EventsTab({ events, addEvent, deleteEvent }) {
   const [name, setName] = useState("");

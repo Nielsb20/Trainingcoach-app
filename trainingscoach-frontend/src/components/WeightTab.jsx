@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Plus } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
-import { uid, todayStr, formatDateNL } from "../lib/calculations";
+import { todayStr, formatDateNL } from "../lib/calculations";
+import { uid } from "../lib/uiHelpers";
 
 export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog }) {
   const [date, setDate] = useState(todayStr());

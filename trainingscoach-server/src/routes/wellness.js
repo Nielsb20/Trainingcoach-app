@@ -12,6 +12,7 @@
 
 const express = require("express");
 const { db } = require("../db/db");
+const calc = require("../lib/calculations");
 
 const router = express.Router();
 
@@ -85,7 +86,7 @@ router.get("/", (req, res) => {
   from.setDate(from.getDate() - days);
   const rows = db
     .prepare("SELECT * FROM wellness_logs WHERE date >= ? ORDER BY date")
-    .all(from.toISOString().slice(0, 10));
+    .all(calc.toDateStr(from));
   res.json(rows.map(serialize));
 });
 

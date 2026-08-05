@@ -30,6 +30,7 @@ global.fetch = async () => ({
   }),
 });
 
+const calc = require("./calculations");
 const scheduler = require("./scheduler");
 
 // A schema so the coach has something to plan against
@@ -77,7 +78,7 @@ db.prepare("INSERT INTO planned_sessions (id,date,type,description,status,discip
   for (let i = 0; i < 14; i++) {
     const d = new Date(); d.setDate(d.getDate() - i);
     db.prepare("INSERT INTO cardio_logs (id,date,type,duration_min,avg_power) VALUES (?,?,?,?,?)")
-      .run("ride" + i, d.toISOString().slice(0,10), "Fietsen", 180, 240);
+      .run("ride" + i, calc.toDateStr(d), "Fietsen", 180, 240);
   }
   const state = scheduler.gatherState();
   const { detectSignals } = require("./automation");

@@ -2,10 +2,8 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { TrendingUp, Search, Pencil } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
-import {
-  formatDateNL, timeOfDayLabel, computeAvgSpeedKmh, computeHrZones,
-  computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad,
-} from "../lib/calculations";
+import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad } from "../lib/calculations";
+import { timeOfDayLabel } from "../lib/uiHelpers";
 import WorkoutLogEditor from "./WorkoutLogEditor";
 
 export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {

@@ -3,7 +3,7 @@
 const express = require("express");
 const { db } = require("../db/db");
 const { getFullSchema } = require("./schema");
-const { serializeWorkoutLog } = require("./workoutLogs");
+const { serializeWorkoutLogs } = require("./workoutLogs");
 const { serialize: serializeCardioLog } = require("./cardioLogs");
 const { getUpcomingPlan, getRecentDeclines, getRecentMoves } = require("./planned");
 const calc = require("../lib/calculations");
@@ -32,10 +32,9 @@ function timeOfDayLabel(id) {
 async function runCoachConsultation({ question = null, triggerType = "handmatig", triggerReason = null }) {
 
   const schema = getFullSchema();
-  const workoutLogs = db
-    .prepare("SELECT * FROM workout_logs ORDER BY date DESC, created_at DESC")
-    .all()
-    .map(serializeWorkoutLog);
+  const workoutLogs = serializeWorkoutLogs(
+    db.prepare("SELECT * FROM workout_logs ORDER BY date DESC, created_at DESC").all()
+  );
   const cardioLogs = db
     .prepare("SELECT * FROM cardio_logs ORDER BY date DESC, created_at DESC")
     .all()

@@ -6,7 +6,8 @@
  * Uses DOMParser and DecompressionStream, both native browser APIs.
  */
 
-import { haversineKm, computeNormalizedPower, defaultTimeOfDay } from "./calculations";
+import { haversineKm, computeNormalizedPower } from "./calculations";
+import { defaultTimeOfDay } from "./uiHelpers";
 
 // GPX extensions use varying namespace prefixes (gpxtpx:hr, ns3:hr, plain hr, ...)
 // depending on the device/exporter, so match by local tag name rather than a

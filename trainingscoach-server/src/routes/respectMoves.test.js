@@ -13,7 +13,7 @@ initSchema();
 const { getRecentMoves, getUpcomingPlan } = require("./planned");
 const calc = require("../lib/calculations");
 
-const inDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
+const inDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return calc.toDateStr(d); };
 
 console.log("het echte geval: woensdagrit naar maandag, dinsdagkracht naar woensdag");
 db.prepare(`INSERT INTO planned_sessions (id,date,type,description,status,discipline,moved_from,moved_at)

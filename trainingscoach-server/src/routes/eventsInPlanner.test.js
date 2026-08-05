@@ -12,7 +12,7 @@ const { db, initSchema } = require("../db/db");
 initSchema();
 const calc = require("../lib/calculations");
 
-const inDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
+const inDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return calc.toDateStr(d); };
 const addEvent = (id, days, name) =>
   db.prepare("INSERT INTO events (id,name,date,type,target) VALUES (?,?,?,?,?)")
     .run(id, name, inDays(days), "Wielerevenement", "uitrijden");
