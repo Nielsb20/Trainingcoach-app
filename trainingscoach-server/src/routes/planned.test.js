@@ -35,9 +35,9 @@ console.log("resolveDate (coach zegt een weekdag, wij maken er een datum van)");
 console.log("\nautomatisch afvinken");
 {
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const yStr = yesterday.toISOString().slice(0, 10);
+  const yStr = calc.toDateStr(yesterday);
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-  const tStr = tomorrow.toISOString().slice(0, 10);
+  const tStr = calc.toDateStr(tomorrow);
 
   const ins = db.prepare("INSERT INTO planned_sessions (id,date,type,description) VALUES (?,?,?,?)");
   ins.run("p1", yStr, "Fietsen", "duurrit 2 uur");     // gedaan

@@ -6,10 +6,10 @@
  */
 const assert = require("node:assert");
 const { detectSignals, shouldConsult, isWeeklySlotDue } = require("./automation");
-const { weekdayNameForDate } = require("./calculations");
+const { weekdayNameForDate, toDateStr } = require("./calculations");
 
 const TODAY = "2026-08-01";
-const daysBefore = (n) => { const d = new Date(TODAY + "T00:00:00"); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); };
+const daysBefore = (n) => { const d = new Date(TODAY + "T00:00:00"); d.setDate(d.getDate() - n); return toDateStr(d); };
 const loadAt = (tsb) => [{ date: TODAY, ctl: 40, atl: 40 - tsb, tsb }];
 
 console.log("een normale week hoort NIETS te melden");

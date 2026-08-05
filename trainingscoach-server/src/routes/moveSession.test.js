@@ -15,7 +15,7 @@ const { refreshCompletions } = require("./planned");
 const calc = require("../lib/calculations");
 
 const today = calc.todayStr();
-const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); };
+const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return calc.toDateStr(d); };
 const addPlan = (id, date, type, discipline = "cardio") =>
   db.prepare("INSERT INTO planned_sessions (id,date,type,description,status,discipline) VALUES (?,?,?,?,'gepland',?)")
     .run(id, date, type, "test", discipline);

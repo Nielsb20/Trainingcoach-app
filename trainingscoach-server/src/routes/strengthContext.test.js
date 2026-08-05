@@ -15,7 +15,7 @@ const calc = require("../lib/calculations");
 const daysAgo = (n) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return calc.toDateStr(d);
 };
 
 const addWorkout = (id, date, dayName, exercises, rpe = null, duration = null) => {

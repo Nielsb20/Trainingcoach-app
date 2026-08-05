@@ -60,7 +60,7 @@ router.get("/zones", (req, res) => {
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - weeks * 7);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = calc.toDateStr(cutoff);
 
   const column = metric === "power" ? "power_histogram_json" : "hr_histogram_json";
   const rows = db
@@ -117,7 +117,7 @@ router.get("/power-curve", (req, res) => {
   const days = Math.min(Number(req.query.days) || 90, 3650);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = calc.toDateStr(cutoff);
 
   const all = db.prepare("SELECT date, power_curve_json FROM cardio_logs WHERE power_curve_json IS NOT NULL").all();
   if (all.length === 0) {

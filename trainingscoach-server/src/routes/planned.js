@@ -215,7 +215,7 @@ router.get("/", (req, res) => {
     const weeks = Math.min(Number(req.query.weeks) || 4, 26);
     const from = new Date();
     from.setDate(from.getDate() - weeks * 7);
-    fromStr = from.toISOString().slice(0, 10);
+    fromStr = calc.toDateStr(from);
     toStr = null;
   }
 
@@ -752,7 +752,7 @@ function getRecentDeclines(days = 14) {
   from.setDate(from.getDate() - days);
   return db
     .prepare("SELECT * FROM planned_sessions WHERE status = 'afgewezen' AND date >= ? ORDER BY date")
-    .all(from.toISOString().slice(0, 10))
+    .all(calc.toDateStr(from))
     .map((r) => ({ datum: r.date, type: r.type, voorstel: r.description, reden: r.decline_reason }));
 }
 
@@ -788,7 +788,7 @@ function getUpcomingPlan(days = 14) {
     .prepare(
       "SELECT * FROM planned_sessions WHERE status = 'gepland' AND date >= ? AND date <= ? ORDER BY date"
     )
-    .all(today, until.toISOString().slice(0, 10))
+    .all(today, calc.toDateStr(until))
     .map(serialize);
 }
 

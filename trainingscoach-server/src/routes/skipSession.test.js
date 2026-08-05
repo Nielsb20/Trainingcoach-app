@@ -39,7 +39,7 @@ console.log("  ok  terugzetten naar gepland -> automatisch afgevinkt als gedaan"
 
 console.log("\ngemiste dag in het verleden wordt nog steeds vanzelf gemarkeerd");
 const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-addPlan("p2", yesterday.toISOString().slice(0,10));
+addPlan("p2", calc.toDateStr(yesterday));
 refreshCompletions();
 assert.strictEqual(statusOf("p2"), "overgeslagen");
 console.log("  ok  gisteren gepland, niets gelogd -> automatisch overgeslagen");

@@ -49,7 +49,7 @@ const cardioLogs = [];
 days.forEach((d, i) => {
   const date = new Date(today);
   date.setDate(date.getDate() - (days.length - 1 - i));
-  const dateStr = date.toISOString().slice(0, 10);
+  const dateStr = calc.toDateStr(date);
   if (d.tss > 0) cardioLogs.push({ date: dateStr, duration_min: 60, avg_power: Math.round(Math.sqrt(d.tss / 100) * 250) });
 });
 const series = calc.computeTrainingLoadSeries(cardioLogs, 250, null);
