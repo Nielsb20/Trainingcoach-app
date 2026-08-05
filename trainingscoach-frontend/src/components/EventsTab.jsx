@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import { EVENT_TYPES } from "../lib/constants";
 import { uid, todayStr, formatDateNL, daysUntil } from "../lib/calculations";
 
@@ -73,7 +74,7 @@ export default function EventsTab({ events, addEvent, deleteEvent }) {
                       {daysUntil(ev.date) === 0 ? "vandaag" : `over ${daysUntil(ev.date)} dagen`}
                     </span>
                   </div>
-                  <button className="tc-icon-btn" onClick={() => deleteEvent(ev.id)}><Trash2 size={14} /></button>
+                  <ConfirmDeleteButton onConfirm={() => deleteEvent(ev.id)} title="Dit evenement verwijderen" />
                 </div>
                 <p className="tc-event-meta">{formatDateNL(ev.date)} · {ev.type}{ev.target ? ` · doel: ${ev.target}` : ""}</p>
                 {ev.notes && <p className="tc-event-notes">{ev.notes}</p>}
@@ -91,7 +92,7 @@ export default function EventsTab({ events, addEvent, deleteEvent }) {
               <div className="tc-card tc-event-card tc-event-past" key={ev.id}>
                 <div className="tc-card-head">
                   <span className="tc-ex-name">{ev.name}</span>
-                  <button className="tc-icon-btn" onClick={() => deleteEvent(ev.id)}><Trash2 size={14} /></button>
+                  <ConfirmDeleteButton onConfirm={() => deleteEvent(ev.id)} title="Dit evenement verwijderen" />
                 </div>
                 <p className="tc-event-meta">{formatDateNL(ev.date)} · {ev.type}{ev.target ? ` · doel: ${ev.target}` : ""}</p>
               </div>

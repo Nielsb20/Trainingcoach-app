@@ -3,7 +3,7 @@ import { Send, Loader2, Trash2, CalendarPlus } from "lucide-react";
 import { askCoach as apiAskCoach, createPlanFromCoach } from "../api/client";
 import {
   todayStr, daysUntil, computeHrZones, computeTrainingLoadSeries,
-  computeCardioHistorySummary, computeStrengthHistorySummary,
+  computeCardioHistorySummary, computeStrengthHistorySummary, computeWeeklyStrengthLoad,
 } from "../lib/calculations";
 
 export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weightLogs, coachHistory, onCoachAnswered, deleteCoachEntry }) {
@@ -15,6 +15,19 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
   const cardioSchedule = schema.cardioDays || [];
   const cardioHistorySummary = useMemo(() => computeCardioHistorySummary(cardioLogs), [cardioLogs]);
   const strengthHistorySummary = useMemo(() => computeStrengthHistorySummary(workoutLogs), [workoutLogs]);
+  // The coach is handed sRPE for the last two weeks; show the same thing here,
+  // including when it's missing — "geen RPE ingevuld" tells you why the coach
+  // stays silent about strength load far better than an absent line does.
+  const strengthLoad = useMemo(() => {
+    const weekly = computeWeeklyStrengthLoad(workoutLogs, 12);
+    if (!weekly) return null;
+    const rated = weekly.filter((w) => w.sRpe !== null);
+    return {
+      thisWeek: rated.length ? rated[rated.length - 1] : null,
+      prevWeek: rated.length > 1 ? rated[rated.length - 2] : null,
+      unrated: workoutLogs.filter((l) => !l.rpe || !l.durationMin).length,
+    };
+  }, [workoutLogs]);
   const hrZones = schema.profile?.maxHr ? computeHrZones(schema.profile.maxHr, schema.profile.restingHr) : null;
   const weightSummary = useMemo(() => {
     if (!weightLogs || weightLogs.length === 0) return null;
@@ -86,6 +99,22 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
                 {strengthHistorySummary.voortgangPerOefeningSindsEersteLog.length > 0 && (
                   <p className="tc-history-detail">
                     {strengthHistorySummary.voortgangPerOefeningSindsEersteLog.map((p) => `${p.oefening}: ${p.eersteLog}→${p.laatsteLog}kg`).join(" · ")}
+                  </p>
+                )}
+                {strengthLoad && (
+                  <p className="tc-history-detail">
+                    {strengthLoad.thisWeek ? (
+                      <>
+                        Krachtbelasting: {strengthLoad.thisWeek.sRpe} sRPE deze week
+                        {strengthLoad.prevWeek ? ` · ${strengthLoad.prevWeek.sRpe} sRPE de week ervoor` : ""}
+                        {strengthLoad.unrated > 0 && ` · ${strengthLoad.unrated} sessie${strengthLoad.unrated === 1 ? "" : "s"} zonder duur/RPE tellen niet mee`}
+                      </>
+                    ) : (
+                      <>
+                        Krachtbelasting: nog niet te berekenen — vul bij het loggen duur én RPE in
+                        (of vul ze aan via het potlood in Geschiedenis → Kracht), dan weegt de coach je gymwerk mee.
+                      </>
+                    )}
                   </p>
                 )}
               </div>

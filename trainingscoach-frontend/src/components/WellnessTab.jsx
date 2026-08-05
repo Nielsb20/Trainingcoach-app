@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
+import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import * as api from "../api/client";
 import { todayStr, formatDateNL } from "../lib/calculations";
 
@@ -214,7 +215,7 @@ export default function WellnessTab() {
                   <td className="tc-mono">{l.sleepMinutes ? `${Math.floor(l.sleepMinutes / 60)}u ${l.sleepMinutes % 60}m` : "–"}</td>
                   <td className="tc-mono">{l.sleepScore ?? "–"}</td>
                   <td>{l.source}</td>
-                  <td><button className="tc-icon-btn" onClick={() => handleDelete(l.date)}><Trash2 size={14} /></button></td>
+                  <td><ConfirmDeleteButton onConfirm={() => handleDelete(l.date)} title="Deze dag verwijderen" /></td>
                 </tr>
               ))}
             </tbody>
