@@ -50,7 +50,11 @@ router.post("/", (req, res) => {
     const insertSet = db.prepare("INSERT INTO workout_log_sets (exercise_id, weight, reps, sort_order) VALUES (?, ?, ?, ?)");
 
     (entry.exercises || []).forEach((ex, exIdx) => {
-      const exerciseRowId = ex.exerciseId || `${entry.id}-ex${exIdx}`;
+      // Always derive the row id from this log, never from ex.exerciseId: that
+      // one identifies the exercise in the *schema* and is identical for every
+      // session, so reusing it made the second log of any training day fail on
+      // a duplicate primary key.
+      const exerciseRowId = `${entry.id}-ex${exIdx}`;
       insertExercise.run(exerciseRowId, entry.id, ex.name, exIdx);
       (ex.sets || []).forEach((s, setIdx) => insertSet.run(exerciseRowId, s.weight, s.reps, setIdx));
     });
@@ -60,7 +64,9 @@ router.post("/", (req, res) => {
     insert();
     res.status(201).json(serializeWorkoutLog(db.prepare("SELECT * FROM workout_logs WHERE id = ?").get(entry.id)));
   } catch (err) {
-    res.status(500).json({ error: "Kon training niet opslaan", details: err.message });
+    // Include the underlying reason: "kon niet opslaan" on its own leaves the
+    // athlete with nothing to act on and nothing to report.
+    res.status(500).json({ error: `Kon training niet opslaan: ${err.message}` });
   }
 });
 

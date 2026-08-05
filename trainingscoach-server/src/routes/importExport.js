@@ -69,7 +69,9 @@ router.post("/import", (req, res) => {
     (data.workoutLogs || []).forEach((l) => {
       insertWorkout.run(l.id, l.date, l.timeOfDay || null, l.dayId || null, l.dayName || null, l.notes || null);
       (l.exercises || []).forEach((ex, exIdx) => {
-        const exId = ex.exerciseId || `${l.id}-ex${exIdx}`;
+        // Derived from the log, not from ex.exerciseId: that id belongs to the
+        // schema and repeats across sessions, which would collide here.
+        const exId = `${l.id}-ex${exIdx}`;
         insertWorkoutExercise.run(exId, l.id, ex.name, exIdx);
         (ex.sets || []).forEach((set, setIdx) => insertWorkoutSet.run(exId, set.weight, set.reps, setIdx));
       });
