@@ -80,7 +80,6 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
       Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
     const last = workoutLogs[0];
     const within = (days) => workoutLogs.filter((l) => daysBetween(l.date, today) <= days);
-    const sRpe = (l) => (l.rpe && l.duration_min ? l.rpe * l.duration_min : null);
 
     krachtcontext = {
       dagenSindsLaatste: daysBetween(last.date, today),
@@ -90,12 +89,17 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
         moment: last.timeOfDay ? timeOfDayLabel(last.timeOfDay) : null,
         oefeningen: last.exercises.map((e) => e.name),
         rpe: last.rpe ?? null,
+        durationMin: last.durationMin ?? null,
+        sRpe: calc.computeSessionRpe(last),
       },
       sessiesLaatste7Dagen: within(7).length,
       sessiesLaatste28Dagen: within(28).length,
       // sRPE = duur x RPE, de gangbare maat voor krachtbelasting. Alleen
       // beschikbaar als de cliënt beide invult.
-      sRpeLaatste7Dagen: within(7).map(sRpe).filter(Boolean).reduce((a, b) => a + b, 0) || null,
+      sRpeLaatste7Dagen: within(7).map(calc.computeSessionRpe).filter(Boolean).reduce((a, b) => a + b, 0) || null,
+      sRpeVorige7Dagen:
+        within(14).filter((l) => daysBetween(l.date, today) > 7)
+          .map(calc.computeSessionRpe).filter(Boolean).reduce((a, b) => a + b, 0) || null,
     };
   }
 

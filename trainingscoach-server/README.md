@@ -473,8 +473,21 @@ altijd óók naar de krachtcontext te kijken.
 **Optioneel: duur en RPE.** Vul je bij een krachttraining de duur en een
 zwaarte-inschatting (RPE 1–10) in, dan berekent de app sRPE (duur x RPE) — de
 gangbare maat voor krachtbelasting zonder vermogensmeter. De coach gebruikt dat
-als extra signaal voor je totale weekbelasting. Vul je het niet in, dan blijft
-het leeg in plaats van dat er een getal wordt geschat.
+als extra signaal voor je totale weekbelasting, afgezet tegen de week ervoor —
+een sprong van meer dan ~30% is reden om cardio rustiger te plannen. Vul je het
+niet in, dan blijft het leeg in plaats van dat er een getal wordt geschat.
+
+Je ziet sRPE zelf terug in **Geschiedenis → Belasting**, als weekbalken onder de
+cardiografiek. Bewust een aparte grafiek: sRPE en TSS zijn verschillende
+eenheden en horen niet op één as. Sessies zonder duur of RPE tellen wel mee als
+sessie, maar niet in de sRPE-som, zodat "wel getraind, niet beoordeeld" niet als
+rustweek leest.
+
+**Een gelogde training corrigeren.** In **Geschiedenis → Kracht** opent het
+potloodicoon de sessie opnieuw: gewichten, herhalingen, sets, duur, RPE, datum
+en moment zijn aan te passen, en een vergeten oefening uit je schema kun je
+alsnog toevoegen. De sessie behoudt daarbij zijn id, zodat een correctie een
+afgevinkte planning niet losklikt.
 
 In het tabblad **Planning** zie je je gelogde krachttrainingen tussen de
 cardiovoorstellen staan, zodat je week compleet is.

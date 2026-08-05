@@ -372,6 +372,72 @@ function computeStrengthHistorySummary(workoutLogs) {
   };
 }
 
+/**
+ * Session-RPE: duration x perceived exertion, the accepted way to quantify gym
+ * work when there is no power meter. Returns null unless both are present —
+ * a missing value must stay missing rather than become a quietly invented one.
+ *
+ * Accepts both the camelCase shape the API serializes (`durationMin`) and the
+ * snake_case shape read straight from SQLite (`duration_min`). Reading only one
+ * of the two is exactly the bug that kept sRPE permanently null in the coach
+ * payload, so both are handled here in one place instead of at each call site.
+ */
+function computeSessionRpe(log) {
+  if (!log) return null;
+  const duration = log.durationMin ?? log.duration_min;
+  if (!log.rpe || !duration) return null;
+  return log.rpe * duration;
+}
+
+/**
+ * Weekly strength load, as ISO weeks (Monday-based) of summed sRPE.
+ *
+ * Deliberately kept apart from computeTrainingLoadSeries: sRPE and TSS are not
+ * the same unit and must never be added together or drawn on a shared axis.
+ * This is the gym counterpart to the cardio-only PMC chart, not an extension
+ * of it.
+ *
+ * Weeks in which sessions were logged without RPE/duration report sRPE null
+ * but still count their sessions, so "trained but didn't rate it" stays
+ * visible instead of looking like a rest week.
+ */
+function computeWeeklyStrengthLoad(workoutLogs, weeks = 12) {
+  if (!workoutLogs || workoutLogs.length === 0) return null;
+
+  const mondayOf = (dateStr) => {
+    const d = new Date(dateStr + "T00:00:00");
+    // getDay(): 0 = Sunday. Shift so Monday starts the week.
+    const offset = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - offset);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const buckets = new Map();
+  workoutLogs.forEach((log) => {
+    if (!log.date) return;
+    const week = mondayOf(log.date);
+    if (!buckets.has(week)) buckets.set(week, { weekStart: week, sRpe: 0, rated: 0, sessions: 0 });
+    const bucket = buckets.get(week);
+    bucket.sessions += 1;
+    const sRpe = computeSessionRpe(log);
+    if (sRpe !== null) {
+      bucket.sRpe += sRpe;
+      bucket.rated += 1;
+    }
+  });
+
+  return Array.from(buckets.values())
+    .sort((a, b) => (a.weekStart < b.weekStart ? -1 : 1))
+    .slice(-weeks)
+    .map((b) => ({
+      weekStart: b.weekStart,
+      label: formatDateNL(b.weekStart),
+      sessions: b.sessions,
+      sessionsRated: b.rated,
+      sRpe: b.rated > 0 ? b.sRpe : null,
+    }));
+}
+
 
 /* ---------------------------------------------------------------------- */
 /* Histograms, power curve, time-in-zone                                  */
@@ -527,6 +593,8 @@ module.exports = {
   avgOf,
   computeCardioHistorySummary,
   computeStrengthHistorySummary,
+  computeSessionRpe,
+  computeWeeklyStrengthLoad,
   computeHistogram,
   histogramTotalSeconds,
   timeInZones,
