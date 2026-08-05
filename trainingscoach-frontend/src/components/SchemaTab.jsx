@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2 } from "lucide-react";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
-import { WEEKDAYS, uid, todayStr, computeHrZones, computePowerZones } from "../lib/calculations";
+import { WEEKDAYS, todayStr, computeHrZones, computePowerZones } from "../lib/calculations";
+import { uid } from "../lib/uiHelpers";
 import * as api from "../api/client";
 import StravaPanel from "./StravaPanel";
 import AutomationPanel from "./AutomationPanel";

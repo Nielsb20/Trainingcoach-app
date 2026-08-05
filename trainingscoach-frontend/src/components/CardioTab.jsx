@@ -4,7 +4,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { UploadCloud, Check, X, Loader2 } from "lucide-react";
 import TimeOfDayPicker from "./shared/TimeOfDayPicker";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
-import { uid, todayStr, formatDateNL, defaultTimeOfDay, timeOfDayLabel, getWeightAtDate } from "../lib/calculations";
+import { todayStr, formatDateNL, getWeightAtDate } from "../lib/calculations";
+import { uid, defaultTimeOfDay, timeOfDayLabel } from "../lib/uiHelpers";
 import { mapActivitiesCsv, guessCardioType } from "../lib/csvImport";
 import { parseGpxToSession, readGpxFileAsText } from "../lib/gpxParser";
 

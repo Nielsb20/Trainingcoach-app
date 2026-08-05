@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Plus, X } from "lucide-react";
 import TimeOfDayPicker from "./shared/TimeOfDayPicker";
-import { uid, todayStr, defaultTimeOfDay, timeOfDayLabel } from "../lib/calculations";
+import { todayStr } from "../lib/calculations";
+import { uid, defaultTimeOfDay, timeOfDayLabel } from "../lib/uiHelpers";
 
 export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSchema }) {
   const [dayId, setDayId] = useState(schema.days[0]?.id || "");

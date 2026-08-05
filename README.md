@@ -97,6 +97,23 @@ Nog te doen:
 
 ## Belangrijk bij aanpassingen
 
-`calculations.js` bestaat twee keer — in `server/src/lib/` en in
-`frontend/src/lib/`. Die moeten functioneel identiek blijven. De serverversie is
-leidend voor wat de AI-coach te zien krijgt.
+`calculations.js` draait op twee plekken: de server bouwt er de coachpayload
+mee, de browser tekent er grafieken en tabellen mee zonder tussenkomst van de
+API. Er is één bron van waarheid:
+
+- **Bewerk `trainingscoach-server/src/lib/calculations.js`.**
+- `trainingscoach-frontend/src/lib/calculations.js` wordt daaruit *gegenereerd*
+  en begint met "GENERATED FILE — DO NOT EDIT". Het enige verschil is de
+  modulesyntax (CommonJS op de server, ES modules in Vite).
+- Genereren gebeurt automatisch bij `npm run build` en `npm run dev`; handmatig
+  kan met `npm run sync:calc` in de frontend-map.
+- `npm test` op de server bevat een parity-test die faalt zodra de twee uit
+  elkaar lopen, dus een vergeten regeneratie komt niet ongemerkt door.
+
+Helpers die alleen de interface nodig heeft (`uid`, `defaultTimeOfDay`,
+`timeOfDayLabel`) staan in `frontend/src/lib/uiHelpers.js`, buiten de
+gegenereerde rekenkern.
+
+Voorheen werden beide bestanden met de hand bijgehouden onder de regel "houd ze
+identiek". Dat hield geen stand: de browserversie miste uiteindelijk de hele
+histogram- en vermogenscurve-sectie.
