@@ -259,7 +259,9 @@ router.post("/ask", async (req, res) => {
     const entry = await runCoachConsultation({ question: req.body.question || null });
     res.json(entry);
   } catch (err) {
-    res.status(502).json({ error: err.message });
+    // A budget refusal is not a provider failure: 502 would suggest the model
+    // is unreachable, when in fact the app declined to call it.
+    res.status(err.status === 429 ? 429 : 502).json({ error: err.message });
   }
 });
 

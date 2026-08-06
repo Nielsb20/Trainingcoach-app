@@ -63,6 +63,23 @@ function serialize(row) {
   };
 }
 
+/**
+ * The same session without its intra-session profile.
+ *
+ * The profile is a per-bucket trace of heart rate, speed, power, cadence and
+ * elevation. It is only ever shown for one session at a time — when you expand
+ * a row, or open the detail panel — but the list endpoint was sending it for
+ * every session. At 493 logged rides that turned a 175 KB response into 2.9 MB,
+ * downloaded on every single app start, over wifi, from a Raspberry Pi.
+ *
+ * Callers get `hasProfile` so the chart button can still be shown, and fetch
+ * the trace itself only when it is actually going to be drawn.
+ */
+function serializeForList(row) {
+  const { profile, ...rest } = serialize(row);
+  return { ...rest, hasProfile: !!profile && profile.length > 0 };
+}
+
 const insertStmt = db.prepare(
   `INSERT INTO cardio_logs (${COLUMNS.join(", ")}) VALUES (${COLUMNS.map(() => "?").join(", ")})`
 );
@@ -75,7 +92,15 @@ function insertOne(entry, source) {
 // GET /api/cardio-logs
 router.get("/", (req, res) => {
   const rows = db.prepare("SELECT * FROM cardio_logs ORDER BY date DESC, created_at DESC").all();
-  res.json(rows.map(serialize));
+  res.json(rows.map(serializeForList));
+});
+
+// GET /api/cardio-logs/:id/profile - the intra-session trace for one session,
+// fetched when a row is expanded rather than shipped with the whole list.
+router.get("/:id/profile", (req, res) => {
+  const row = db.prepare("SELECT profile_json FROM cardio_logs WHERE id = ?").get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Sessie niet gevonden" });
+  res.json({ profile: row.profile_json ? JSON.parse(row.profile_json) : null });
 });
 
 // POST /api/cardio-logs - single entry (manual form or single GPX upload)
@@ -109,4 +134,4 @@ router.delete("/:id", (req, res) => {
   res.status(204).end();
 });
 
-module.exports = { router, serialize };
+module.exports = { router, serialize, serializeForList };

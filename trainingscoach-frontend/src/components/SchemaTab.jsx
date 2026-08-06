@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2 } from "lucide-react";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
-import { WEEKDAYS, todayStr, computeHrZones, computePowerZones } from "../lib/calculations";
+import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones } from "../lib/calculations";
 import { uid } from "../lib/uiHelpers";
 import * as api from "../api/client";
 import StravaPanel from "./StravaPanel";
@@ -15,6 +15,13 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
   const backupFileInputRef = useRef(null);
 
   const [exportError, setExportError] = useState("");
+  // A backup nobody can see is a backup nobody trusts, so the automatic ones
+  // are reported here rather than only existing on disk.
+  const [autoBackups, setAutoBackups] = useState(null);
+
+  useEffect(() => {
+    api.getBackups().then(setAutoBackups).catch(() => setAutoBackups({ backups: [], laatste: null }));
+  }, [restoredFlash]);
 
   // Pulls the backup straight from the server so it reflects what's actually
   // stored, not just whatever this browser tab happens to have in memory.
@@ -381,8 +388,29 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
 
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Back-up</h2>
       <p className="tc-sub" style={{ marginTop: -4 }}>
-        Exporteer al je gegevens (schema, logs, gewicht, evenementen en coachgeschiedenis) als bestand — handig als vangnet naast de back-up van de server zelf.
+        De server maakt elke nacht automatisch een kopie. Hieronder kun je daarnaast zelf een bestand
+        downloaden — handig om buiten de Pi te bewaren, want een SD-kaart die stukgaat neemt ook de
+        automatische kopieën mee.
       </p>
+      {autoBackups && (
+        <div className="tc-card tc-backup-card" style={{ marginBottom: 12 }}>
+          <div className="tc-card-head">
+            <span className="tc-ex-name">Automatische back-up</span>
+            {autoBackups.laatste ? (
+              <span className="tc-hint-badge tc-badge-strength">
+                laatste: {formatDateNL(autoBackups.laatste.date)} · {Math.round(autoBackups.laatste.bytes / 1024)} KB
+              </span>
+            ) : (
+              <span className="tc-hint-badge tc-badge-warning">nog geen kopie</span>
+            )}
+          </div>
+          <p className="tc-import-help" style={{ marginTop: 0 }}>
+            {autoBackups.backups.length > 0
+              ? `${autoBackups.backups.length} kopie${autoBackups.backups.length === 1 ? "" : "\u00ebn"} bewaard op de server (maximaal ${autoBackups.bewaartermijnDagen} dagen). Terugzetten kan met "Herstel vanuit back-up" \u2014 de bestanden staan in data/backups/.`
+              : "De eerste kopie wordt vannacht gemaakt. Draait de server al langer, controleer dan of data/backups/ beschrijfbaar is."}
+          </p>
+        </div>
+      )}
       <div className="tc-card tc-backup-card">
         <div className="tc-backup-row">
           <button className="tc-btn tc-btn-ghost" onClick={exportBackup}>

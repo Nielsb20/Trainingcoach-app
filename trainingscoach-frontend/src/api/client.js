@@ -53,6 +53,8 @@ export const createCardioLog = (entry) => request("/cardio-logs", { method: "POS
 export const createCardioLogsBulk = (entries, source) =>
   request("/cardio-logs/bulk", { method: "POST", body: JSON.stringify({ entries, source }) });
 export const deleteCardioLog = (id) => request(`/cardio-logs/${id}`, { method: "DELETE" });
+/** The intra-session trace, fetched on demand — see serializeForList on the server. */
+export const getCardioProfile = (id) => request(`/cardio-logs/${id}/profile`);
 
 /* ------------------------------ weight logs ---------------------------- */
 
@@ -75,6 +77,8 @@ export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method
 /* ----------------------------- backup / restore ------------------------ */
 
 export const exportAll = () => request("/export");
+/** Which automatic nightly snapshots exist on the server. */
+export const getBackups = () => request("/backups");
 export const importAll = (data) => request("/import", { method: "POST", body: JSON.stringify(data) });
 
 /* ------------------------------ session detail --------------------------- */

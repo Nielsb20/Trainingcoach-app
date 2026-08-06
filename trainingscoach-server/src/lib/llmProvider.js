@@ -175,6 +175,10 @@ async function callGemini({ systemPrompt, userContent, maxTokens }) {
  * Parsing/validating that text stays the caller's job.
  */
 async function callCoachModel({ systemPrompt, userContent, maxTokens = 1000 }) {
+  // Budgeted here rather than in the routes: this is the single point every
+  // paid call passes through, so a future caller cannot forget to ask.
+  require("./coachBudget").claim();
+
   const provider = resolveProvider();
   if (provider === "gemini") return callGemini({ systemPrompt, userContent, maxTokens });
   return callAnthropic({ systemPrompt, userContent, maxTokens });

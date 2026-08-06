@@ -82,18 +82,48 @@ pm2 save
 pm2 startup      # volg de instructies die dit toont
 ```
 
+## Back-ups
+
+De server schrijft elke nacht een volledige kopie naar
+`trainingscoach-server/data/backups/` en bewaart standaard 30 dagen. Draaide de
+Pi 's nachts niet, dan gebeurt het alsnog zodra hij weer aan gaat. In
+**Schema → Back-up** zie je wanneer de laatste kopie is gemaakt.
+
+Terugzetten kan met de knop "Herstel vanuit back-up" — de bestanden hebben
+dezelfde vorm als de handmatige export.
+
+Belangrijk: die kopieën staan op dezelfde SD-kaart als de database. Voor
+bescherming tegen een kapotte kaart download je af en toe zelf een export en
+bewaar je die ergens anders.
+
+## Beveiliging
+
+Er zit geen wachtwoord op deze server: alles wat hem kan bereiken, kan je
+gegevens lezen en verwijderen. Houd hem daarom binnen je eigen netwerk.
+
+Sinds kort staat CORS uit, zodat een willekeurige website die je bezoekt niet
+via je browser bij je Pi kan. Interface en API draaien op dezelfde herkomst, dus
+je hebt het niet nodig. Draai je de interface bewust op een ander adres, zet dan
+`CORS_ORIGIN` op dat exacte adres — nooit op `*`.
+
 ## Status en vervolgstappen
 
-Werkend en getest:
-- Rekenkern (13 tests, o.a. TSS=100 bij 1 uur op FTP, Karvonen-zones, hoogtemeters met ruisfilter)
-- Databaseschema (inserts, foreign keys, cascade-delete)
+Draait in gebruik op een Raspberry Pi. `npm test` in de servermap voert 30
+testbestanden uit, waaronder:
+
+- de rekenkern (TSS=100 bij een uur op FTP, Karvonen-zones, hoogtemeters met ruisfilter)
+- het databaseschema (inserts, foreign keys, cascade-delete)
+- de planner (afvinken, verplaatsen, overslaan, stabiliteit van voorstellen)
+- back-ups, kostenrem en de API-antwoorden zelf
+
+De suite draait bewust onder meerdere tijdzones; datumfouten die alleen buiten
+UTC zichtbaar zijn, hebben hier eerder echte bugs opgeleverd.
 
 Nog te doen:
-1. Eerste echte `npm install` + `npm run build` — de omzetting is statisch
-   gevalideerd maar nog niet gedraaid
-2. Strava-webhook afmaken (`server/src/routes/stravaWebhook.js` bevat de structuur
+1. Strava-webhook afmaken (`server/src/routes/stravaWebhook.js` bevat de structuur
    en TODO's; vereist een geregistreerde Strava API-app)
-3. Eventueel authenticatie als je dit van buiten je netwerk bereikbaar maakt
+2. Authenticatie. Nu is de server onbeschermd, dus alleen geschikt binnen je
+   eigen netwerk — zie "Beveiliging" hierboven
 
 ## Belangrijk bij aanpassingen
 

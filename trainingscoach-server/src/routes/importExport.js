@@ -9,24 +9,27 @@ const router = express.Router();
 // button in the artifact prototype, so a file exported there can be
 // re-imported here with zero conversion.
 router.get("/export", (req, res) => {
-  const { getFullSchema } = require("./schema");
-  const { serializeWorkoutLogs } = require("./workoutLogs");
-  const { serialize: serializeCardioLog } = require("./cardioLogs");
-  const { serialize: serializeWeightLog } = require("./weightLogs");
-  const { serialize: serializeEvent } = require("./events");
+  const calc = require("../lib/calculations");
+  const { buildBackup } = require("../lib/backup");
 
-  const backup = {
-    schema: getFullSchema(),
-    workoutLogs: serializeWorkoutLogs(db.prepare("SELECT * FROM workout_logs ORDER BY date DESC").all()),
-    cardioLogs: db.prepare("SELECT * FROM cardio_logs ORDER BY date DESC").all().map(serializeCardioLog),
-    events: db.prepare("SELECT * FROM events ORDER BY date ASC").all().map(serializeEvent),
-    weightLogs: db.prepare("SELECT * FROM weight_logs ORDER BY date ASC").all().map(serializeWeightLog),
-    coachHistory: db.prepare("SELECT * FROM coach_history ORDER BY date DESC").all(),
-    exportedAt: new Date().toISOString(),
-  };
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="trainingscoach-backup-${calc.todayStr()}.json"`
+  );
+  res.json(buildBackup());
+});
 
-  res.setHeader("Content-Disposition", `attachment; filename="trainingscoach-backup-${new Date().toISOString().slice(0, 10)}.json"`);
-  res.json(backup);
+// GET /api/backups - which automatic snapshots exist on disk. Surfaced in the
+// interface so "is this thing actually backing up?" has a visible answer rather
+// than requiring an SSH session to find out.
+router.get("/backups", (req, res) => {
+  const { listBackups, KEEP_BACKUPS } = require("../lib/backup");
+  const backups = listBackups();
+  res.json({
+    backups,
+    bewaartermijnDagen: KEEP_BACKUPS,
+    laatste: backups[0] || null,
+  });
 });
 
 // POST /api/import - restore from a backup file (from this server OR from
