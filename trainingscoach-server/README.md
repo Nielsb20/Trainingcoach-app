@@ -289,14 +289,35 @@ npm run garmin -- --days 30 --dry-run  # eerst kijken wat er komt
 De eerste keer vraagt hij om je inloggegevens (en MFA-code indien ingesteld).
 Daarna worden alleen tokens bewaard in `~/.garminconnect`, niet je wachtwoord.
 
-**Sessies bewaren werkt niet meer.** De bibliotheek die dat deed (garth) is in
-maart 2026 stopgezet; de opslagfunctie draait wel maar schrijft lege bestanden,
-en de inlogroute die op moderne accounts nog werkt levert helemaal geen
-herbruikbare tokens op. Alle zeven manieren die het script probeert falen
-daarop — dat is geen instelfout, maar het einde van die weg.
+**Waar de sessie zit, verschilt per versie.** `garth` is in maart 2026
+stopgezet, en sindsdien is de plek waar de ingelogde sessie leeft verschoven:
+garminconnect 0.3.8 zet die op `client.client`, oudere versies gebruikten
+`client.garth`. Het script probeert de bekende paden op volgorde en valt terug
+op zelf wegschrijven.
 
-**Wil je toch automatisch ophalen**, dan moet elke run zelf inloggen. Zet
-daarvoor je gegevens in `trainingscoach-server/.env`:
+Ging het bewaren eerder goed en nu niet meer, dan is de bibliotheek
+waarschijnlijk weer van vorm veranderd. Zo vind je waar de sessie nu zit:
+
+```bash
+./scripts/garmin-venv/bin/python - <<'EOF'
+import garminconnect
+c = garminconnect.Garmin("x", "y")
+print({k: type(v).__name__ for k, v in vars(c).items()})
+EOF
+```
+
+Zoek in die uitvoer het attribuut van het type `Client` — dat is het pad dat in
+`save_tokens()` moet staan. `npm run test:garmin` controleert de bekende vormen,
+zonder account of netwerk.
+
+Zo ziet het eruit als het misgaat: elke run meldt "Geen bruikbare opgeslagen
+sessie gevonden" en moet dus opnieuw inloggen, waarna Garmin na een paar dagen
+je IP-adres blokkeert met een 429. De cron valt dan stil terwijl handmatig
+draaien soms nog wel lukt. Zit je al in zo'n blokkade, zet de cron dan tijdelijk
+uit: elke mislukte poging verlengt hem.
+
+**Voor automatisch ophalen** heeft het script inloggegevens nodig om de eerste
+sessie op te zetten. Zet die in `trainingscoach-server/.env`:
 
 ```
 GARMIN_EMAIL=jouw@email.nl
@@ -308,9 +329,10 @@ Twee dingen om af te wegen voordat je dat doet:
 - **Je wachtwoord staat dan leesbaar op de Pi.** Het bestand staat in
   `.gitignore`, dus het komt niet in je repo terecht, maar wie bij de Pi kan
   komen kan het lezen. Beperk de rechten met `chmod 600 .env`.
-- **Elke run logt opnieuw in**, en dat is precies wat Garmin's blokkade (429)
-  uitlokt. Eén keer per dag is doorgaans geen probleem; vaker vragen om
-  problemen.
+- **Lukt het bewaren van de sessie niet**, dan logt elke run opnieuw in, en dat
+  is precies wat Garmin's blokkade (429) uitlokt. Eén keer per dag is doorgaans
+  geen probleem; vaker vragen om problemen. Werkt het bewaren wel, dan raakt de
+  cron de inlogpagina helemaal niet meer.
 
 Heb je tweestapsverificatie aan, dan werkt automatisch ophalen sowieso niet —
 een cron-taak kan die code niet invullen.

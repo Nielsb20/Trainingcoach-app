@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "test": "node src/lib/calculations.test.js && node src/lib/calculationsParity.test.js && node src/lib/backup.test.js && node src/lib/coachBudget.test.js && node src/lib/analysis.test.js && node src/lib/automation.test.js && node src/lib/scheduler.test.js && node src/lib/strava.test.js && node src/lib/stravaTokens.test.js && node src/lib/stravaDedupe.test.js && node src/lib/stravaBackfill.test.js && node src/routes/planned.test.js && node src/routes/dateResolution.test.js && node src/routes/proposals.test.js && node src/routes/planStability.test.js && node src/routes/strengthContext.test.js && node src/routes/workoutLogEditing.test.js && node src/routes/hardening.test.js && node src/routes/strengthPlanning.test.js && node src/routes/fixedStrengthDays.test.js && node src/routes/fillFromSchema.test.js && node src/routes/eventsInPlanner.test.js && node src/routes/sessionDetail.test.js && node src/routes/eventCompletion.test.js && node src/routes/moveSession.test.js && node src/routes/respectMoves.test.js && node src/routes/plannedResults.test.js && node src/routes/reopenSession.test.js && node src/routes/skipSession.test.js && node src/routes/wellness.test.js",
     "dedupe": "node scripts/dedupe-cardio.js",
-    "garmin": "./scripts/garmin-venv/bin/python scripts/garmin-fetch.py"
+    "garmin": "./scripts/garmin-venv/bin/python scripts/garmin-fetch.py",
+    "test:garmin": "python3 scripts/garmin-fetch.test.py"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

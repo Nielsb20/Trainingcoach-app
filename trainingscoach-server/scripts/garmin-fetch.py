@@ -133,13 +133,15 @@ def _write_tokens_manually(client):
     works. The tokens are still in memory after a successful login — this digs
     them out and writes the two files garth expects to read back.
     """
+    # `client` first covers older layouts that put the tokens on the Garmin
+    # object itself; `client.client` is where garminconnect 0.3.8 keeps them.
     holders = [client]
-    for attr in ("garth", "garth_client"):
+    for attr in ("client", "garth", "garth_client"):
         nested = getattr(client, attr, None)
         if nested is not None:
             holders.append(nested)
             inner = getattr(nested, "client", None)
-            if inner is not None:
+            if inner is not None and inner is not nested:
                 holders.append(inner)
 
     written = 0
@@ -172,6 +174,12 @@ def save_tokens(client):
     and a cron job has no terminal to log in from.
     """
     candidates = [
+        # garminconnect 0.3.8 keeps its garth session on `.client`, not `.garth`.
+        # Every other entry below assumed `.garth` and so failed with
+        # AttributeError, while garth.save() wrote empty files because the
+        # module-level singleton is not the instance that logged in. This one
+        # is the path that actually holds the tokens — keep it first.
+        ("client.client.dump", lambda: client.client.dump(TOKEN_DIR)),
         ("client.garth.dump", lambda: client.garth.dump(TOKEN_DIR)),
         ("client.dump", lambda: client.dump(TOKEN_DIR)),
         ("client.garth_client.dump", lambda: client.garth_client.dump(TOKEN_DIR)),
