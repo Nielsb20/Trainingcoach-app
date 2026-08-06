@@ -4,3 +4,6 @@ data/backups/
 data/*.db-*
 .env
 public/
+__pycache__/
+*.pyc
+scripts/garmin-venv/
