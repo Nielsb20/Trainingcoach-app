@@ -86,6 +86,10 @@ db.prepare("INSERT INTO planned_sessions (id,date,type,description,status,discip
 
   global.fetch = async () => { throw new Error("netwerk weg"); };
   db.prepare("UPDATE coach_automation SET weekly_enabled=0, signals_enabled=1 WHERE id=1").run();
+  // The weekly run above already spent a slot from the coach budget, and these
+  // two scenarios run milliseconds apart. Without a reset this would assert on
+  // a rate-limit message instead of the network failure it means to test.
+  require("./coachBudget").reset();
   await scheduler.tick(); // must not throw
   const err = db.prepare("SELECT last_error FROM coach_automation WHERE id=1").get();
   assert.ok(err.last_error && err.last_error.includes("netwerk weg"), "fout moet zichtbaar zijn voor de gebruiker");

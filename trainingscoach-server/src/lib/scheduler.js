@@ -117,7 +117,32 @@ async function runSignalCheck(settings) {
   );
 }
 
+/**
+ * Writes the nightly snapshot when one is due.
+ *
+ * Runs before the coach logic and in its own try/catch: a backup is the one
+ * thing here that protects against permanent loss, so a failing coach
+ * consultation must never be able to skip it, and a failing backup must never
+ * take down the scheduler.
+ */
+function runBackupIfDue() {
+  const backup = require("./backup");
+  if (!backup.isBackupDue()) return;
+  try {
+    const result = backup.writeBackup();
+    console.log(
+      `[backup] ${result.file} geschreven (${Math.round(result.bytes / 1024)} KB)` +
+        (result.removed > 0 ? `, ${result.removed} oude verwijderd` : "")
+    );
+  } catch (err) {
+    console.error(`[backup] mislukt: ${err.message}`);
+    recordError(`${new Date().toISOString()}: back-up mislukt — ${err.message}`);
+  }
+}
+
 async function tick() {
+  runBackupIfDue();
+
   let settings;
   try {
     settings = getSettings();
@@ -156,6 +181,11 @@ function start() {
   timer = setInterval(tick, CHECK_INTERVAL_MS);
   if (timer.unref) timer.unref(); // don't hold the process open in tests
   console.log("[coach] automatische planning actief (controle elke 15 minuten)");
+  console.log(`[backup] nachtelijke back-up actief (bewaartermijn ${require("./backup").KEEP_BACKUPS} dagen)`);
+
+  // Don't wait a quarter of an hour for the first tick: a Pi that was off
+  // overnight should be protected the moment it comes back up.
+  runBackupIfDue();
 }
 
 function stop() {
@@ -163,4 +193,4 @@ function stop() {
   timer = null;
 }
 
-module.exports = { start, stop, tick, gatherState, runWeekly, runSignalCheck };
+module.exports = { start, stop, tick, gatherState, runWeekly, runSignalCheck, runBackupIfDue };

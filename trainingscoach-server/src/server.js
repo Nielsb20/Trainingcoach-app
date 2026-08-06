@@ -11,7 +11,35 @@ initSchema();
 repairOrphanedCompletions();
 
 const app = express();
-app.use(cors());
+
+/**
+ * CORS is off by default, and that is a security decision rather than an
+ * oversight.
+ *
+ * This server has no authentication: anything that can reach it can read and
+ * delete a full training history. `cors()` with no options answers every origin
+ * with `Access-Control-Allow-Origin: *`, which means any web page you happen to
+ * visit while on the same network could read that history straight out of your
+ * browser.
+ *
+ * Nothing needs it. In production this process serves the built interface
+ * itself, so the requests are same-origin. In development Vite proxies /api to
+ * this port (see vite.config.js), which is same-origin too.
+ *
+ * Set CORS_ORIGIN if you deliberately run the interface on another host —
+ * a specific origin, never "*".
+ */
+const corsOrigin = process.env.CORS_ORIGIN;
+if (corsOrigin) {
+  if (corsOrigin === "*") {
+    console.warn(
+      "[cors] CORS_ORIGIN=* laat elke website je gegevens lezen. Vul het adres van je interface in."
+    );
+  }
+  app.use(cors({ origin: corsOrigin }));
+  console.log(`[cors] toegestaan vanaf: ${corsOrigin}`);
+}
+
 app.use(express.json({ limit: "10mb" })); // GPX-derived profiles + bulk imports can be sizeable
 
 const { router: schemaRoutes } = require("./routes/schema");
@@ -54,6 +82,32 @@ app.get("*", (req, res, next) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"), (err) => {
     if (err) res.status(404).send("Frontend nog niet gebouwd — zie README.md. API draait wel op /api/*.");
   });
+});
+
+/**
+ * Last-resort error handler.
+ *
+ * Without one, Express answers an unexpected throw with its default page,
+ * which includes a stack trace — internal paths and all — and leaves the
+ * interface showing a wall of HTML where it expected JSON. Every route gets a
+ * predictable JSON error instead, with the detail kept to the log.
+ *
+ * Must stay last: Express only treats a four-argument middleware as an error
+ * handler, and only if it is registered after the routes it covers.
+ */
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  console.error(`[fout] ${req.method} ${req.path}:`, err);
+  res.status(err.status || 500).json({
+    error: err.status && err.status < 500 ? err.message : "Er ging iets mis op de server.",
+  });
+});
+
+// A rejected promise nobody caught would otherwise terminate the process on
+// current Node versions, taking the whole app down over one failed request.
+// Logged loudly rather than silently swallowed: it always points at a bug.
+process.on("unhandledRejection", (reason) => {
+  console.error("[fout] onafgehandelde promise-afwijzing:", reason);
 });
 
 const PORT = process.env.PORT || 3001;

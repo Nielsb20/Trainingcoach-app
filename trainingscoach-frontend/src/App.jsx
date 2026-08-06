@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Loader2, RefreshCw, X } from "lucide-react";
 
 import { NAV } from "./lib/constants";
@@ -6,15 +6,37 @@ import * as api from "./api/client";
 
 import SchemaTab from "./components/SchemaTab";
 import KrachtTab from "./components/KrachtTab";
-import CardioTab from "./components/CardioTab";
-import WeightTab from "./components/WeightTab";
-import EventsTab from "./components/EventsTab";
-import GeschiedenisTab from "./components/GeschiedenisTab";
-import CoachTab from "./components/CoachTab";
-import AnalyseTab from "./components/AnalyseTab";
-import WellnessTab from "./components/WellnessTab";
-import SessionDetail from "./components/SessionDetail";
-import PlannerTab from "./components/PlannerTab";
+
+/**
+ * Tabs beyond the first two are loaded when they are opened.
+ *
+ * The charting library is the bulk of the bundle and six screens pull it in,
+ * so it was downloaded before the first screen could render — on a phone away
+ * from wifi that is the whole wait. Splitting per tab means you only fetch the
+ * charts once you ask for one.
+ *
+ * Schema and Kracht stay eager: Schema is where the app opens, and Kracht is
+ * what you reach for mid-workout, where a loading flash is most annoying and a
+ * flaky connection most likely.
+ */
+const CardioTab = lazy(() => import("./components/CardioTab"));
+const WeightTab = lazy(() => import("./components/WeightTab"));
+const EventsTab = lazy(() => import("./components/EventsTab"));
+const GeschiedenisTab = lazy(() => import("./components/GeschiedenisTab"));
+const CoachTab = lazy(() => import("./components/CoachTab"));
+const AnalyseTab = lazy(() => import("./components/AnalyseTab"));
+const WellnessTab = lazy(() => import("./components/WellnessTab"));
+const SessionDetail = lazy(() => import("./components/SessionDetail"));
+const PlannerTab = lazy(() => import("./components/PlannerTab"));
+
+function TabLoading() {
+  return (
+    <div className="tc-loading">
+      <Loader2 className="spin" size={20} />
+      <span>Laden…</span>
+    </div>
+  );
+}
 
 const EMPTY_SCHEMA = { days: [], cardioDays: [], profile: {} };
 
@@ -256,6 +278,7 @@ export default function App() {
           </div>
         )}
 
+        <Suspense fallback={<TabLoading />}>
         {tab === "schema" && <SchemaTab schema={schema} setSchema={setSchema} onRestored={loadAll} />}
         {tab === "kracht" && (
           <KrachtTab schema={schema} workoutLogs={workoutLogs} addWorkoutLog={addWorkoutLog} goToSchema={() => setTab("schema")} />
@@ -299,10 +322,13 @@ export default function App() {
             deleteCoachEntry={deleteCoachEntry}
           />
         )}
+        </Suspense>
       </main>
 
       {detailSessionId && (
-        <SessionDetail sessionId={detailSessionId} onClose={() => setDetailSessionId(null)} />
+        <Suspense fallback={<TabLoading />}>
+          <SessionDetail sessionId={detailSessionId} onClose={() => setDetailSessionId(null)} />
+        </Suspense>
       )}
     </div>
   );

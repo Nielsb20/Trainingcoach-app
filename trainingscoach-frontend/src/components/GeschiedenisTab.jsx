@@ -1,20 +1,39 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, Search, Pencil } from "lucide-react";
+import { TrendingUp, Search, Pencil, Loader2 } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad } from "../lib/calculations";
 import { timeOfDayLabel } from "../lib/uiHelpers";
 import WorkoutLogEditor from "./WorkoutLogEditor";
+import * as api from "../api/client";
 
 export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {
   const [sub, setSub] = useState("kracht");
   const [expandedProfileId, setExpandedProfileId] = useState(null);
   const [isolatedSeries, setIsolatedSeries] = useState(null);
   const [editingLogId, setEditingLogId] = useState(null);
+  // Traces are fetched per session on expand rather than shipped with the list,
+  // and kept once fetched so collapsing and reopening doesn't re-request.
+  const [profiles, setProfiles] = useState({});
+  const [loadingProfileId, setLoadingProfileId] = useState(null);
 
-  function toggleProfile(id) {
-    setExpandedProfileId((prev) => (prev === id ? null : id));
+  async function toggleProfile(id) {
     setIsolatedSeries(null);
+    if (expandedProfileId === id) {
+      setExpandedProfileId(null);
+      return;
+    }
+    setExpandedProfileId(id);
+    if (profiles[id]) return;
+    setLoadingProfileId(id);
+    try {
+      const { profile } = await api.getCardioProfile(id);
+      setProfiles((prev) => ({ ...prev, [id]: profile || [] }));
+    } catch {
+      setProfiles((prev) => ({ ...prev, [id]: [] })); // toont de lege staat, geen kapotte grafiek
+    } finally {
+      setLoadingProfileId(null);
+    }
   }
 
   function handleLegendClick(e) {
@@ -186,20 +205,21 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                             onClick={() => onOpenSession && onOpenSession(c.id)}>
                             <Search size={14} />
                           </button>
-                          {c.profile && c.profile.length > 0 && (
-                            <button className="tc-icon-btn" title="Toon verloop" onClick={() => toggleProfile(c.id)}>
-                              <TrendingUp size={14} />
+                          {c.hasProfile && (
+                            <button className="tc-icon-btn" title="Toon verloop"
+                              onClick={() => toggleProfile(c.id)} disabled={loadingProfileId === c.id}>
+                              {loadingProfileId === c.id ? <Loader2 size={14} className="spin" /> : <TrendingUp size={14} />}
                             </button>
                           )}
                         </td>
                         <td><ConfirmDeleteButton onConfirm={() => deleteCardioLog(c.id)} title="Deze sessie verwijderen" /></td>
                       </tr>
-                      {expandedProfileId === c.id && c.profile && (
+                      {expandedProfileId === c.id && profiles[c.id] && profiles[c.id].length > 0 && (
                         <tr>
                           <td colSpan={12}>
                             <div className="tc-chart-wrap" style={{ marginTop: 8, marginBottom: 8 }}>
                               <ResponsiveContainer width="100%" height={200}>
-                                <LineChart data={c.profile}>
+                                <LineChart data={profiles[c.id]}>
                                   <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
                                   <XAxis dataKey="tMin" stroke="#8B949B" fontSize={12} unit="m" />
                                   <YAxis yAxisId="hr" stroke="#C97A3F" fontSize={12} domain={["auto", "auto"]} />
