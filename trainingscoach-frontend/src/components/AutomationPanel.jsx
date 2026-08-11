@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Play, AlertTriangle } from "lucide-react";
 import * as api from "../api/client";
+import CollapsibleCard from "./shared/CollapsibleCard";
 import { WEEKDAYS } from "../lib/calculations";
 
 /**
@@ -101,12 +102,18 @@ export default function AutomationPanel() {
     );
   }
 
-  return (
-    <div className="tc-card">
-      <div className="tc-card-head">
-        <span className="tc-ex-name">Automatische planning</span>
-      </div>
+  const activeSummary = [
+    settings.weeklyEnabled ? `wekelijks op ${settings.weeklyWeekday.toLowerCase()}` : null,
+    settings.signalsEnabled ? "en bij signalen" : null,
+  ].filter(Boolean).join(" ");
 
+  return (
+    <CollapsibleCard
+      id="schema-automatisering"
+      title="Automatische planning"
+      subtitle={activeSummary || "staat uit"}
+      badge={settings.lastError ? <span className="tc-hint-badge tc-badge-warning">laatste poging mislukt</span> : null}
+    >
       <p className="tc-import-help">
         De coach kan uit zichzelf naar je gegevens kijken. Wat hij voorstelt komt binnen als
         <strong> voorstel</strong> in het tabblad Planning — je planning verandert dus nooit vanzelf,
@@ -214,6 +221,6 @@ export default function AutomationPanel() {
         </div>
         {message && <p className="tc-import-help">{message}</p>}
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }

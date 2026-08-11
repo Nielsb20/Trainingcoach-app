@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Plus, Loader2 } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
+import CollapsibleCard from "./shared/CollapsibleCard";
 import * as api from "../api/client";
 import { todayStr, formatDateNL } from "../lib/calculations";
 
@@ -134,10 +135,7 @@ export default function WellnessTab() {
         </div>
       )}
 
-      <div className="tc-card">
-        <div className="tc-card-head">
-          <span className="tc-ex-name">Dag toevoegen of bijwerken</span>
-        </div>
+      <CollapsibleCard id="herstel-invoer" title="Dag toevoegen of bijwerken" subtitle="handmatig loggen">
         <div className="tc-form-row">
           <div>
             <label className="tc-label">Datum</label>
@@ -176,7 +174,7 @@ export default function WellnessTab() {
           </button>
           {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
         </div>
-      </div>
+      </CollapsibleCard>
 
       {logs.length === 0 ? (
         <div className="tc-empty">

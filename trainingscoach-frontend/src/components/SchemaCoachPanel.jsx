@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Sparkles, Check, X, Undo2, AlertTriangle, Trash2 } from "lucide-react";
 import * as api from "../api/client";
+import CollapsibleCard from "./shared/CollapsibleCard";
 import { WEEKDAYS } from "../lib/calculations";
 
 const FOCUS_OPTIONS = [
@@ -197,11 +198,13 @@ export default function SchemaCoachPanel({ onSchemaReplaced }) {
 
   return (
     <>
-      <div className="tc-card">
-        <div className="tc-card-head">
-          <span className="tc-ex-name">Wat wil je bereiken?</span>
-          {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
-        </div>
+      <CollapsibleCard
+        id="schema-doelen"
+        title="Wat wil je bereiken?"
+        subtitle={goals.goal ? goals.goal.slice(0, 70) + (goals.goal.length > 70 ? "…" : "") : "nog geen doel ingevuld"}
+        defaultOpen
+        badge={savedFlash ? <span className="tc-saved-flash">Opgeslagen ✓</span> : null}
+      >
         <p className="tc-import-help">
           Hoe concreter dit is, hoe gerichter het schema. De coach houdt zich aan de dagen en de tijd
           die je hier opgeeft, en aan je materiaal en beperkingen — dat is precies het verschil tussen
@@ -289,7 +292,7 @@ export default function SchemaCoachPanel({ onSchemaReplaced }) {
           {goalMissing && <span className="tc-import-help" style={{ margin: 0 }}>Vul eerst je doel in.</span>}
         </div>
         {error && <div className="tc-error"><span>{error}</span></div>}
-      </div>
+      </CollapsibleCard>
 
       {open && (
         <ProposalCard

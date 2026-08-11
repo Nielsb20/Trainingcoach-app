@@ -1,5 +1,9 @@
-import { Dumbbell, Activity, MessageCircle, History, Settings, Flag, Scale, Sunrise, Sun, Moon, PieChart, HeartPulse, CalendarDays } from "lucide-react";
+import { Dumbbell, Activity, MessageCircle, History, Settings, Flag, Scale, Sunrise, Sun, Moon, HeartPulse, CalendarDays } from "lucide-react";
 
+// Analyse zat hier als eigen tabblad, naast Geschiedenis — twee schermen die
+// allebei terugkijken op dezelfde sessies, en die daardoor voortdurend op
+// elkaar leken. Het is nu één tabblad met subtabs: Kracht, Cardio, Belasting,
+// Analyse.
 export const NAV = [
   { id: "schema", label: "Schema", icon: Settings },
   { id: "kracht", label: "Kracht loggen", icon: Dumbbell },
@@ -9,7 +13,6 @@ export const NAV = [
   { id: "planning", label: "Planning", icon: CalendarDays },
   { id: "evenementen", label: "Evenementen", icon: Flag },
   { id: "geschiedenis", label: "Geschiedenis", icon: History },
-  { id: "analyse", label: "Analyse", icon: PieChart },
   { id: "coach", label: "Coach", icon: MessageCircle },
 ];
 

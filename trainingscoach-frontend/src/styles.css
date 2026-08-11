@@ -52,6 +52,15 @@
 
 .tc-card { background: var(--surface); border:1px solid var(--border); border-radius:11px; padding:16px 18px; margin-bottom:14px; }
 .tc-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+
+/* Cards that fold away — see shared/CollapsibleCard.jsx. The header is a
+   button spanning the full card so the whole strip is a click target, not
+   just the little chevron. */
+.tc-collapsible-head { display:flex; align-items:center; gap:9px; width:100%; padding:0; background:transparent; border:none; color:var(--text); font-family:'Inter',sans-serif; font-size:13.5px; cursor:pointer; text-align:left; }
+.tc-collapsible-chevron { flex-shrink:0; color:var(--text-muted); transition: transform 0.15s; }
+.tc-collapsible-chevron.open { transform: rotate(90deg); }
+.tc-collapsible-subtitle { font-size:12.5px; color:var(--text-muted); }
+.tc-collapsible-body { margin-top:14px; }
 .tc-daygrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px; }
 
 .tc-label { display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:0.6px; color: var(--text-muted); margin: 10px 0 5px; font-weight:600; }

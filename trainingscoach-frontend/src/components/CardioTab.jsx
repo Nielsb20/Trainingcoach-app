@@ -3,13 +3,15 @@ import Papa from "papaparse";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { UploadCloud, Check, X, Loader2 } from "lucide-react";
 import TimeOfDayPicker from "./shared/TimeOfDayPicker";
+import CollapsibleCard from "./shared/CollapsibleCard";
+import StravaPanel from "./StravaPanel";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
 import { todayStr, formatDateNL, getWeightAtDate } from "../lib/calculations";
 import { uid, defaultTimeOfDay, timeOfDayLabel } from "../lib/uiHelpers";
 import { mapActivitiesCsv, guessCardioType } from "../lib/csvImport";
 import { parseGpxToSession, readGpxFileAsText } from "../lib/gpxParser";
 
-export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk, weightLogs }) {
+export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk, weightLogs, onStravaImported }) {
   const [date, setDate] = useState(todayStr());
   const [type, setType] = useState(CARDIO_TYPES[0]);
   const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay());
@@ -174,13 +176,23 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
   return (
     <div>
       <h1 className="tc-title">Cardiosessie loggen</h1>
-      <p className="tc-sub">Vul handmatig een sessie in, of importeer meteen meerdere sessies uit een Strava- of Garmin-export.</p>
+      <p className="tc-sub">
+        Koppel Strava zodat ritten vanzelf binnenkomen, vul zelf een sessie in, of importeer in bulk
+        uit een Strava- of Garmin-export.
+      </p>
 
-      <div className="tc-card tc-import-card">
-        <div className="tc-card-head">
-          <span className="tc-ex-name">CSV importeren</span>
-          <span className="tc-hint-badge tc-badge-cardio">Strava &amp; Garmin</span>
-        </div>
+      {/* Strava stond onder Schema, tussen de instellingen. Synchroniseren is
+          geen instelling maar de manier waarop je sessies binnenkomen, dus het
+          hoort hier, naast de andere manieren om cardio toe te voegen. */}
+      <StravaPanel onImported={onStravaImported} />
+
+      <CollapsibleCard
+        id="cardio-csv"
+        title="CSV importeren"
+        subtitle="bulk uit een export"
+        badge={<span className="tc-hint-badge tc-badge-cardio">Strava &amp; Garmin</span>}
+        className="tc-import-card"
+      >
         <p className="tc-import-help">
           Garmin Connect: ga naar je activiteitenlijst → "Exporteren" → CSV. Strava: Instellingen → "Mijn account" → "Download of verwijder je account" → archief aanvragen, gebruik daarna <code>activities.csv</code> uit de zip.
           Upload het bestand hieronder — je krijgt eerst een controlescherm te zien voordat er iets wordt opgeslagen.
@@ -248,13 +260,15 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
             </div>
           </div>
         )}
-      </div>
+      </CollapsibleCard>
 
-      <div className="tc-card tc-import-card">
-        <div className="tc-card-head">
-          <span className="tc-ex-name">Sessiedetail toevoegen (GPX)</span>
-          <span className="tc-hint-badge tc-badge-cardio">Voor intervallen/verloop</span>
-        </div>
+      <CollapsibleCard
+        id="cardio-gpx"
+        title="Sessiedetail toevoegen (GPX)"
+        subtitle="verloop binnen een sessie"
+        badge={<span className="tc-hint-badge tc-badge-cardio">Voor intervallen/verloop</span>}
+        className="tc-import-card"
+      >
         <p className="tc-import-help">
           Een CSV-export geeft alleen gemiddelden per activiteit — daarin is het verloop tíjdens een training (bijvoorbeeld intervallen) niet te zien.
           Selecteer hier één of meerdere GPX-bestanden tegelijk (bijv. de hele "activities"-map uit je Strava-archief, inclusief gecomprimeerde <code>.gpx.gz</code>-bestanden — die worden automatisch uitgepakt) en ik reconstrueer per sessie het verloop van hartslag, snelheid, vermogen en cadans over de tijd.
@@ -317,12 +331,9 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
             </div>
           </div>
         )}
-      </div>
+      </CollapsibleCard>
 
-      <div className="tc-card">
-        <div className="tc-card-head">
-          <span className="tc-ex-name">Losse sessie handmatig invoeren</span>
-        </div>
+      <CollapsibleCard id="cardio-handmatig" title="Losse sessie handmatig invoeren" defaultOpen>
         <div className="tc-form-row">
           <div>
             <label className="tc-label">Datum</label>
@@ -398,7 +409,7 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
           <button className="tc-btn tc-btn-cardio" onClick={handleSubmit}>Cardiosessie opslaan</button>
           {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
         </div>
-      </div>
+      </CollapsibleCard>
     </div>
   );
 }

@@ -37,6 +37,25 @@ serveert op één poort.
 De rekenkern is bewust deterministisch en los van de AI: de coach krijgt de
 berekende cijfers aangereikt en interpreteert ze, in plaats van ze zelf te schatten.
 
+## Hoe de interface is ingedeeld
+
+| Tabblad | Waarvoor |
+|---|---|
+| **Schema** | Je vaste weekindeling, je doelen, je persoonlijk profiel, coachautomatisering en back-ups |
+| **Kracht loggen** / **Cardio loggen** | Een training vastleggen. Bij cardio zit ook de Strava-koppeling en het importeren uit een export |
+| **Gewicht** / **Herstel** | Metingen bijhouden en de trend zien |
+| **Planning** | Wat er de komende weken staat, en voorstellen van de coach beoordelen |
+| **Evenementen** | Wedstrijden en doelen, met datum, doelstelling en notities |
+| **Geschiedenis** | Terugkijken: je kracht- en cardiologs, je trainingsbelasting, en de analyses (zoneverdeling, vermogenscurve) |
+| **Coach** | De coach om feedback vragen en zijn antwoorden teruglezen |
+
+Twee dingen die verklaren waarom sommige schermen kort ogen: **invoerformulieren staan
+standaard dichtgeklapt** zodra er iets te zien is — op Gewicht en Herstel bijvoorbeeld staat
+de grafiek bovenaan en het invulformulier eronder, ingeklapt. Klap je iets open, dan
+onthoudt de app dat voor de volgende keer. En **Analyse is geen apart tabblad meer**: dat
+keek naar dezelfde sessies als Geschiedenis en staat daar nu als subtabblad naast Kracht,
+Cardio en Belasting.
+
 ## Installatievolgorde (op de Pi)
 
 ```bash

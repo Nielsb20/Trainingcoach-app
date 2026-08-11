@@ -354,7 +354,7 @@ function PlanButton({ entryId }) {
     }
   }
 
-  if (state === "done") return <p className="tc-import-help">{message} — zie het tabblad Analyse.</p>;
+  if (state === "done") return <p className="tc-import-help">{message} — zie het tabblad Planning.</p>;
 
   return (
     <div className="tc-actionbar" style={{ marginTop: 0, marginBottom: 10 }}>

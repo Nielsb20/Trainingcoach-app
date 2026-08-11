@@ -5,6 +5,7 @@ import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad } from "../lib/calculations";
 import { timeOfDayLabel } from "../lib/uiHelpers";
 import WorkoutLogEditor from "./WorkoutLogEditor";
+import AnalyseTab from "./AnalyseTab";
 import * as api from "../api/client";
 
 export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {
@@ -104,6 +105,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
         <button className={"tc-subtab" + (sub === "kracht" ? " active-strength" : "")} onClick={() => setSub("kracht")}>Kracht</button>
         <button className={"tc-subtab" + (sub === "cardio" ? " active-cardio" : "")} onClick={() => setSub("cardio")}>Cardio</button>
         <button className={"tc-subtab" + (sub === "belasting" ? " active-event" : "")} onClick={() => setSub("belasting")}>Belasting</button>
+        <button className={"tc-subtab" + (sub === "analyse" ? " active-cardio" : "")} onClick={() => setSub("analyse")}>Analyse</button>
       </div>
 
       {sub === "kracht" && (
@@ -358,6 +360,8 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
           )}
         </div>
       )}
+
+      {sub === "analyse" && <AnalyseTab embedded />}
 
       {editingLog && (
         <WorkoutLogEditor

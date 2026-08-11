@@ -149,7 +149,7 @@ vanzelf binnenkomt.
    STRAVA_WEBHOOK_VERIFY_TOKEN=verzin-hier-iets-willekeurigs
    ```
 3. Herstart de server (`pm2 restart trainingscoach`)
-4. Ga in de app naar **Schema → Strava** en klik op "Verbinden met Strava"
+4. Ga in de app naar **Cardio loggen → Strava** en klik op "Verbinden met Strava"
 5. Na het goedkeuren kun je op "Nu synchroniseren" klikken om je laatste activiteiten op te halen
 
 Krachttrainingen worden overgeslagen (dat is geen cardio), en activiteiten die al
@@ -229,7 +229,7 @@ geïmporteerd missen de histogrammen, waardoor de analyse leeg blijft. Gewoon
 opnieuw synchroniseren helpt niet: die slaat ze over als "al geïmporteerd".
 
 Daarom houdt de app per activiteit bij met welke analyseversie hij is verwerkt.
-Staat er iets verouderds tussen, dan verschijnt bij **Schema → Strava** een knop
+Staat er iets verouderds tussen, dan verschijnt bij **Cardio loggen → Strava** een knop
 om het bij te werken. Dat gaat in blokken van 25 vanwege Strava's limiet van 100
 verzoeken per kwartier, dus bij een lange historie klik je een paar keer — de
 voortgang blijft bewaard.

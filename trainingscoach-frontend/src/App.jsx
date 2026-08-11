@@ -24,7 +24,6 @@ const WeightTab = lazy(() => import("./components/WeightTab"));
 const EventsTab = lazy(() => import("./components/EventsTab"));
 const GeschiedenisTab = lazy(() => import("./components/GeschiedenisTab"));
 const CoachTab = lazy(() => import("./components/CoachTab"));
-const AnalyseTab = lazy(() => import("./components/AnalyseTab"));
 const WellnessTab = lazy(() => import("./components/WellnessTab"));
 const SessionDetail = lazy(() => import("./components/SessionDetail"));
 const PlannerTab = lazy(() => import("./components/PlannerTab"));
@@ -172,6 +171,12 @@ export default function App() {
       setCardioLogs(await api.getCardioLogs());
     }, "Sessies importeren mislukt");
 
+  /** After a Strava sync: only the cardio list can have changed. */
+  const refreshCardioLogs = () =>
+    withErrorHandling(async () => {
+      setCardioLogs(await api.getCardioLogs());
+    }, "Sessies verversen mislukt");
+
   const deleteCardioLog = (id) =>
     withErrorHandling(async () => {
       await api.deleteCardioLog(id);
@@ -195,6 +200,12 @@ export default function App() {
       await api.createEvent(entry);
       setEvents(await api.getEvents());
     }, "Evenement opslaan mislukt");
+
+  const updateEvent = (id, entry) =>
+    withErrorHandling(async () => {
+      await api.updateEvent(id, entry);
+      setEvents(await api.getEvents());
+    }, "Evenement bijwerken mislukt");
 
   const deleteEvent = (id) =>
     withErrorHandling(async () => {
@@ -289,6 +300,7 @@ export default function App() {
             addCardioLog={addCardioLog}
             addCardioLogsBulk={addCardioLogsBulk}
             weightLogs={weightLogs}
+            onStravaImported={refreshCardioLogs}
           />
         )}
         {tab === "gewicht" && (
@@ -296,7 +308,9 @@ export default function App() {
         )}
         {tab === "herstel" && <WellnessTab />}
         {tab === "planning" && <PlannerTab onOpenSession={setDetailSessionId} />}
-        {tab === "evenementen" && <EventsTab events={events} addEvent={addEvent} deleteEvent={deleteEvent} />}
+        {tab === "evenementen" && (
+          <EventsTab events={events} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} />
+        )}
         {tab === "geschiedenis" && (
           <GeschiedenisTab
             schema={schema}
@@ -309,7 +323,6 @@ export default function App() {
             onOpenSession={setDetailSessionId}
           />
         )}
-        {tab === "analyse" && <AnalyseTab />}
         {tab === "coach" && (
           <CoachTab
             schema={schema}
