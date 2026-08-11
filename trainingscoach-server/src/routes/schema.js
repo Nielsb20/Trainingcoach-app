@@ -16,6 +16,7 @@ function getFullSchema() {
     name: d.name,
     weekdays: d.weekdays ? d.weekdays.split(",").filter(Boolean) : [],
     timeOfDay: d.time_of_day,
+    locked: !!d.locked,
     exercises: exercises
       .filter((e) => e.day_id === d.id)
       .map((e) => ({ id: e.id, name: e.name, targetSets: e.target_sets, targetReps: e.target_reps })),
@@ -23,7 +24,9 @@ function getFullSchema() {
 
   return {
     days: daysWithExercises,
-    cardioDays: cardioDays.map((c) => ({ id: c.id, weekday: c.weekday, type: c.type, notes: c.notes, timeOfDay: c.time_of_day })),
+    cardioDays: cardioDays.map((c) => ({
+      id: c.id, weekday: c.weekday, type: c.type, notes: c.notes, timeOfDay: c.time_of_day, locked: !!c.locked,
+    })),
     profile: { maxHr: profileRow.max_hr, restingHr: profileRow.resting_hr, ftp: profileRow.ftp },
   };
 }
@@ -41,19 +44,25 @@ function replaceSchema({ days = [], cardioDays = [], profile = {} }) {
     db.prepare("DELETE FROM schema_days").run();
     db.prepare("DELETE FROM schema_cardio_days").run();
 
-    const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order, weekdays, time_of_day) VALUES (?, ?, ?, ?, ?)");
+    const insertDay = db.prepare(
+      "INSERT INTO schema_days (id, name, sort_order, weekdays, time_of_day, locked) VALUES (?, ?, ?, ?, ?, ?)"
+    );
     const insertExercise = db.prepare(
       "INSERT INTO schema_exercises (id, day_id, name, target_sets, target_reps, sort_order) VALUES (?, ?, ?, ?, ?, ?)"
     );
     days.forEach((day, dayIdx) => {
-      insertDay.run(day.id, day.name, dayIdx, (day.weekdays || []).join(",") || null, day.timeOfDay || null);
+      insertDay.run(day.id, day.name, dayIdx, (day.weekdays || []).join(",") || null, day.timeOfDay || null, day.locked ? 1 : 0);
       (day.exercises || []).forEach((ex, exIdx) => {
         insertExercise.run(ex.id, day.id, ex.name, ex.targetSets || 3, ex.targetReps || 8, exIdx);
       });
     });
 
-    const insertCardioDay = db.prepare("INSERT INTO schema_cardio_days (id, weekday, type, notes, time_of_day) VALUES (?, ?, ?, ?, ?)");
-    cardioDays.forEach((c) => insertCardioDay.run(c.id, c.weekday, c.type, c.notes || null, c.timeOfDay || null));
+    const insertCardioDay = db.prepare(
+      "INSERT INTO schema_cardio_days (id, weekday, type, notes, time_of_day, locked) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    cardioDays.forEach((c) =>
+      insertCardioDay.run(c.id, c.weekday, c.type, c.notes || null, c.timeOfDay || null, c.locked ? 1 : 0)
+    );
 
     db.prepare("UPDATE profile SET max_hr = ?, resting_hr = ?, ftp = ? WHERE id = 1").run(
       profile.maxHr ?? null,

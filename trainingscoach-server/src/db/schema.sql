@@ -327,3 +327,23 @@ CREATE TABLE IF NOT EXISTS schema_proposals (
   previous_schema_json TEXT        -- the schema this replaced, so accepting is undoable
 );
 CREATE INDEX IF NOT EXISTS idx_schema_proposals_date ON schema_proposals(date);
+
+-- What had to be corrected in a proposal before it was fit to store: a weekday
+-- the athlete never made available, a cardio slot that could not be placed.
+-- The prompt states those constraints as hard rules and a model still broke
+-- them, so they are enforced in code — and the corrections are kept here so the
+-- athlete sees what was taken out instead of it happening silently.
+ALTER TABLE schema_proposals ADD COLUMN correcties_json TEXT;
+
+-- Vaste afspraken in het schema zelf.
+--
+-- "Beschikbare weekdagen" zegt wanneer iemand *kan* trainen; dit zegt dat een
+-- moment al is afgesproken — met een trainingspartner, een club, of thuis met
+-- kleine kinderen. Zulke dagen mag de coach niet verschuiven, ook niet naar een
+-- andere dag die technisch beschikbaar is. De planner kent dit onderscheid al
+-- via planned_sessions.locked; het schema kende het nog niet, waardoor een
+-- schemavoorstel een afspraak kon verzetten die buiten de app is gemaakt.
+--
+-- De inhoud blijft wel aan de coach: hij bepaalt WAT je die dag doet, jij WANNEER.
+ALTER TABLE schema_days ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE schema_cardio_days ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;

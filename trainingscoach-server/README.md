@@ -737,6 +737,25 @@ automatisch toegepast:
    worden begrensd, dagen zonder naam of zonder oefeningen verdwijnen, id's worden
    hier gegenereerd (niet door het model, want dat zijn databasesleutels), en een
    leeg voorstel wordt geweigerd in plaats van je schema te wissen.
+
+   **Vaste afspraken worden teruggezet.** Trainingsdagen en cardiomomenten met een slotje
+   (`schema_days.locked` / `schema_cardio_days.locked`) zijn buiten de app afgesproken.
+   Laat een voorstel zo'n dag vervallen, verplaatst het hem, of zet het hem op een ander
+   tijdstip, dan wordt de afspraak in zijn oude vorm teruggezet en komt dat als correctie
+   terug. De inhoud blijft wel aan de coach — dat is precies de rolverdeling die de rest van
+   de app ook aanhoudt: de sporter bepaalt wanneer, de coach bepaalt wat. Het slot verhuist
+   daarbij mee naar wat er na het accepteren op die dag staat, anders zou één keer een
+   voorstel overnemen je afspraak stilletjes losmaken. Een vastgezette dag telt bovendien
+   altijd als beschikbaar: een afspraak waarvoor je tijd hebt vrijgemaakt zegt meer dan een
+   vakje dat je misschien vergeten bent aan te vinken.
+
+   **Je beschikbare dagen worden hier afgedwongen, niet alleen gevraagd.** De prompt
+   noemt ze als harde eis en een model plande er tóch een training op een maandag die
+   nooit was aangevinkt. Weekdagen buiten je beschikbaarheid worden daarom verwijderd,
+   en elke verwijdering komt als correctie terug in het voorstel — zichtbaar, want een
+   trainingsdag die daardoor zonder weekdag komt te staan moet jij een dag geven. Er
+   wordt bewust géén andere dag voor je gekozen: dat veld bestaat juist omdat jij
+   bepaalt wanneer je traint.
 2. **Je ziet het verschil vóór je iets accepteert** — welke dagen erbij komen,
    welke wijzigen, welke vervallen, en welke oefeningen uit je schema zouden
    verdwijnen. Dat laatste staat er expliciet bij: je gelogde trainingen blijven

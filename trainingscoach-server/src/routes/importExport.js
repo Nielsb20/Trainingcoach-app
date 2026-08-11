@@ -45,18 +45,24 @@ router.post("/import", (req, res) => {
     db.exec("DELETE FROM schema_proposals;");
 
     const s = data.schema || { days: [], cardioDays: [], profile: {} };
-    const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order, weekdays, time_of_day) VALUES (?, ?, ?, ?, ?)");
+    const insertDay = db.prepare(
+      "INSERT INTO schema_days (id, name, sort_order, weekdays, time_of_day, locked) VALUES (?, ?, ?, ?, ?, ?)"
+    );
     const insertExercise = db.prepare(
       "INSERT INTO schema_exercises (id, day_id, name, target_sets, target_reps, sort_order) VALUES (?, ?, ?, ?, ?, ?)"
     );
     (s.days || []).forEach((day, dayIdx) => {
-      insertDay.run(day.id, day.name, dayIdx, (day.weekdays || []).join(",") || null, day.timeOfDay || null);
+      insertDay.run(day.id, day.name, dayIdx, (day.weekdays || []).join(",") || null, day.timeOfDay || null, day.locked ? 1 : 0);
       (day.exercises || []).forEach((ex, exIdx) =>
         insertExercise.run(ex.id, day.id, ex.name, ex.targetSets || 3, ex.targetReps || 8, exIdx)
       );
     });
-    const insertCardioDay = db.prepare("INSERT INTO schema_cardio_days (id, weekday, type, notes, time_of_day) VALUES (?, ?, ?, ?, ?)");
-    (s.cardioDays || []).forEach((c) => insertCardioDay.run(c.id, c.weekday, c.type, c.notes || null, c.timeOfDay || null));
+    const insertCardioDay = db.prepare(
+      "INSERT INTO schema_cardio_days (id, weekday, type, notes, time_of_day, locked) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    (s.cardioDays || []).forEach((c) =>
+      insertCardioDay.run(c.id, c.weekday, c.type, c.notes || null, c.timeOfDay || null, c.locked ? 1 : 0)
+    );
     db.prepare("UPDATE profile SET max_hr = ?, resting_hr = ?, ftp = ? WHERE id = 1").run(
       s.profile?.maxHr ?? null,
       s.profile?.restingHr ?? null,
@@ -131,6 +137,7 @@ router.post("/import", (req, res) => {
     const proposalCols = [
       "id", "date", "status", "question", "goals_json", "proposal_json", "toelichting",
       "opbouw_json", "waarschuwing", "raw_feedback", "decline_reason", "applied_at", "previous_schema_json",
+      "correcties_json",
     ];
     const insertProposal = db.prepare(
       `INSERT INTO schema_proposals (${proposalCols.join(", ")}) VALUES (${proposalCols.map(() => "?").join(", ")})`
