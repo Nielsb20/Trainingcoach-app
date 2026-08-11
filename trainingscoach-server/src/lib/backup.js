@@ -44,9 +44,12 @@ function buildBackup() {
   const { serialize: serializeCardioLog } = require("../routes/cardioLogs");
   const { serialize: serializeWeightLog } = require("../routes/weightLogs");
   const { serialize: serializeEvent } = require("../routes/events");
+  const { getGoals } = require("../routes/schemaProposal");
 
   return {
     schema: getFullSchema(),
+    trainingGoals: getGoals(),
+    schemaProposals: db.prepare("SELECT * FROM schema_proposals ORDER BY date DESC").all(),
     workoutLogs: serializeWorkoutLogs(db.prepare("SELECT * FROM workout_logs ORDER BY date DESC").all()),
     cardioLogs: db.prepare("SELECT * FROM cardio_logs ORDER BY date DESC").all().map(serializeCardioLog),
     events: db.prepare("SELECT * FROM events ORDER BY date ASC").all().map(serializeEvent),

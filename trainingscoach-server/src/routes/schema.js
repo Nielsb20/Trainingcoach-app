@@ -28,16 +28,14 @@ function getFullSchema() {
   };
 }
 
-// GET /api/schema - full schema (days, exercises, cardio days, profile)
-router.get("/", (req, res) => {
-  res.json(getFullSchema());
-});
-
-// PUT /api/schema - replace the whole schema in one call (mirrors how the
-// frontend edits it locally then saves the whole object at once)
-router.put("/", (req, res) => {
-  const { days = [], cardioDays = [], profile = {} } = req.body;
-
+/**
+ * Replaces the whole schema in one transaction.
+ *
+ * Shared with the coach's schema proposals rather than living inside the PUT
+ * handler: accepting a proposal is the same write, and two copies of it would
+ * drift the moment a column is added to either table.
+ */
+function replaceSchema({ days = [], cardioDays = [], profile = {} }) {
   const replaceAll = db.transaction(() => {
     db.prepare("DELETE FROM schema_exercises").run();
     db.prepare("DELETE FROM schema_days").run();
@@ -64,12 +62,23 @@ router.put("/", (req, res) => {
     );
   });
 
+  replaceAll();
+  return getFullSchema();
+}
+
+// GET /api/schema - full schema (days, exercises, cardio days, profile)
+router.get("/", (req, res) => {
+  res.json(getFullSchema());
+});
+
+// PUT /api/schema - replace the whole schema in one call (mirrors how the
+// frontend edits it locally then saves the whole object at once)
+router.put("/", (req, res) => {
   try {
-    replaceAll();
-    res.json(getFullSchema());
+    res.json(replaceSchema(req.body || {}));
   } catch (err) {
     res.status(500).json({ error: "Kon schema niet opslaan", details: err.message });
   }
 });
 
-module.exports = { router, getFullSchema };
+module.exports = { router, getFullSchema, replaceSchema };

@@ -48,6 +48,7 @@ const { router: cardioLogRoutes } = require("./routes/cardioLogs");
 const { router: weightLogRoutes } = require("./routes/weightLogs");
 const { router: eventRoutes } = require("./routes/events");
 const coachRoutes = require("./routes/coach");
+const schemaProposalRoutes = require("./routes/schemaProposal");
 const importExportRoutes = require("./routes/importExport");
 const analysisRoutes = require("./routes/analysis");
 const { router: plannedRoutes } = require("./routes/planned");
@@ -63,6 +64,7 @@ app.use("/api/cardio-logs", cardioLogRoutes);
 app.use("/api/weight-logs", weightLogRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/coach", coachRoutes);
+app.use("/api/coach", schemaProposalRoutes); // /api/coach/goals, /api/coach/schema-proposals
 app.use("/api/analysis", analysisRoutes);
 app.use("/api/planned", plannedRoutes);
 app.use("/api/wellness", wellnessRoutes);

@@ -6,6 +6,7 @@ import { uid } from "../lib/uiHelpers";
 import * as api from "../api/client";
 import StravaPanel from "./StravaPanel";
 import AutomationPanel from "./AutomationPanel";
+import SchemaCoachPanel from "./SchemaCoachPanel";
 
 export default function SchemaTab({ schema, setSchema, onRestored }) {
   const [pendingImport, setPendingImport] = useState(null);
@@ -160,8 +161,23 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
     <div>
       <h1 className="tc-title">Trainingsschema</h1>
       <p className="tc-sub">
-        Leg je vaste schema eenmalig vast. Dit is de basis bij het loggen van je krachttraining, en
-        de coach plant je krachttrainingen exact op de weekdagen die je hier aanvinkt — hij verzint
+        Je vaste weekindeling: welke trainingsdagen je hebt, met welke oefeningen. Dit is de basis
+        bij het loggen van je krachttraining. Je kunt het zelf samenstellen, of de coach een
+        voorstel laten doen op basis van je doelen.
+      </p>
+
+      <h2 className="tc-section-title" style={{ marginTop: 0 }}>Laat de coach een schema voorstellen</h2>
+      <p className="tc-sub" style={{ marginTop: -4 }}>
+        Je hoeft het schema hieronder niet zelf te bedenken. Vertel wat je wilt bereiken en waar je
+        aan gebonden bent, dan ontwerpt de coach een weekindeling op basis daarvan én van wat je tot
+        nu toe hebt getraind. Je krijgt het als voorstel: je ziet eerst wat er zou veranderen, en
+        overnemen kun je meteen terugdraaien.
+      </p>
+      <SchemaCoachPanel onSchemaReplaced={onRestored} />
+
+      <h2 className="tc-section-title" style={{ marginTop: 32 }}>Je trainingsdagen</h2>
+      <p className="tc-sub" style={{ marginTop: -4 }}>
+        De coach plant je krachttrainingen exact op de weekdagen die je hier aanvinkt — hij verzint
         er geen eigen rotatie omheen. Geef je ook een tijdstip op, dan rekent hij met de werkelijke
         hersteltijd: een avondtraining gevolgd door een ochtendrit is maar twaalf uur ertussen.
       </p>

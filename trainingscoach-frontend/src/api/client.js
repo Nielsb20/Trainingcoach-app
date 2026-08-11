@@ -74,6 +74,21 @@ export const getCoachHistory = () => request("/coach/history");
 export const askCoach = (question) => request("/coach/ask", { method: "POST", body: JSON.stringify({ question }) });
 export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method: "DELETE" });
 
+/* ---------------------- goals + coach schema proposals ------------------- */
+
+export const getGoals = () => request("/coach/goals");
+export const saveGoals = (goals) => request("/coach/goals", { method: "PUT", body: JSON.stringify(goals) });
+
+export const getSchemaProposals = () => request("/coach/schema-proposals");
+export const generateSchemaProposal = (question) =>
+  request("/coach/schema-proposals", { method: "POST", body: JSON.stringify({ question }) });
+/** Replaces the whole schema — reversible via undoSchemaProposal. */
+export const acceptSchemaProposal = (id) => request(`/coach/schema-proposals/${id}/accept`, { method: "POST" });
+export const undoSchemaProposal = (id) => request(`/coach/schema-proposals/${id}/undo`, { method: "POST" });
+export const declineSchemaProposal = (id, reason) =>
+  request(`/coach/schema-proposals/${id}/decline`, { method: "POST", body: JSON.stringify({ reason }) });
+export const deleteSchemaProposal = (id) => request(`/coach/schema-proposals/${id}`, { method: "DELETE" });
+
 /* ----------------------------- backup / restore ------------------------ */
 
 export const exportAll = () => request("/export");

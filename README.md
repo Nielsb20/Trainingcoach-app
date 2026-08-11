@@ -29,6 +29,10 @@ serveert op één poort.
 - **Hartslag- en vermogenszones** op basis van je max. hartslag, rusthartslag en FTP
 - **AI-coach** die bovenop die harde cijfers analyse, tips en een cardiovoorstel geeft —
   werkt met Google Gemini (gratis tier) of Anthropic, omschakelbaar via `.env`
+- **Schemavoorstel van de coach**: je legt in Schema je doelen en randvoorwaarden vast
+  (doel, beschikbare dagen, tijd per sessie, materiaal, blessures), en de coach ontwerpt
+  daar een weekindeling bij — welke trainingsdagen, welke oefeningen, welke sets en reps.
+  Zie "Je schema laten ontwerpen" hieronder
 
 De rekenkern is bewust deterministisch en los van de AI: de coach krijgt de
 berekende cijfers aangereikt en interpreteert ze, in plaats van ze zelf te schatten.
@@ -60,6 +64,36 @@ npm start
 ```
 
 Ga daarna naar `http://<ip-van-je-pi>:3001`.
+
+## Je schema laten ontwerpen
+
+Tot nu toe stelde je het schema zelf samen en deed de coach voorstellen *binnen* dat schema.
+Bovenaan het tabblad **Schema** kun je nu ook het schema zelf laten ontwerpen.
+
+Je vult daar in wat je wilt bereiken en waar je aan vastzit: je doel, of de nadruk op kracht
+of cardio ligt, hoeveel dagen per week je hebt, hoe lang een sessie mag duren, op welke
+weekdagen je kunt, welk materiaal je hebt en welke blessures of oefeningen je wilt vermijden.
+Die randvoorwaarden zijn geen suggesties voor het model: het schema moet erbinnen passen.
+
+De coach krijgt daarnaast je huidige schema, je trainingsgeschiedenis, de berekende
+trainingsbelasting, je herstelgegevens en je geplande evenementen mee — plus hoeveel je de
+afgelopen acht weken werkelijk hebt getraind. Dat laatste is er expres bij: een schema met
+vijf krachtdagen is niets waard voor iemand die er structureel twee haalt.
+
+Wat je terugkrijgt is een **voorstel**, geen wijziging:
+
+- je ziet eerst wat het zou veranderen — welke dagen erbij komen, welke wijzigen, en vooral
+  welke oefeningen uit je schema zouden verdwijnen;
+- neem je het over, dan wordt je vorige schema bewaard en zet je het met één knop terug;
+- wijs je het af met een reden, dan gaat die reden mee in de volgende aanvraag, zodat je niet
+  volgende week hetzelfde plan terugkrijgt.
+
+Je gelogde trainingen blijven bij dit alles onaangeroerd: het schema is de referentie waartegen
+je logt, niet de logs zelf. Een oefening die uit het schema verdwijnt, blijft dus gewoon in je
+geschiedenis staan.
+
+De automatische coachruns (Schema → Coach) raken je schema niet aan. Die maken alleen
+weekvoorstellen in de planning; een schema komt er alleen als je er zelf om vraagt.
 
 ## Je bestaande data overzetten
 
@@ -108,12 +142,14 @@ je hebt het niet nodig. Draai je de interface bewust op een ander adres, zet dan
 
 ## Status en vervolgstappen
 
-Draait in gebruik op een Raspberry Pi. `npm test` in de servermap voert 30
+Draait in gebruik op een Raspberry Pi. `npm test` in de servermap voert 31
 testbestanden uit, waaronder:
 
 - de rekenkern (TSS=100 bij een uur op FTP, Karvonen-zones, hoogtemeters met ruisfilter)
 - het databaseschema (inserts, foreign keys, cascade-delete)
 - de planner (afvinken, verplaatsen, overslaan, stabiliteit van voorstellen)
+- de schemavoorstellen (opschonen van wat het model teruggeeft, het verschil met je
+  huidige schema, en of overnemen terug te draaien is)
 - back-ups, kostenrem en de API-antwoorden zelf
 
 De suite draait bewust onder meerdere tijdzones; datumfouten die alleen buiten
