@@ -83,6 +83,10 @@
 
 .tc-icon-btn { background:transparent; border:none; color: var(--text-muted); cursor:pointer; padding:4px; border-radius:5px; display:flex; }
 .tc-icon-btn:hover { color: var(--text); background: var(--surface-alt); }
+/* A locked training moment: agreed elsewhere, so the coach fills it in but
+   never moves it. Coloured rather than merely a different icon, because it has
+   to be readable at a glance across a grid of day cards. */
+.tc-icon-btn.tc-locked { color: var(--strength); background: var(--strength-dim); }
 
 .tc-empty { border:1px dashed var(--border); border-radius:11px; padding:22px; text-align:center; color: var(--text-muted); margin-bottom:16px; }
 .tc-empty-hint { font-size:12.5px; margin-top:4px; }

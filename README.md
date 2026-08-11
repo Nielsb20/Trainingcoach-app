@@ -79,6 +79,14 @@ Je beschikbare weekdagen worden daarbij in code afgedwongen, niet alleen in de p
 gevraagd. Plant de coach toch iets op een dag die je niet hebt aangevinkt, dan wordt die
 dag eruit gehaald en zie je bovenaan het voorstel staan wat er is aangepast en waarom.
 
+**Vaste afspraken zet je vast met het slotje.** Een trainingsdag of cardiomoment dat je
+thuis of met een clubgenoot hebt afgesproken, klik je vast in het schema. De coach mag dan
+nog steeds bepalen wát je die dag doet — dat is juist zijn werk — maar hij verplaatst het
+niet, laat het niet vervallen, en schuift het niet naar een ander tijdstip. Doet een
+voorstel dat toch, dan wordt het teruggezet en staat erbij dat het is teruggezet. Dat
+onderscheid is er niet voor niets: "wanneer kan ik" is iets anders dan "dit is afgesproken
+met iemand anders", en alleen het tweede is onbespreekbaar.
+
 De coach krijgt daarnaast je huidige schema, je trainingsgeschiedenis, de berekende
 trainingsbelasting, je herstelgegevens en je geplande evenementen mee — plus hoeveel je de
 afgelopen acht weken werkelijk hebt getraind. Dat laatste is er expres bij: een schema met

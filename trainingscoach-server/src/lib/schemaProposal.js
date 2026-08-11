@@ -93,6 +93,7 @@ function buildSchemaProposalSystemPrompt() {
     "HARDE RANDVOORWAARDEN — hier mag je niet vanaf wijken, ook niet als je een 'beter' schema kent: " +
     "beschikbareWeekdagen (is die lijst gevuld, dan is elke weekdag die er NIET in staat verboden — voor krachtdagen én cardiodagen. Loop voor je antwoordt elke weekdag die je hebt gebruikt na en controleer dat hij in die lijst voorkomt. Een dag die er niet in staat wordt automatisch uit je voorstel verwijderd, dus je verliest er alleen je eigen indeling mee), krachtdagenPerWeek en cardiodagenPerWeek (het aantal dagen dat de cliënt beschikbaar heeft — ga daar niet overheen), sessieMinuten (schat de duur van je sessie realistisch: ongeveer 3 tot 4 minuten per set inclusief rust, en blijf binnen die tijd), en materiaal (stel alleen oefeningen voor die met dat materiaal uitvoerbaar zijn — geen beenpers als er alleen dumbbells zijn). " +
     "beperkingen bevat blessures en oefeningen die de cliënt niet kan of wil doen. Neem die absoluut serieus: vermijd de genoemde bewegingen, kies een alternatief dat dezelfde spiergroep traint, en benoem in de toelichting van die oefening waarom je het alternatief kiest. Verzin nooit medisch advies en zeg bij twijfel dat dit met een fysiotherapeut afgestemd hoort te worden. " +
+    "VASTE AFSPRAKEN. Trainingsdagen en cardiomomenten in huidigSchema met vast=true zijn buiten de app afgesproken — met een partner, een club, of thuis omdat dat het moment is dat vrijgemaakt kan worden. Die dag en dat tijdstip liggen vast: verplaats ze niet, laat ze niet vervallen, en stel ze niet voor op een andere dag omdat die je fysiologisch beter uitkomt. Neem ze over zoals ze zijn. Wat je die dag laat doen is wél aan jou: de invulling, de oefeningen en de zwaarte bepaal jij, en juist rond een vast moment is het jouw werk om de rest van de week eromheen te leggen. Verplaats je er toch een, dan wordt dat automatisch teruggezet. " +
     "CONTINUÏTEIT BOVEN VERNIEUWING. huidigSchema is wat de cliënt nu doet, en langetermijnSamenvattingKracht laat zien op welke oefeningen hij daadwerkelijk progressie boekt. Een schema is pas iets waard als het volgehouden wordt, en een compleet nieuw schema gooit alle opgebouwde referentiegewichten weg. Behoud daarom oefeningen die lopen, met exact dezelfde naam als in huidigSchema, zodat de logs en de vorige-sessie-referentie blijven werken. Verander alleen wat een aanwijsbaar probleem oplost: een doel dat niet gedekt wordt, een oefening die al lang stagneert, een spiergroep die ontbreekt, of een belasting die niet bij het herstel past. Benoem per wijziging in toelichting waarom. Is huidigSchema leeg, ontwerp dan wel een volledig schema vanaf nul. " +
     "Bouw het schema op volgens de gangbare principes: zware samengestelde oefeningen (squat, deadlift, bankdrukken, roeien, overhead press) eerst in de sessie en met de meeste rust, isolatie daarna; per spiergroep ongeveer 10 tot 20 werksets per week verdeeld over de dagen; kracht in het bereik van 3 tot 6 herhalingen, spiergroei in 6 tot 12, spieruithoudingsvermogen daarboven — kies het bereik dat bij doelen.doel past en meng waar dat logisch is. Plan minimaal 48 uur tussen twee zware sessies voor dezelfde spiergroep. " +
     "Stem kracht en cardio op elkaar af in plaats van ze los te ontwerpen. Zware beentraining en een zware duur- of intervalrit horen niet op opeenvolgende dagen; is de cliënt vooral duursporter, dan is kracht ondersteunend en houd je het volume beperkt; is kracht het doel, dan is cardio grotendeels laag-intensief. Gebruik moment (ochtend/middag/avond) om de werkelijke hersteltijd te sturen: een avondsessie gevolgd door een ochtendtraining geeft maar zo'n twaalf uur. " +
@@ -158,17 +159,41 @@ function clampInt(value, min, max, fallback) {
  * put a session on a Monday that was never ticked — which is exactly why this
  * layer exists. Days outside the athlete's availability are stripped, and each
  * removal is reported back in `correcties` so it is visible rather than silent.
+ *
+ * `currentSchema` carries the locked days: training moments that were agreed
+ * with someone else and are not the coach's to move. Those are restored if a
+ * proposal drops or reschedules them. A schema is a household arrangement as
+ * much as a training document, and no amount of physiological reasoning
+ * outranks "Tuesday evening is the evening I get".
  */
-function normalizeProposal(raw, { idPrefix = `sp${Date.now()}`, availableWeekdays = [] } = {}) {
+function normalizeProposal(
+  raw,
+  { idPrefix = `sp${Date.now()}`, availableWeekdays = [], currentSchema = null } = {}
+) {
   if (!raw || typeof raw !== "object") {
     throw new Error("Het model gaf geen bruikbaar schemavoorstel terug.");
   }
 
-  // An empty list means "no restriction", not "no days available".
+  const lockedDays = (currentSchema?.days || []).filter((d) => d.locked && (d.weekdays || []).length);
+  const lockedCardio = (currentSchema?.cardioDays || []).filter((c) => c.locked);
+
+  // An empty list means "no restriction", not "no days available". A locked day
+  // is available by definition: the athlete committed to training then, which
+  // says more than a checkbox they may simply not have ticked.
   const allowed = (Array.isArray(availableWeekdays) ? availableWeekdays : [])
     .map(canonicalWeekday)
     .filter(Boolean);
   const restricted = allowed.length > 0;
+  if (restricted) {
+    lockedDays.forEach((d) => (d.weekdays || []).forEach((w) => {
+      const canonical = canonicalWeekday(w);
+      if (canonical && !allowed.includes(canonical)) allowed.push(canonical);
+    }));
+    lockedCardio.forEach((c) => {
+      const canonical = canonicalWeekday(c.weekday);
+      if (canonical && !allowed.includes(canonical)) allowed.push(canonical);
+    });
+  }
   const corrections = [];
 
   const rawDays = Array.isArray(raw.krachtdagen) ? raw.krachtdagen.slice(0, MAX_DAYS) : [];
@@ -260,6 +285,94 @@ function normalizeProposal(raw, { idPrefix = `sp${Date.now()}`, availableWeekday
     });
   });
 
+  // ---- locked moments: agreements the coach does not get to reschedule ----
+  //
+  // Checked as "is there still a session on that weekday", not "is this exact
+  // workout still there". The agreement at home is that Tuesday evening is a
+  // training evening; renaming the workout or changing its exercises is the
+  // coach's job and breaks nothing.
+  lockedDays.forEach((locked, idx) => {
+    const lockedWeekdays = (locked.weekdays || []).map(canonicalWeekday).filter(Boolean);
+    const uncovered = lockedWeekdays.filter((w) => !days.some((d) => d.weekdays.includes(w)));
+    if (uncovered.length === 0) {
+      lockedWeekdays.forEach((w) => {
+        // The lock belongs to the moment, not to the workout that happened to
+        // fill it. Whatever now sits on that weekday inherits it, otherwise
+        // accepting a proposal would quietly unlock a standing arrangement.
+        const covering = days.find((d) => d.weekdays.includes(w));
+        if (covering) covering.locked = true;
+      });
+      // Covered, but possibly at the wrong time of day — and "Saturday morning"
+      // is the arrangement, not "somewhere on Saturday".
+      if (locked.timeOfDay) {
+        lockedWeekdays.forEach((w) => {
+          const covering = days.find((d) => d.weekdays.includes(w));
+          if (covering && covering.timeOfDay && covering.timeOfDay !== locked.timeOfDay) {
+            corrections.push(
+              `"${covering.name}" stond op ${w.toLowerCase()} in de ${covering.timeOfDay} gepland, ` +
+                `maar je hebt ${w.toLowerCase()}${locked.timeOfDay ? ` in de ${locked.timeOfDay}` : ""} vastgezet. ` +
+                "Het tijdstip is teruggezet."
+            );
+            covering.timeOfDay = locked.timeOfDay;
+          }
+        });
+      }
+      return;
+    }
+
+    // Nobody trains on that day in the new plan, so the appointment is put back
+    // exactly as it was — including its exercises, since dropping those would
+    // leave an empty day in the schema editor.
+    days.push({
+      id: `${idPrefix}-vast${idx}`,
+      name: locked.name,
+      weekdays: uncovered,
+      timeOfDay: locked.timeOfDay || null,
+      toelichting: "Vaste afspraak — teruggezet omdat de coach deze dag had laten vervallen.",
+      locked: true,
+      exercises: (locked.exercises || []).map((e, exIdx) => ({
+        id: `${idPrefix}-vast${idx}-e${exIdx}`,
+        name: e.name,
+        targetSets: e.targetSets,
+        targetReps: e.targetReps,
+        toelichting: null,
+      })),
+    });
+    corrections.push(
+      `"${locked.name}" op ${uncovered.join(" en ").toLowerCase()} is een vaste afspraak, maar het voorstel ` +
+        "liet die dag vervallen. De training is teruggezet zoals hij was; de coach mag bepalen wát je die dag doet, niet wanneer."
+    );
+  });
+
+  lockedCardio.forEach((locked, idx) => {
+    const weekday = canonicalWeekday(locked.weekday);
+    if (!weekday) return;
+    const covering = cardioDays.find((c) => c.weekday === weekday);
+    if (covering) {
+      covering.locked = true; // the lock outlives the session that fills it
+      if (locked.timeOfDay && covering.timeOfDay && covering.timeOfDay !== locked.timeOfDay) {
+        corrections.push(
+          `Het vaste cardiomoment op ${weekday.toLowerCase()} is teruggezet naar de ${locked.timeOfDay}: ` +
+            `het voorstel zette het in de ${covering.timeOfDay}.`
+        );
+        covering.timeOfDay = locked.timeOfDay;
+      }
+      return;
+    }
+    cardioDays.push({
+      id: `${idPrefix}-vastc${idx}`,
+      weekday,
+      type: locked.type,
+      timeOfDay: locked.timeOfDay || null,
+      notes: locked.notes || null,
+      locked: true,
+    });
+    corrections.push(
+      `Het vaste cardiomoment op ${weekday.toLowerCase()} (${locked.type}) is teruggezet: ` +
+        "het voorstel liet het vervallen, terwijl je het hebt vastgezet."
+    );
+  });
+
   if (days.length === 0 && cardioDays.length === 0) {
     throw new Error(
       "Het voorstel bevatte geen bruikbare trainingsdagen. Probeer het opnieuw, eventueel met een concreter doel."
@@ -332,6 +445,15 @@ function summarizeChanges(currentSchema, proposal) {
     0
   );
 
+  // Cardio moments are keyed by weekday: that is what an athlete has arranged
+  // their week (and their household) around. Reporting only the count meant a
+  // Saturday ride moved to Sunday showed up as "2 cardiomomenten" either way,
+  // and you found out after accepting.
+  const cardioKey = (c) => `${c.weekday}|${c.type}`;
+  const currentCardio = current.cardioDays || [];
+  const proposalCardio = proposal.cardioDays || [];
+  const describeCardio = (c) => `${c.weekday} ${c.type}`;
+
   return {
     nieuweDagen: (proposal.days || []).filter((d) => !currentDayNames.includes((d.name || "").trim().toLowerCase())).map((d) => d.name),
     vervallenDagen: (current.days || []).filter((d) => !proposalDayNames.includes((d.name || "").trim().toLowerCase())).map((d) => d.name),
@@ -339,7 +461,13 @@ function summarizeChanges(currentSchema, proposal) {
     nieuweOefeningen: [...proposalExercises].filter((n) => !currentExercises.has(n)),
     vervallenOefeningen: [...currentExercises].filter((n) => !proposalExercises.has(n)),
     krachtsessiesPerWeek: strengthSessionsPerWeek,
-    cardiosessiesPerWeek: (proposal.cardioDays || []).length,
+    cardiosessiesPerWeek: proposalCardio.length,
+    nieuweCardiomomenten: proposalCardio
+      .filter((c) => !currentCardio.some((x) => cardioKey(x) === cardioKey(c)))
+      .map(describeCardio),
+    vervallenCardiomomenten: currentCardio
+      .filter((c) => !proposalCardio.some((x) => cardioKey(x) === cardioKey(c)))
+      .map(describeCardio),
     huidigAantalDagen: (current.days || []).length,
   };
 }

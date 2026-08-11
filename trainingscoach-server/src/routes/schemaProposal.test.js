@@ -130,6 +130,103 @@ assert.strictEqual(unrestricted.cardioDays.length, 1);
 assert.deepStrictEqual(unrestricted.correcties, []);
 console.log("  ok  vink je niets aan, dan blijft de coach vrij om zelf te verdelen");
 
+/* ------------------------- locked training days ------------------------- */
+
+console.log("\nvaste afspraken worden niet verzet");
+
+// Tuesday evening in the gym and Saturday morning on the bike are arranged at
+// home. The coach may decide what happens then; it may not decide when.
+const currentWithLocks = {
+  days: [
+    {
+      id: "vast1", name: "Dinsdag", weekdays: ["Dinsdag"], timeOfDay: "avond", locked: true,
+      exercises: [{ id: "x1", name: "Pavel row", targetSets: 3, targetReps: 8 }],
+    },
+    {
+      id: "los1", name: "Vrijdag", weekdays: ["Vrijdag"], timeOfDay: null, locked: false,
+      exercises: [{ id: "x2", name: "Bench press", targetSets: 3, targetReps: 8 }],
+    },
+  ],
+  cardioDays: [
+    { id: "c1", weekday: "Zaterdag", type: "Fietsen", timeOfDay: "ochtend", notes: "clubrit", locked: true },
+    { id: "c2", weekday: "Woensdag", type: "Fietsen", timeOfDay: null, notes: "intervallen", locked: false },
+  ],
+};
+
+const ignoringLocks = normalizeProposal(
+  {
+    toelichting: "Alles opnieuw ingedeeld.",
+    krachtdagen: [
+      { naam: "Dag A", weekdagen: ["Woensdag"], oefeningen: [{ naam: "Squat", sets: 3, reps: 5 }] },
+      { naam: "Dag B", weekdagen: ["Vrijdag"], oefeningen: [{ naam: "Bench press", sets: 3, reps: 5 }] },
+    ],
+    // The locked Saturday ride moved to Sunday, which is what a coach optimising
+    // recovery would happily do and a household would not.
+    cardiodagen: [{ weekdag: "Zondag", type: "Fietsen", invulling: "lange duurrit" }],
+  },
+  { idPrefix: "vast", currentSchema: currentWithLocks }
+);
+
+const restoredDay = ignoringLocks.days.find((d) => d.weekdays.includes("Dinsdag"));
+assert.ok(restoredDay, "de vastgezette dinsdag moet terug zijn gezet");
+assert.strictEqual(restoredDay.name, "Dinsdag");
+assert.strictEqual(restoredDay.timeOfDay, "avond", "ook het afgesproken tijdstip hoort terug");
+assert.strictEqual(restoredDay.locked, true, "en blijft vastgezet na overnemen");
+assert.deepStrictEqual(restoredDay.exercises.map((e) => e.name), ["Pavel row"], "met de oefeningen die erop stonden");
+
+const restoredRide = ignoringLocks.cardioDays.find((c) => c.weekday === "Zaterdag");
+assert.ok(restoredRide, "de vastgezette zaterdagrit moet terug zijn gezet");
+assert.strictEqual(restoredRide.timeOfDay, "ochtend");
+assert.strictEqual(restoredRide.locked, true);
+assert.ok(
+  ignoringLocks.cardioDays.some((c) => c.weekday === "Zondag"),
+  "wat de coach er zelf bij bedacht mag blijven staan"
+);
+assert.strictEqual(ignoringLocks.correcties.length, 2, "beide verschuivingen worden gemeld");
+assert.match(ignoringLocks.correcties.join(" "), /vaste afspraak/i);
+console.log("  ok  een verzette of geschrapte vaste afspraak wordt teruggezet en gemeld");
+
+const respectingLocks = normalizeProposal(
+  {
+    krachtdagen: [
+      // Same day, different workout: that is exactly what the coach is for.
+      { naam: "Dag A - Onderlichaam", weekdagen: ["Dinsdag"], moment: "avond", oefeningen: [{ naam: "Squat", sets: 4, reps: 5 }] },
+    ],
+    cardiodagen: [{ weekdag: "Zaterdag", type: "Fietsen", moment: "ochtend", invulling: "clubrit, rustig aan" }],
+  },
+  { idPrefix: "netjes", currentSchema: currentWithLocks }
+);
+assert.deepStrictEqual(respectingLocks.correcties, [], "de dag invullen is geen overtreding");
+assert.strictEqual(respectingLocks.days.length, 1, "er wordt niets dubbel teruggezet");
+assert.deepStrictEqual(respectingLocks.days[0].exercises.map((e) => e.name), ["Squat"], "de nieuwe invulling blijft staan");
+assert.strictEqual(respectingLocks.days[0].locked, true, "het slot verhuist mee naar wat er nu op die dag staat");
+assert.strictEqual(respectingLocks.cardioDays[0].locked, true);
+console.log("  ok  dezelfde dag anders invullen mag, en het slot blijft behouden");
+
+const wrongTime = normalizeProposal(
+  {
+    krachtdagen: [{ naam: "Dag A", weekdagen: ["Dinsdag"], moment: "ochtend", oefeningen: [{ naam: "Squat", sets: 3, reps: 5 }] }],
+    cardiodagen: [],
+  },
+  { idPrefix: "tijd", currentSchema: currentWithLocks }
+);
+assert.strictEqual(wrongTime.days[0].timeOfDay, "avond", "een vastgezet tijdstip wordt teruggezet");
+assert.match(wrongTime.correcties.join(" "), /tijdstip is teruggezet/);
+console.log("  ok  ook het tijdstip van een vaste afspraak ligt vast");
+
+// A locked day the athlete forgot to tick as available must not be stripped by
+// the availability filter and then restored — that would fight itself.
+const lockedOutsideAvailability = normalizeProposal(
+  {
+    krachtdagen: [{ naam: "Dag A", weekdagen: ["Dinsdag"], moment: "avond", oefeningen: [{ naam: "Squat", sets: 3, reps: 5 }] }],
+    cardiodagen: [{ weekdag: "Zaterdag", type: "Fietsen", moment: "ochtend", invulling: "clubrit" }],
+  },
+  { idPrefix: "conflict", currentSchema: currentWithLocks, availableWeekdays: ["Woensdag", "Vrijdag"] }
+);
+assert.deepStrictEqual(lockedOutsideAvailability.days[0].weekdays, ["Dinsdag"]);
+assert.deepStrictEqual(lockedOutsideAvailability.correcties, [], "een vastgezette dag telt als beschikbaar");
+console.log("  ok  een vastgezette dag wint van een niet-aangevinkt vakje");
+
 /* ------------------------------ the preview ----------------------------- */
 
 console.log("\nvoor accepteren zie je wat er verandert");
@@ -192,6 +289,22 @@ assert.deepStrictEqual(changes.nieuweOefeningen, ["Pull-up"]);
 assert.deepStrictEqual(changes.vervallenOefeningen, []);
 assert.strictEqual(changes.krachtsessiesPerWeek, 3, "twee weekdagen op één trainingsdag telt als twee sessies");
 console.log("  ok  het verschil met het huidige schema klopt, inclusief dubbel ingeplande dagen");
+
+// A ride that shifts to another day used to be invisible here: the count stayed
+// 1 either way, so you found out after accepting.
+const movedCardio = summarizeChanges(
+  getFullSchema(),
+  normalizeProposal(
+    {
+      krachtdagen: [{ naam: "Dag A – Push", weekdagen: ["Maandag"], oefeningen: [{ naam: "Bench press", sets: 3, reps: 8 }] }],
+      cardiodagen: [{ weekdag: "Zondag", type: "Fietsen", invulling: "duurrit" }],
+    },
+    { idPrefix: "cardiodiff" }
+  )
+);
+assert.deepStrictEqual(movedCardio.vervallenCardiomomenten, ["Zaterdag Fietsen"]);
+assert.deepStrictEqual(movedCardio.nieuweCardiomomenten, ["Zondag Fietsen"]);
+console.log("  ok  een verplaatst cardiomoment is zichtbaar vóór je accepteert");
 
 const stripped = summarizeChanges(getFullSchema(), normalizeProposal(
   {

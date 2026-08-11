@@ -225,12 +225,15 @@ function buildProposalPayload({ question = null } = {}) {
         naam: d.name,
         vasteWeekdagen: d.weekdays && d.weekdays.length ? d.weekdays : null,
         moment: d.timeOfDay ? timeOfDayLabel(d.timeOfDay) : null,
+        // Agreed with someone else: the coach fills it in, but never moves it.
+        vast: !!d.locked,
         oefeningen: d.exercises.map((e) => ({ naam: e.name, doel: `${e.targetSets}x${e.targetReps}` })),
       })),
       cardiodagen: schema.cardioDays.map((c) => ({
         dag: c.weekday,
         type: c.type,
         moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null,
+        vast: !!c.locked,
         notities: c.notes,
       })),
     },
@@ -353,9 +356,10 @@ router.post("/schema-proposals", async (req, res) => {
     try {
       normalized = normalizeProposal(parsed, {
         idPrefix: id,
-        // The constraint the athlete set is enforced here, not left to the
+        // The constraints the athlete set are enforced here, not left to the
         // model's good intentions.
         availableWeekdays: goals.availableWeekdays,
+        currentSchema: getFullSchema(),
       });
     } catch (err) {
       normalizeError = err.message;

@@ -464,6 +464,14 @@ function ProposalCard({ proposal, onAccept, onDecline }) {
           {wijzigingen.vervallenDagen.length > 0 && (
             <p className="tc-history-detail">vervalt: {wijzigingen.vervallenDagen.join(", ")}</p>
           )}
+          {wijzigingen.nieuweCardiomomenten?.length > 0 && (
+            <p className="tc-history-detail">nieuwe cardiomomenten: {wijzigingen.nieuweCardiomomenten.join(", ")}</p>
+          )}
+          {wijzigingen.vervallenCardiomomenten?.length > 0 && (
+            <p className="tc-history-detail">
+              vervallen cardiomomenten: {wijzigingen.vervallenCardiomomenten.join(", ")}
+            </p>
+          )}
           {wijzigingen.nieuweOefeningen.length > 0 && (
             <p className="tc-history-detail">nieuwe oefeningen: {wijzigingen.nieuweOefeningen.join(", ")}</p>
           )}

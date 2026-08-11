@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2 } from "lucide-react";
+import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2, Lock, Unlock } from "lucide-react";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
 import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones } from "../lib/calculations";
 import { uid } from "../lib/uiHelpers";
@@ -112,6 +112,18 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
     });
   }
 
+  /**
+   * A locked day is an appointment made with someone else — a partner, a club,
+   * the only evening that could be freed up. The coach may design what happens
+   * in it, but a schema proposal never moves it.
+   */
+  function toggleDayLock(dayId) {
+    setSchema({
+      ...schema,
+      days: schema.days.map((d) => (d.id === dayId ? { ...d, locked: !d.locked } : d)),
+    });
+  }
+
   function updateDayName(dayId, name) {
     setSchema({ ...schema, days: schema.days.map((d) => (d.id === dayId ? { ...d, name } : d)) });
   }
@@ -180,6 +192,8 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
         De coach plant je krachttrainingen exact op de weekdagen die je hier aanvinkt — hij verzint
         er geen eigen rotatie omheen. Geef je ook een tijdstip op, dan rekent hij met de werkelijke
         hersteltijd: een avondtraining gevolgd door een ochtendrit is maar twaalf uur ertussen.
+        Is een dag thuis of met een clubgenoot afgesproken, zet hem dan vast met het slotje: een
+        schemavoorstel mag zo'n dag niet verplaatsen, alleen invullen.
       </p>
 
       {schema.days.length === 0 && (
@@ -202,6 +216,17 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
                 onChange={(e) => updateDayName(day.id, e.target.value)}
                 placeholder="Naam trainingsdag"
               />
+              <button
+                className={"tc-icon-btn" + (day.locked ? " tc-locked" : "")}
+                onClick={() => toggleDayLock(day.id)}
+                title={
+                  day.locked
+                    ? "Vaste afspraak — de coach mag deze dag niet verplaatsen. Klik om vrij te geven."
+                    : "Vastzetten: de coach bepaalt dan wél de invulling, maar niet de dag"
+                }
+              >
+                {day.locked ? <Lock size={15} /> : <Unlock size={15} />}
+              </button>
               <button className="tc-icon-btn" onClick={() => removeDay(day.id)} title="Dag verwijderen">
                 <Trash2 size={15} />
               </button>
@@ -315,6 +340,17 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
                 value={c.notes}
                 onChange={(e) => updateCardioDay(c.id, { notes: e.target.value })}
               />
+              <button
+                className={"tc-icon-btn" + (c.locked ? " tc-locked" : "")}
+                onClick={() => updateCardioDay(c.id, { locked: !c.locked })}
+                title={
+                  c.locked
+                    ? "Vaste afspraak — de coach mag dit moment niet verplaatsen. Klik om vrij te geven."
+                    : "Vastzetten: de coach vult dit moment in, maar verzet het niet"
+                }
+              >
+                {c.locked ? <Lock size={15} /> : <Unlock size={15} />}
+              </button>
               <button className="tc-icon-btn" onClick={() => removeCardioDay(c.id)}><Trash2 size={15} /></button>
             </div>
           ))}
