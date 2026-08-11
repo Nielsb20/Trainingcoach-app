@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy } from "lucide-react";
 import * as api from "../api/client";
+import CollapsibleCard from "./shared/CollapsibleCard";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
 
@@ -151,18 +152,24 @@ export default function PlannerTab({ onOpenSession }) {
       </div>
 
       {proposals.length > 0 && (
-        <div className="tc-card tc-import-card">
-          <div className="tc-card-head">
-            <span className="tc-ex-name">Voorstellen van de coach</span>
-            <span className="tc-hint-badge tc-badge-cardio">
-              {additions.length} nieuw{changes.length > 0 ? `, ${changes.length} wijziging(en)` : ""}
-            </span>
-            {proposals.some((p) => p.discipline === "kracht") && (
-              <span className="tc-hint-badge tc-badge-strength">
-                incl. {proposals.filter((p) => p.discipline === "kracht").length} krachttraining(en)
+        <CollapsibleCard
+          id="planner-voorstellen"
+          title="Voorstellen van de coach"
+          defaultOpen
+          className="tc-import-card"
+          badge={
+            <>
+              <span className="tc-hint-badge tc-badge-cardio">
+                {additions.length} nieuw{changes.length > 0 ? `, ${changes.length} wijziging(en)` : ""}
               </span>
-            )}
-          </div>
+              {proposals.some((p) => p.discipline === "kracht") && (
+                <span className="tc-hint-badge tc-badge-strength" style={{ marginLeft: 6 }}>
+                  incl. {proposals.filter((p) => p.discipline === "kracht").length} krachttraining(en)
+                </span>
+              )}
+            </>
+          }
+        >
           <p className="tc-import-help">
             Je planning verandert pas als je iets accepteert. Doe je niets, dan blijft alles zoals het
             was. Wijzigingen laten zien wat er zou veranderen, zodat je kunt beoordelen of je het
@@ -178,7 +185,7 @@ export default function PlannerTab({ onOpenSession }) {
               Alles afwijzen
             </button>
           </div>
-        </div>
+        </CollapsibleCard>
       )}
 
       <div className="tc-actionbar" style={{ marginBottom: 14 }}>

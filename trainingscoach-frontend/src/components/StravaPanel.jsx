@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RefreshCw, Check, X, Loader2 } from "lucide-react";
 import * as api from "../api/client";
+import CollapsibleCard from "./shared/CollapsibleCard";
 
 /**
  * Strava connection panel. Lives in the Cardio tab, next to the other ways of
@@ -94,15 +95,19 @@ export default function StravaPanel({ onImported }) {
   }
 
   return (
-    <div className="tc-card">
-      <div className="tc-card-head">
-        <span className="tc-ex-name">Strava-koppeling</span>
-        {status?.connected ? (
+    <CollapsibleCard
+      id="cardio-strava"
+      title="Strava-koppeling"
+      defaultOpen
+      subtitle={status?.connected ? status.athleteName || null : null}
+      badge={
+        status?.connected ? (
           <span className="tc-hint-badge tc-badge-cardio">verbonden</span>
         ) : (
           <span className="tc-hint-badge tc-badge-warning">niet verbonden</span>
-        )}
-      </div>
+        )
+      }
+    >
 
       {error && <div className="tc-error"><span>{error}</span></div>}
 
@@ -197,6 +202,6 @@ export default function StravaPanel({ onImported }) {
           )}
         </>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }

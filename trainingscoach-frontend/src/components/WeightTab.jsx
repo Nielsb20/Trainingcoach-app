@@ -36,35 +36,11 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
         Log je gewicht (bijv. vanaf je Garmin-weegschaal) om trends te zien en om vermogen-per-kilo bij het fietsen en relatieve krachtvoortgang te kunnen berekenen.
       </p>
 
-      <CollapsibleCard id="gewicht-invoer" title="Meting toevoegen" subtitle="handmatig loggen">
-        <div className="tc-form-row">
-          <div>
-            <label className="tc-label">Datum</label>
-            <input className="tc-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="tc-label">Gewicht (kg)</label>
-            <input className="tc-input tc-mono" type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="bv. 74.5" />
-          </div>
-        </div>
-        <div className="tc-form-row">
-          <div>
-            <label className="tc-label">Vetpercentage (optioneel)</label>
-            <input className="tc-input tc-mono" type="number" step="0.1" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="bv. 16.2" />
-          </div>
-        </div>
-        <label className="tc-label">Notities</label>
-        <textarea className="tc-input tc-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="optioneel" />
-        <div className="tc-actionbar">
-          <button className="tc-btn tc-btn-event" onClick={handleSubmit}>
-            <Plus size={15} /> Gewicht opslaan
-          </button>
-          {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
-        </div>
-      </CollapsibleCard>
-
       {weightLogs.length === 0 ? (
-        <div className="tc-empty"><p>Nog geen gewicht gelogd.</p></div>
+        <div className="tc-empty">
+          <p>Nog geen gewicht gelogd.</p>
+          <p className="tc-empty-hint">Voeg onderaan deze pagina je eerste meting toe.</p>
+        </div>
       ) : (
         <>
           {latest && (
@@ -104,6 +80,36 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
           </table>
         </>
       )}
+
+      {/* Onderaan, niet bovenaan: de meeste bezoeken zijn om de trend te zien,
+          niet om te wegen — en met een weegschaal die zelf synchroniseert is dit
+          formulier het uitzonderingsgeval. */}
+      <CollapsibleCard id="gewicht-invoer" title="Meting toevoegen" subtitle="handmatig loggen">
+        <div className="tc-form-row">
+          <div>
+            <label className="tc-label">Datum</label>
+            <input className="tc-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="tc-label">Gewicht (kg)</label>
+            <input className="tc-input tc-mono" type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="bv. 74.5" />
+          </div>
+        </div>
+        <div className="tc-form-row">
+          <div>
+            <label className="tc-label">Vetpercentage (optioneel)</label>
+            <input className="tc-input tc-mono" type="number" step="0.1" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="bv. 16.2" />
+          </div>
+        </div>
+        <label className="tc-label">Notities</label>
+        <textarea className="tc-input tc-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="optioneel" />
+        <div className="tc-actionbar">
+          <button className="tc-btn tc-btn-event" onClick={handleSubmit}>
+            <Plus size={15} /> Gewicht opslaan
+          </button>
+          {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
+        </div>
+      </CollapsibleCard>
     </div>
   );
 }

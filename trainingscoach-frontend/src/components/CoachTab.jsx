@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Send, Loader2, Trash2, CalendarPlus } from "lucide-react";
 import { askCoach as apiAskCoach, createPlanFromCoach } from "../api/client";
+import CollapsibleCard from "./shared/CollapsibleCard";
 import {
   todayStr, daysUntil, computeHrZones, computeTrainingLoadSeries,
   computeCardioHistorySummary, computeStrengthHistorySummary, computeWeeklyStrengthLoad,
@@ -86,10 +87,12 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
       )}
 
       {(strengthHistorySummary || cardioHistorySummary) && (
-        <div className="tc-card tc-history-summary">
-          <div className="tc-card-head">
-            <span className="tc-ex-name">Wat de coach van je geschiedenis weet</span>
-          </div>
+        <CollapsibleCard
+          id="coach-geschiedenis"
+          title="Wat de coach van je geschiedenis weet"
+          subtitle="kracht, cardio en belasting"
+          className="tc-history-summary"
+        >
           <div className="tc-history-grid">
             {strengthHistorySummary && (
               <div>
@@ -155,7 +158,7 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
               </div>
             )}
           </div>
-        </div>
+        </CollapsibleCard>
       )}
 
       {upcomingEvents.length > 0 && (

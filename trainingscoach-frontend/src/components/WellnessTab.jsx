@@ -135,6 +135,54 @@ export default function WellnessTab() {
         </div>
       )}
 
+      {logs.length === 0 ? (
+        <div className="tc-empty">
+          <p>Nog geen herstelgegevens.</p>
+          <p className="tc-empty-hint">
+            Vul onderaan deze pagina handmatig in, of haal ze automatisch op uit Garmin met het script
+            <code>scripts/garmin-fetch.py</code> (zie de README).
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="tc-chart-wrap">
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={chartData}>
+                <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
+                <XAxis dataKey="label" stroke="#8B949B" fontSize={11} />
+                <YAxis yAxisId="hr" stroke="#C97A3F" fontSize={12} domain={["auto", "auto"]} />
+                {(hasHrv || hasSleep) && <YAxis yAxisId="other" orientation="right" stroke="#4FA8A0" fontSize={12} domain={["auto", "auto"]} />}
+                <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line yAxisId="hr" type="monotone" dataKey="rusthartslag" stroke="#C97A3F" strokeWidth={2} dot={false} name="Rusthartslag (bpm)" connectNulls />
+                {hasHrv && <Line yAxisId="other" type="monotone" dataKey="hrv" stroke="#4FA8A0" strokeWidth={2} dot={false} name="HRV (ms)" connectNulls />}
+                {hasSleep && <Line yAxisId="other" type="monotone" dataKey="slaapUren" stroke="#8C86C9" strokeWidth={2} dot={false} strokeDasharray="4 3" name="Slaap (uren)" connectNulls />}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <table className="tc-table">
+            <thead><tr><th>Datum</th><th>Rust-HR</th><th>HRV</th><th>Slaap</th><th>Score</th><th>Bron</th><th></th></tr></thead>
+            <tbody>
+              {[...logs].reverse().map((l) => (
+                <tr key={l.date}>
+                  <td>{formatDateNL(l.date)}</td>
+                  <td className="tc-mono">{l.restingHr ?? "–"}</td>
+                  <td className="tc-mono">{l.hrvMs ?? "–"}</td>
+                  <td className="tc-mono">{l.sleepMinutes ? `${Math.floor(l.sleepMinutes / 60)}u ${l.sleepMinutes % 60}m` : "–"}</td>
+                  <td className="tc-mono">{l.sleepScore ?? "–"}</td>
+                  <td>{l.source}</td>
+                  <td><ConfirmDeleteButton onConfirm={() => handleDelete(l.date)} title="Deze dag verwijderen" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {/* Onderaan: je komt hier bijna altijd om de trend tegen je basislijn te
+          zien, en met een automatische Garmin-ophaal is handmatig invullen de
+          uitzondering. */}
       <CollapsibleCard id="herstel-invoer" title="Dag toevoegen of bijwerken" subtitle="handmatig loggen">
         <div className="tc-form-row">
           <div>
@@ -175,51 +223,6 @@ export default function WellnessTab() {
           {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
         </div>
       </CollapsibleCard>
-
-      {logs.length === 0 ? (
-        <div className="tc-empty">
-          <p>Nog geen herstelgegevens.</p>
-          <p className="tc-empty-hint">
-            Vul hierboven handmatig in, of haal ze automatisch op uit Garmin met het script
-            <code>scripts/garmin-fetch.py</code> (zie de README).
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="tc-chart-wrap">
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={chartData}>
-                <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
-                <XAxis dataKey="label" stroke="#8B949B" fontSize={11} />
-                <YAxis yAxisId="hr" stroke="#C97A3F" fontSize={12} domain={["auto", "auto"]} />
-                {(hasHrv || hasSleep) && <YAxis yAxisId="other" orientation="right" stroke="#4FA8A0" fontSize={12} domain={["auto", "auto"]} />}
-                <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line yAxisId="hr" type="monotone" dataKey="rusthartslag" stroke="#C97A3F" strokeWidth={2} dot={false} name="Rusthartslag (bpm)" connectNulls />
-                {hasHrv && <Line yAxisId="other" type="monotone" dataKey="hrv" stroke="#4FA8A0" strokeWidth={2} dot={false} name="HRV (ms)" connectNulls />}
-                {hasSleep && <Line yAxisId="other" type="monotone" dataKey="slaapUren" stroke="#8C86C9" strokeWidth={2} dot={false} strokeDasharray="4 3" name="Slaap (uren)" connectNulls />}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <table className="tc-table">
-            <thead><tr><th>Datum</th><th>Rust-HR</th><th>HRV</th><th>Slaap</th><th>Score</th><th>Bron</th><th></th></tr></thead>
-            <tbody>
-              {[...logs].reverse().map((l) => (
-                <tr key={l.date}>
-                  <td>{formatDateNL(l.date)}</td>
-                  <td className="tc-mono">{l.restingHr ?? "–"}</td>
-                  <td className="tc-mono">{l.hrvMs ?? "–"}</td>
-                  <td className="tc-mono">{l.sleepMinutes ? `${Math.floor(l.sleepMinutes / 60)}u ${l.sleepMinutes % 60}m` : "–"}</td>
-                  <td className="tc-mono">{l.sleepScore ?? "–"}</td>
-                  <td>{l.source}</td>
-                  <td><ConfirmDeleteButton onConfirm={() => handleDelete(l.date)} title="Deze dag verwijderen" /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
     </div>
   );
 }
