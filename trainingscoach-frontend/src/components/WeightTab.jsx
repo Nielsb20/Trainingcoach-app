@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Plus } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
+import CollapsibleCard from "./shared/CollapsibleCard";
 import { todayStr, formatDateNL } from "../lib/calculations";
 import { uid } from "../lib/uiHelpers";
 
@@ -35,7 +36,7 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
         Log je gewicht (bijv. vanaf je Garmin-weegschaal) om trends te zien en om vermogen-per-kilo bij het fietsen en relatieve krachtvoortgang te kunnen berekenen.
       </p>
 
-      <div className="tc-card">
+      <CollapsibleCard id="gewicht-invoer" title="Meting toevoegen" subtitle="handmatig loggen">
         <div className="tc-form-row">
           <div>
             <label className="tc-label">Datum</label>
@@ -60,7 +61,7 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
           </button>
           {savedFlash && <span className="tc-saved-flash">Opgeslagen ✓</span>}
         </div>
-      </div>
+      </CollapsibleCard>
 
       {weightLogs.length === 0 ? (
         <div className="tc-empty"><p>Nog geen gewicht gelogd.</p></div>

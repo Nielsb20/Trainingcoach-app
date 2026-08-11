@@ -3,8 +3,9 @@ import { RefreshCw, Check, X, Loader2 } from "lucide-react";
 import * as api from "../api/client";
 
 /**
- * Strava connection panel. Lives in the Schema tab alongside the other
- * settings.
+ * Strava connection panel. Lives in the Cardio tab, next to the other ways of
+ * getting a session in — it used to sit under Schema between the settings,
+ * which is where you configure the app rather than where you log training.
  *
  * The "connect" step deliberately uses a full page navigation rather than
  * fetch(): OAuth requires the browser itself to visit Strava's consent screen

@@ -66,6 +66,7 @@ export const deleteWeightLog = (id) => request(`/weight-logs/${id}`, { method: "
 
 export const getEvents = () => request("/events");
 export const createEvent = (entry) => request("/events", { method: "POST", body: JSON.stringify(entry) });
+export const updateEvent = (id, entry) => request(`/events/${id}`, { method: "PUT", body: JSON.stringify(entry) });
 export const deleteEvent = (id) => request(`/events/${id}`, { method: "DELETE" });
 
 /* --------------------------------- coach ------------------------------- */

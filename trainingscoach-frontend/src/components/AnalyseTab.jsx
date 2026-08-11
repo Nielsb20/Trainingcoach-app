@@ -17,11 +17,18 @@ function formatMinutes(min) {
   return h > 0 ? `${h}u ${m}m` : `${m}m`;
 }
 
-export default function AnalyseTab() {
+/**
+ * Zone distribution and power curve.
+ *
+ * Rendered inside the Geschiedenis tab as its "Analyse" subtab, hence
+ * `embedded`: there it sits under that tab's own title and a second <h1>
+ * would just repeat the tab name back at you.
+ */
+export default function AnalyseTab({ embedded = false }) {
   const [sub, setSub] = useState("zones");
   return (
     <div>
-      <h1 className="tc-title">Analyse</h1>
+      {!embedded && <h1 className="tc-title">Analyse</h1>}
       <div className="tc-subtabs">
         <button className={"tc-subtab" + (sub === "zones" ? " active-cardio" : "")} onClick={() => setSub("zones")}>
           Zoneverdeling

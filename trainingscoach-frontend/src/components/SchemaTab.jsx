@@ -4,9 +4,9 @@ import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
 import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones } from "../lib/calculations";
 import { uid } from "../lib/uiHelpers";
 import * as api from "../api/client";
-import StravaPanel from "./StravaPanel";
 import AutomationPanel from "./AutomationPanel";
 import SchemaCoachPanel from "./SchemaCoachPanel";
+import CollapsibleCard from "./shared/CollapsibleCard";
 
 export default function SchemaTab({ schema, setSchema, onRestored }) {
   const [pendingImport, setPendingImport] = useState(null);
@@ -435,9 +435,6 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Coach</h2>
       <AutomationPanel />
 
-      <h2 className="tc-section-title" style={{ marginTop: 32 }}>Strava</h2>
-      <StravaPanel onImported={onRestored} />
-
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Back-up</h2>
       <p className="tc-sub" style={{ marginTop: -4 }}>
         De server maakt elke nacht automatisch een kopie. Hieronder kun je daarnaast zelf een bestand
@@ -463,7 +460,7 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
           </p>
         </div>
       )}
-      <div className="tc-card tc-backup-card">
+      <CollapsibleCard id="schema-backup" title="Zelf een kopie downloaden of terugzetten" className="tc-backup-card">
         <div className="tc-backup-row">
           <button className="tc-btn tc-btn-ghost" onClick={exportBackup}>
             <Download size={16} /> Exporteer alles (JSON)
@@ -491,7 +488,7 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
             </div>
           </div>
         )}
-      </div>
+      </CollapsibleCard>
     </div>
   );
 }
