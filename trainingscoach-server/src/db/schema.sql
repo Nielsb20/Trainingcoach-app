@@ -276,3 +276,54 @@ CREATE TABLE IF NOT EXISTS session_feedback (
 -- in — undoing a reorganisation they made on purpose.
 ALTER TABLE planned_sessions ADD COLUMN moved_from TEXT;
 ALTER TABLE planned_sessions ADD COLUMN moved_at TEXT;
+
+-- What the athlete is actually training for. Events say "there is a race on
+-- the 12th"; this says why the weeks before it look the way they do — get
+-- stronger, lose weight, ride 150 km. Single row like `profile`: one athlete,
+-- one set of goals.
+--
+-- Without this the coach can only ever comment on the schema it is given. With
+-- it, it can propose the schema itself: the constraints (available days,
+-- session length, equipment, injuries) are exactly what separates a plan that
+-- fits this athlete from a generic template.
+CREATE TABLE IF NOT EXISTS training_goals (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  goal TEXT,                       -- free text: what the athlete wants to achieve
+  focus TEXT,                      -- 'kracht' | 'cardio' | 'combi'
+  strength_days_per_week INTEGER,
+  cardio_days_per_week INTEGER,
+  session_minutes INTEGER,         -- how long one strength session may take
+  available_weekdays TEXT,         -- comma separated, empty = no restriction
+  equipment TEXT,                  -- gym, home rack, dumbbells only, …
+  experience TEXT,                 -- training age / level, in the athlete's words
+  limitations TEXT,                -- injuries, niggles, exercises to avoid
+  notes TEXT,
+  updated_at TEXT
+);
+INSERT OR IGNORE INTO training_goals (id) VALUES (1);
+
+-- Schemas the coach proposed, as proposals rather than edits.
+--
+-- Accepting one replaces the whole strength/cardio schema, which is the most
+-- destructive write in the app — so the schema as it was is snapshotted into
+-- previous_schema_json first and accepting stays undoable. A declined proposal
+-- keeps its reason: it is fed back into the next request so the same rejected
+-- plan does not come back unchanged.
+CREATE TABLE IF NOT EXISTS schema_proposals (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,              -- ISO timestamp
+  status TEXT NOT NULL DEFAULT 'voorgesteld',
+                                   -- 'voorgesteld' | 'geaccepteerd' | 'afgewezen'
+                                   -- | 'teruggedraaid' | 'vervangen' | 'mislukt'
+  question TEXT,                   -- optional extra instruction from the athlete
+  goals_json TEXT,                 -- the goals as they stood when this was asked
+  proposal_json TEXT,              -- {days: [...], cardioDays: [...]}
+  toelichting TEXT,                -- why this schema, in the coach's words
+  opbouw_json TEXT,                -- JSON array: how it progresses over the weeks
+  waarschuwing TEXT,
+  raw_feedback TEXT,               -- fallback when the model returned no valid JSON
+  decline_reason TEXT,
+  applied_at TEXT,
+  previous_schema_json TEXT        -- the schema this replaced, so accepting is undoable
+);
+CREATE INDEX IF NOT EXISTS idx_schema_proposals_date ON schema_proposals(date);

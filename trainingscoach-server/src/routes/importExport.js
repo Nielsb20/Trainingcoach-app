@@ -42,6 +42,7 @@ router.post("/import", (req, res) => {
     db.exec("DELETE FROM workout_log_sets; DELETE FROM workout_log_exercises; DELETE FROM workout_logs;");
     db.exec("DELETE FROM cardio_logs; DELETE FROM weight_logs; DELETE FROM events; DELETE FROM coach_history;");
     db.exec("DELETE FROM schema_exercises; DELETE FROM schema_days; DELETE FROM schema_cardio_days;");
+    db.exec("DELETE FROM schema_proposals;");
 
     const s = data.schema || { days: [], cardioDays: [], profile: {} };
     const insertDay = db.prepare("INSERT INTO schema_days (id, name, sort_order, weekdays, time_of_day) VALUES (?, ?, ?, ?, ?)");
@@ -100,6 +101,41 @@ router.post("/import", (req, res) => {
 
     const insertEvent = db.prepare("INSERT INTO events (id, name, date, type, target, notes) VALUES (?, ?, ?, ?, ?, ?)");
     (data.events || []).forEach((e) => insertEvent.run(e.id, e.name, e.date, e.type ?? null, e.target ?? null, e.notes ?? null));
+
+    // Goals and schema proposals only exist in backups written by a version
+    // that has them, so an older export simply leaves them alone rather than
+    // blanking what is already there.
+    if (data.trainingGoals) {
+      const g = data.trainingGoals;
+      db.prepare(
+        `UPDATE training_goals SET
+           goal = ?, focus = ?, strength_days_per_week = ?, cardio_days_per_week = ?,
+           session_minutes = ?, available_weekdays = ?, equipment = ?, experience = ?,
+           limitations = ?, notes = ?, updated_at = ?
+         WHERE id = 1`
+      ).run(
+        g.goal ?? null,
+        g.focus ?? null,
+        g.strengthDaysPerWeek ?? null,
+        g.cardioDaysPerWeek ?? null,
+        g.sessionMinutes ?? null,
+        Array.isArray(g.availableWeekdays) ? g.availableWeekdays.join(",") || null : (g.availableWeekdays ?? null),
+        g.equipment ?? null,
+        g.experience ?? null,
+        g.limitations ?? null,
+        g.notes ?? null,
+        g.updatedAt ?? null
+      );
+    }
+
+    const proposalCols = [
+      "id", "date", "status", "question", "goals_json", "proposal_json", "toelichting",
+      "opbouw_json", "waarschuwing", "raw_feedback", "decline_reason", "applied_at", "previous_schema_json",
+    ];
+    const insertProposal = db.prepare(
+      `INSERT INTO schema_proposals (${proposalCols.join(", ")}) VALUES (${proposalCols.map(() => "?").join(", ")})`
+    );
+    (data.schemaProposals || []).forEach((p) => insertProposal.run(...proposalCols.map((c) => p[c] ?? null)));
 
     const insertCoach = db.prepare(
       "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"

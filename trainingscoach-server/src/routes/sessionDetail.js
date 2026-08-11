@@ -241,6 +241,17 @@ router.post("/:id/feedback", async (req, res) => {
       systemPrompt,
       userContent: JSON.stringify(payload),
       maxTokens: 800,
+      // This call wants two fields, not a full consultation. Without its own
+      // schema, Gemini was handed the coach contract and asked to fill in
+      // cardio and strength proposals for a single ride it was only reviewing.
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          analyse: { type: "STRING" },
+          tips: { type: "ARRAY", items: { type: "STRING" } },
+        },
+        required: ["analyse", "tips"],
+      },
     });
 
     let structured = null;

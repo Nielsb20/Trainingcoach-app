@@ -14,9 +14,16 @@
  */
 
 /**
- * The JSON shape we want back from the coach. Gemini can enforce this
- * server-side via responseSchema, which is more reliable than asking nicely
- * in the prompt. Anthropic gets the same contract via the system prompt.
+ * The JSON shape we want back from a full coach consultation. Gemini can
+ * enforce this server-side via responseSchema, which is more reliable than
+ * asking nicely in the prompt. Anthropic gets the same contract via the
+ * system prompt.
+ *
+ * Callers that want a different shape pass their own `responseSchema` — the
+ * session-feedback and schema-proposal calls both do. Leaving this as the
+ * fixed schema for every call meant Gemini was told to answer a one-session
+ * review with `cardioVoorstel` and `krachtVoorstel` arrays it had no business
+ * filling in.
  */
 const COACH_RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -105,7 +112,7 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens }) {
 
 /* -------------------------------- Gemini -------------------------------- */
 
-async function callGemini({ systemPrompt, userContent, maxTokens }) {
+async function callGemini({ systemPrompt, userContent, maxTokens, responseSchema }) {
   // Gemini 3 models reason before answering, and those thinking tokens count
   // against maxOutputTokens. A budget sized for the visible answer alone gets
   // consumed by thinking and truncates the JSON mid-sentence, so give it room.
@@ -132,7 +139,7 @@ async function callGemini({ systemPrompt, userContent, maxTokens }) {
         // Ask Gemini to enforce the JSON contract itself instead of relying
         // purely on the prompt — noticeably more reliable.
         responseMimeType: "application/json",
-        responseSchema: COACH_RESPONSE_SCHEMA,
+        responseSchema,
       },
     }),
   });
@@ -173,14 +180,23 @@ async function callGemini({ systemPrompt, userContent, maxTokens }) {
 /**
  * Calls whichever provider is configured and returns the raw text response.
  * Parsing/validating that text stays the caller's job.
+ *
+ * `responseSchema` describes the JSON the caller expects back. It only reaches
+ * Gemini, which can enforce it; with Anthropic the system prompt carries the
+ * same contract.
  */
-async function callCoachModel({ systemPrompt, userContent, maxTokens = 1000 }) {
+async function callCoachModel({
+  systemPrompt,
+  userContent,
+  maxTokens = 1000,
+  responseSchema = COACH_RESPONSE_SCHEMA,
+}) {
   // Budgeted here rather than in the routes: this is the single point every
   // paid call passes through, so a future caller cannot forget to ask.
   require("./coachBudget").claim();
 
   const provider = resolveProvider();
-  if (provider === "gemini") return callGemini({ systemPrompt, userContent, maxTokens });
+  if (provider === "gemini") return callGemini({ systemPrompt, userContent, maxTokens, responseSchema });
   return callAnthropic({ systemPrompt, userContent, maxTokens });
 }
 

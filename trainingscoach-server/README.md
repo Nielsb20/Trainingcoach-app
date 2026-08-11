@@ -683,3 +683,87 @@ eerdere sessies en het bijbehorende evenement met je gestelde doel.
 Die beoordeling wordt bewaard: de rit verandert niet, dus opnieuw vragen zou
 tokens kosten voor hetzelfde antwoord. Met "Opnieuw beoordelen" forceer je een
 nieuwe.
+
+
+## Je schema laten ontwerpen door de coach
+
+De coach werkte tot nu toe altijd *binnen* het schema dat je zelf had gemaakt: hij
+vulde de weken in, stelde sessies voor en lette op je belasting. De laag eronder —
+welke trainingsdagen bestaan er, met welke oefeningen, sets en herhalingen — was
+handwerk. Bovenaan het tabblad **Schema** kan de coach dat nu ook voorstellen.
+
+### Doelen als uitgangspunt
+
+Een schema volgt uit wat je ermee wilt, dus dat is het eerste dat wordt vastgelegd
+(tabel `training_goals`, één rij, net als `profile`):
+
+| Veld | Waarom het uitmaakt |
+|---|---|
+| `goal` | Het doel in je eigen woorden. Zonder dit is elk schema een gok |
+| `focus` | Kracht, cardio of allebei — bepaalt welke discipline ondersteunend is |
+| `strength_days_per_week`, `cardio_days_per_week` | Wat je werkelijk kunt, niet wat ideaal zou zijn |
+| `session_minutes` | Een sessie van tien oefeningen past niet in drie kwartier |
+| `available_weekdays` | Is dit gevuld, dan mag er buiten die dagen niets gepland worden |
+| `equipment` | Geen beenpers voorstellen als je thuis met dumbbells traint |
+| `experience` | Bepaalt volume, complexiteit en opbouwsnelheid |
+| `limitations` | Blessures en oefeningen die je wilt vermijden |
+
+Deze randvoorwaarden staan in de prompt als harde eisen, niet als wensen.
+
+### Wat de coach verder meekrijgt
+
+Naast de doelen: je huidige schema, je langetermijnsamenvattingen voor kracht en
+cardio, je laatste vijf krachtsessies met gewichten, de berekende trainingsbelasting
+(CTL/ATL/TSB), je herstelgegevens, je gewicht, je geplande evenementen — en
+`watDeClientEchtDoet`: hoeveel kracht- en cardiosessies je de afgelopen acht weken
+gemiddeld per week hebt gedaan, en op welke weekdagen.
+
+Dat laatste is er expres bij. Een schema met vijf krachtdagen is waardeloos voor
+iemand die er al twee maanden twee haalt, en dat is niet af te lezen aan het schema
+zelf — alleen aan de logs.
+
+De prompt stuurt bewust op **continuïteit boven vernieuwing**: oefeningen die lopen
+blijven staan, met exact dezelfde naam, zodat je opgebouwde referentiegewichten en de
+"vorige sessie"-weergave bij het loggen blijven werken. Alleen wat een aanwijsbaar
+probleem oplost mag veranderen, en met opgaaf van reden.
+
+### Een voorstel, geen wijziging
+
+Wat terugkomt wordt opgeslagen als voorstel (`schema_proposals`) en nooit
+automatisch toegepast:
+
+1. **Alles wordt eerst opgeschoond.** `lib/schemaProposal.js` behandelt het antwoord
+   als onbetrouwbare invoer: onbekende weekdagen vallen af, sets en herhalingen
+   worden begrensd, dagen zonder naam of zonder oefeningen verdwijnen, id's worden
+   hier gegenereerd (niet door het model, want dat zijn databasesleutels), en een
+   leeg voorstel wordt geweigerd in plaats van je schema te wissen.
+2. **Je ziet het verschil vóór je iets accepteert** — welke dagen erbij komen,
+   welke wijzigen, welke vervallen, en welke oefeningen uit je schema zouden
+   verdwijnen. Dat laatste staat er expliciet bij: je gelogde trainingen blijven
+   bestaan, maar het schema biedt die oefening niet meer aan.
+3. **Overnemen is omkeerbaar.** Het schema zoals het was gaat als momentopname mee
+   in `previous_schema_json`, en één knop zet het terug. Je persoonlijk profiel
+   (max. hartslag, rusthartslag, FTP) wordt nooit aangeraakt: dat zijn meetgegevens
+   over jou, geen onderdeel van het ontwerp.
+4. **Afwijzen met reden werkt door.** De reden gaat mee in de volgende aanvraag, dus
+   "te veel dagen, ik haal er hooguit drie" levert geen identiek plan een week later.
+
+Er staat er hooguit één open: een nieuw voorstel zet het vorige op `vervangen`.
+Twee openstaande schema's zouden twee antwoorden zijn op de vraag wat je moet doen.
+
+### Endpoints
+
+```
+GET    /api/coach/goals
+PUT    /api/coach/goals
+GET    /api/coach/schema-proposals
+POST   /api/coach/schema-proposals            { question? }   -> nieuw voorstel
+POST   /api/coach/schema-proposals/:id/accept                 -> past het schema toe
+POST   /api/coach/schema-proposals/:id/undo                   -> zet het oude schema terug
+POST   /api/coach/schema-proposals/:id/decline { reason? }
+DELETE /api/coach/schema-proposals/:id
+```
+
+De automatische coachruns raken je schema niet aan: die maken weekvoorstellen in de
+planning. Een schemavoorstel komt er alleen als je er zelf om vraagt — een schema dat
+vanzelf verandert is precies het tegenovergestelde van waar een schema voor dient.
