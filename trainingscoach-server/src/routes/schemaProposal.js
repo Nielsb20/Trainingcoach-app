@@ -130,6 +130,7 @@ function serializeProposal(row) {
     voorstel: proposal,
     toelichting: row.toelichting,
     opbouw: row.opbouw_json ? JSON.parse(row.opbouw_json) : [],
+    correcties: row.correcties_json ? JSON.parse(row.correcties_json) : [],
     waarschuwing: row.waarschuwing,
     rawFeedback: row.raw_feedback,
     declineReason: row.decline_reason,
@@ -277,7 +278,16 @@ function buildProposalPayload({ question = null } = {}) {
     geplandeEvenementen: events
       .filter((e) => calc.daysUntil(e.date) >= 0)
       .slice(0, 5)
-      .map((e) => ({ naam: e.name, datum: e.date, overDagen: calc.daysUntil(e.date), type: e.type, doel: e.target })),
+      // Notes included: "2500 hoogtemeters, veel grind" says more about what to
+      // train for than the event's name and date ever will.
+      .map((e) => ({
+        naam: e.name,
+        datum: e.date,
+        overDagen: calc.daysUntil(e.date),
+        type: e.type,
+        doel: e.target,
+        notities: e.notes,
+      })),
     eerderAfgewezenSchemas: declined.map((d) => ({
       datum: d.date,
       reden: d.decline_reason,
@@ -341,7 +351,12 @@ router.post("/schema-proposals", async (req, res) => {
   let normalizeError = null;
   if (parsed) {
     try {
-      normalized = normalizeProposal(parsed, { idPrefix: id });
+      normalized = normalizeProposal(parsed, {
+        idPrefix: id,
+        // The constraint the athlete set is enforced here, not left to the
+        // model's good intentions.
+        availableWeekdays: goals.availableWeekdays,
+      });
     } catch (err) {
       normalizeError = err.message;
     }
@@ -354,8 +369,8 @@ router.post("/schema-proposals", async (req, res) => {
   // a garbled answer is not.
   db.prepare(
     `INSERT INTO schema_proposals
-       (id, date, status, question, goals_json, proposal_json, toelichting, opbouw_json, waarschuwing, raw_feedback)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, date, status, question, goals_json, proposal_json, toelichting, opbouw_json, waarschuwing, raw_feedback, correcties_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     new Date().toISOString(),
@@ -366,7 +381,8 @@ router.post("/schema-proposals", async (req, res) => {
     normalized ? normalized.toelichting : null,
     normalized ? JSON.stringify(normalized.opbouw) : null,
     normalized ? normalized.waarschuwing : null,
-    normalized ? null : rawText
+    normalized ? null : rawText,
+    normalized && normalized.correcties.length ? JSON.stringify(normalized.correcties) : null
   );
 
   if (!normalized) {

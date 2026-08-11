@@ -84,6 +84,52 @@ assert.throws(
 assert.throws(() => normalizeProposal(null), /geen bruikbaar schemavoorstel/);
 console.log("  ok  een leeg voorstel wordt geweigerd in plaats van het schema te wissen");
 
+/* --------------------- the athlete's available days --------------------- */
+
+console.log("\nde coach mag niet plannen op dagen die je niet hebt aangevinkt");
+
+// Exactly what happened in practice: maandag was never ticked, and the model
+// put a training day on it anyway.
+const outsideAvailability = normalizeProposal(
+  {
+    toelichting: "Twee krachtdagen.",
+    krachtdagen: [
+      { naam: "Dag A - Focus Squat", weekdagen: ["Maandag"], oefeningen: [{ naam: "Squat", sets: 3, reps: 5 }] },
+      { naam: "Dag B - Bench & Deadlift", weekdagen: ["Vrijdag", "Zondag"], oefeningen: [{ naam: "Bench press", sets: 3, reps: 5 }] },
+    ],
+    cardiodagen: [
+      { weekdag: "Woensdag", type: "Fietsen", invulling: "intervallen" },
+      { weekdag: "Donderdag", type: "Fietsen", invulling: "duurrit" },
+    ],
+  },
+  { idPrefix: "beschikbaar", availableWeekdays: ["Dinsdag", "Woensdag", "Vrijdag", "Zaterdag"] }
+);
+
+assert.deepStrictEqual(outsideAvailability.days[0].weekdays, [], "maandag mag er niet in blijven staan");
+assert.deepStrictEqual(outsideAvailability.days[1].weekdays, ["Vrijdag"], "zondag eruit, vrijdag blijft");
+assert.deepStrictEqual(
+  outsideAvailability.cardioDays.map((c) => c.weekday),
+  ["Woensdag"],
+  "een cardiomoment op een niet-beschikbare dag kan nergens staan"
+);
+assert.strictEqual(outsideAvailability.correcties.length, 3, "elke verwijdering wordt gemeld");
+assert.match(outsideAvailability.correcties[0], /Maandag .*"Dag A - Focus Squat"/);
+assert.match(outsideAvailability.correcties[0], /zonder vaste weekdag/, "een dag die niets overhoudt vraagt om actie");
+assert.match(outsideAvailability.correcties[2], /donderdag/);
+console.log("  ok  niet-beschikbare dagen worden verwijderd en elke verwijdering wordt gemeld");
+
+const unrestricted = normalizeProposal(
+  {
+    krachtdagen: [{ naam: "Full body", weekdagen: ["Maandag"], oefeningen: [{ naam: "Squat", sets: 3, reps: 5 }] }],
+    cardiodagen: [{ weekdag: "Donderdag", type: "Fietsen", invulling: "duurrit" }],
+  },
+  { idPrefix: "vrij", availableWeekdays: [] }
+);
+assert.deepStrictEqual(unrestricted.days[0].weekdays, ["Maandag"], "geen aangevinkte dagen = geen beperking");
+assert.strictEqual(unrestricted.cardioDays.length, 1);
+assert.deepStrictEqual(unrestricted.correcties, []);
+console.log("  ok  vink je niets aan, dan blijft de coach vrij om zelf te verdelen");
+
 /* ------------------------------ the preview ----------------------------- */
 
 console.log("\nvoor accepteren zie je wat er verandert");

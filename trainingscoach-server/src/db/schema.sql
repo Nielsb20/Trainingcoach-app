@@ -327,3 +327,10 @@ CREATE TABLE IF NOT EXISTS schema_proposals (
   previous_schema_json TEXT        -- the schema this replaced, so accepting is undoable
 );
 CREATE INDEX IF NOT EXISTS idx_schema_proposals_date ON schema_proposals(date);
+
+-- What had to be corrected in a proposal before it was fit to store: a weekday
+-- the athlete never made available, a cardio slot that could not be placed.
+-- The prompt states those constraints as hard rules and a model still broke
+-- them, so they are enforced in code — and the corrections are kept here so the
+-- athlete sees what was taken out instead of it happening silently.
+ALTER TABLE schema_proposals ADD COLUMN correcties_json TEXT;

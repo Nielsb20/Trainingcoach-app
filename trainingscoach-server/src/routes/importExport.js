@@ -131,6 +131,7 @@ router.post("/import", (req, res) => {
     const proposalCols = [
       "id", "date", "status", "question", "goals_json", "proposal_json", "toelichting",
       "opbouw_json", "waarschuwing", "raw_feedback", "decline_reason", "applied_at", "previous_schema_json",
+      "correcties_json",
     ];
     const insertProposal = db.prepare(
       `INSERT INTO schema_proposals (${proposalCols.join(", ")}) VALUES (${proposalCols.map(() => "?").join(", ")})`

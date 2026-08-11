@@ -75,6 +75,10 @@ of cardio ligt, hoeveel dagen per week je hebt, hoe lang een sessie mag duren, o
 weekdagen je kunt, welk materiaal je hebt en welke blessures of oefeningen je wilt vermijden.
 Die randvoorwaarden zijn geen suggesties voor het model: het schema moet erbinnen passen.
 
+Je beschikbare weekdagen worden daarbij in code afgedwongen, niet alleen in de prompt
+gevraagd. Plant de coach toch iets op een dag die je niet hebt aangevinkt, dan wordt die
+dag eruit gehaald en zie je bovenaan het voorstel staan wat er is aangepast en waarom.
+
 De coach krijgt daarnaast je huidige schema, je trainingsgeschiedenis, de berekende
 trainingsbelasting, je herstelgegevens en je geplande evenementen mee — plus hoeveel je de
 afgelopen acht weken werkelijk hebt getraind. Dat laatste is er expres bij: een schema met

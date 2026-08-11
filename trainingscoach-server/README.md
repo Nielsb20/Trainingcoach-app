@@ -737,6 +737,14 @@ automatisch toegepast:
    worden begrensd, dagen zonder naam of zonder oefeningen verdwijnen, id's worden
    hier gegenereerd (niet door het model, want dat zijn databasesleutels), en een
    leeg voorstel wordt geweigerd in plaats van je schema te wissen.
+
+   **Je beschikbare dagen worden hier afgedwongen, niet alleen gevraagd.** De prompt
+   noemt ze als harde eis en een model plande er tóch een training op een maandag die
+   nooit was aangevinkt. Weekdagen buiten je beschikbaarheid worden daarom verwijderd,
+   en elke verwijdering komt als correctie terug in het voorstel — zichtbaar, want een
+   trainingsdag die daardoor zonder weekdag komt te staan moet jij een dag geven. Er
+   wordt bewust géén andere dag voor je gekozen: dat veld bestaat juist omdat jij
+   bepaalt wanneer je traint.
 2. **Je ziet het verschil vóór je iets accepteert** — welke dagen erbij komen,
    welke wijzigen, welke vervallen, en welke oefeningen uit je schema zouden
    verdwijnen. Dat laatste staat er expliciet bij: je gelogde trainingen blijven

@@ -91,7 +91,7 @@ function buildSchemaProposalSystemPrompt() {
     "vandaag geeft de huidige datum (JJJJ-MM-DD) en vandaagWeekdag de bijbehorende weekdag. " +
     "doelen is het uitgangspunt: alles wat je voorstelt moet aantoonbaar in dienst staan van doelen.doel. Is dat leeg, ga dan uit van algemene fitheid en zeg in toelichting dat een concreter doel tot een gerichter schema leidt. " +
     "HARDE RANDVOORWAARDEN — hier mag je niet vanaf wijken, ook niet als je een 'beter' schema kent: " +
-    "beschikbareWeekdagen (is die lijst gevuld, plan dan UITSLUITEND op die dagen), krachtdagenPerWeek en cardiodagenPerWeek (het aantal dagen dat de cliënt beschikbaar heeft — ga daar niet overheen), sessieMinuten (schat de duur van je sessie realistisch: ongeveer 3 tot 4 minuten per set inclusief rust, en blijf binnen die tijd), en materiaal (stel alleen oefeningen voor die met dat materiaal uitvoerbaar zijn — geen beenpers als er alleen dumbbells zijn). " +
+    "beschikbareWeekdagen (is die lijst gevuld, dan is elke weekdag die er NIET in staat verboden — voor krachtdagen én cardiodagen. Loop voor je antwoordt elke weekdag die je hebt gebruikt na en controleer dat hij in die lijst voorkomt. Een dag die er niet in staat wordt automatisch uit je voorstel verwijderd, dus je verliest er alleen je eigen indeling mee), krachtdagenPerWeek en cardiodagenPerWeek (het aantal dagen dat de cliënt beschikbaar heeft — ga daar niet overheen), sessieMinuten (schat de duur van je sessie realistisch: ongeveer 3 tot 4 minuten per set inclusief rust, en blijf binnen die tijd), en materiaal (stel alleen oefeningen voor die met dat materiaal uitvoerbaar zijn — geen beenpers als er alleen dumbbells zijn). " +
     "beperkingen bevat blessures en oefeningen die de cliënt niet kan of wil doen. Neem die absoluut serieus: vermijd de genoemde bewegingen, kies een alternatief dat dezelfde spiergroep traint, en benoem in de toelichting van die oefening waarom je het alternatief kiest. Verzin nooit medisch advies en zeg bij twijfel dat dit met een fysiotherapeut afgestemd hoort te worden. " +
     "CONTINUÏTEIT BOVEN VERNIEUWING. huidigSchema is wat de cliënt nu doet, en langetermijnSamenvattingKracht laat zien op welke oefeningen hij daadwerkelijk progressie boekt. Een schema is pas iets waard als het volgehouden wordt, en een compleet nieuw schema gooit alle opgebouwde referentiegewichten weg. Behoud daarom oefeningen die lopen, met exact dezelfde naam als in huidigSchema, zodat de logs en de vorige-sessie-referentie blijven werken. Verander alleen wat een aanwijsbaar probleem oplost: een doel dat niet gedekt wordt, een oefening die al lang stagneert, een spiergroep die ontbreekt, of een belasting die niet bij het herstel past. Benoem per wijziging in toelichting waarom. Is huidigSchema leeg, ontwerp dan wel een volledig schema vanaf nul. " +
     "Bouw het schema op volgens de gangbare principes: zware samengestelde oefeningen (squat, deadlift, bankdrukken, roeien, overhead press) eerst in de sessie en met de meeste rust, isolatie daarna; per spiergroep ongeveer 10 tot 20 werksets per week verdeeld over de dagen; kracht in het bereik van 3 tot 6 herhalingen, spiergroei in 6 tot 12, spieruithoudingsvermogen daarboven — kies het bereik dat bij doelen.doel past en meng waar dat logisch is. Plan minimaal 48 uur tussen twee zware sessies voor dezelfde spiergroep. " +
@@ -152,11 +152,24 @@ function clampInt(value, min, max, fallback) {
  *
  * Throws when there is no usable training day at all — an empty schema is not
  * a proposal, and writing one would wipe the athlete's schema for nothing.
+ *
+ * `availableWeekdays` is enforced here rather than only asked for in the
+ * prompt. The prompt does state it as a hard constraint, and the model still
+ * put a session on a Monday that was never ticked — which is exactly why this
+ * layer exists. Days outside the athlete's availability are stripped, and each
+ * removal is reported back in `correcties` so it is visible rather than silent.
  */
-function normalizeProposal(raw, { idPrefix = `sp${Date.now()}` } = {}) {
+function normalizeProposal(raw, { idPrefix = `sp${Date.now()}`, availableWeekdays = [] } = {}) {
   if (!raw || typeof raw !== "object") {
     throw new Error("Het model gaf geen bruikbaar schemavoorstel terug.");
   }
+
+  // An empty list means "no restriction", not "no days available".
+  const allowed = (Array.isArray(availableWeekdays) ? availableWeekdays : [])
+    .map(canonicalWeekday)
+    .filter(Boolean);
+  const restricted = allowed.length > 0;
+  const corrections = [];
 
   const rawDays = Array.isArray(raw.krachtdagen) ? raw.krachtdagen.slice(0, MAX_DAYS) : [];
   const days = [];
@@ -184,11 +197,26 @@ function normalizeProposal(raw, { idPrefix = `sp${Date.now()}` } = {}) {
     // A training day without exercises is an empty card in the schema editor.
     if (exercises.length === 0) return;
 
-    const weekdays = [];
+    const proposedWeekdays = [];
     (Array.isArray(day.weekdagen) ? day.weekdagen : []).forEach((w) => {
       const canonical = canonicalWeekday(w);
-      if (canonical && !weekdays.includes(canonical)) weekdays.push(canonical);
+      if (canonical && !proposedWeekdays.includes(canonical)) proposedWeekdays.push(canonical);
     });
+
+    const weekdays = restricted ? proposedWeekdays.filter((w) => allowed.includes(w)) : proposedWeekdays;
+    const dropped = proposedWeekdays.filter((w) => !weekdays.includes(w));
+    if (dropped.length > 0) {
+      // Deliberately not moved to a day that *is* free: picking a different
+      // training day for someone is the app inventing a plan, and the whole
+      // point of this field is that the athlete decides when they train.
+      corrections.push(
+        `${dropped.join(" en ")} ${dropped.length === 1 ? "is" : "zijn"} uit "${name}" gehaald, ` +
+          `want ${dropped.length === 1 ? "die dag heb je" : "die dagen heb je"} niet als beschikbaar aangevinkt.` +
+          (weekdays.length === 0
+            ? " Deze training staat nu zonder vaste weekdag — kies er zelf een, of vraag een nieuw voorstel."
+            : "")
+      );
+    }
 
     days.push({
       id: `${idPrefix}-d${dayIdx}`,
@@ -210,6 +238,17 @@ function normalizeProposal(raw, { idPrefix = `sp${Date.now()}` } = {}) {
     const rawType = cleanString(c.type, 40);
     const matched = rawType ? CARDIO_TYPES.find((t) => t.toLowerCase() === rawType.toLowerCase()) : null;
     const notes = cleanString(c.invulling, 300);
+
+    // A cardio slot is one fixed weekday, so an unavailable one cannot be
+    // trimmed the way a training day's list can — it simply cannot exist.
+    if (restricted && !allowed.includes(weekday)) {
+      corrections.push(
+        `Het vaste cardiomoment op ${weekday.toLowerCase()} (${matched || rawType || "cardio"}) is vervallen, ` +
+          "want die dag heb je niet als beschikbaar aangevinkt."
+      );
+      return;
+    }
+
     cardioDays.push({
       id: `${idPrefix}-c${idx}`,
       weekday,
@@ -230,6 +269,7 @@ function normalizeProposal(raw, { idPrefix = `sp${Date.now()}` } = {}) {
   return {
     days,
     cardioDays,
+    correcties: corrections,
     toelichting: cleanString(raw.toelichting, 2000),
     waarschuwing: cleanString(raw.waarschuwing, 600),
     opbouw: (Array.isArray(raw.opbouw) ? raw.opbouw : [])
