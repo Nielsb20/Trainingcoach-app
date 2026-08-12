@@ -361,10 +361,22 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
       )}
 
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Persoonlijk profiel</h2>
-      <p className="tc-sub" style={{ marginTop: -4 }}>
-        Met je max. hartslag (en optioneel je rusthartslag, voor een preciezere berekening) kan de coach hartslagwaarden interpreteren als zones in plaats van kale bpm-cijfers.
-      </p>
-      <div className="tc-card">
+      {/* Standaard dicht: dit stel je één keer in, maar de twee zonetabellen
+          eronder vullen wel een half scherm. De waarden staan in de kop, dus
+          controleren kan zonder open te klappen. */}
+      <CollapsibleCard
+        id="schema-profiel"
+        title="Hartslag, rusthartslag en FTP"
+        subtitle={[
+          schema.profile?.maxHr ? `max ${schema.profile.maxHr}` : null,
+          schema.profile?.restingHr ? `rust ${schema.profile.restingHr}` : null,
+          schema.profile?.ftp ? `FTP ${schema.profile.ftp} W` : null,
+        ].filter(Boolean).join(" · ") || "nog niet ingevuld"}
+      >
+        <p className="tc-import-help" style={{ marginTop: 0 }}>
+          Met je max. hartslag (en optioneel je rusthartslag, voor een preciezere berekening) kan de
+          coach hartslagwaarden interpreteren als zones in plaats van kale bpm-cijfers.
+        </p>
         <div className="tc-form-row">
           <div>
             <label className="tc-label">Max. hartslag (bpm)</label>
@@ -430,7 +442,7 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
             </tbody>
           </table>
         )}
-      </div>
+      </CollapsibleCard>
 
       <h2 className="tc-section-title" style={{ marginTop: 32 }}>Coach</h2>
       <AutomationPanel />
@@ -441,26 +453,38 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
         downloaden — handig om buiten de Pi te bewaren, want een SD-kaart die stukgaat neemt ook de
         automatische kopieën mee.
       </p>
-      {autoBackups && (
-        <div className="tc-card tc-backup-card" style={{ marginBottom: 12 }}>
-          <div className="tc-card-head">
-            <span className="tc-ex-name">Automatische back-up</span>
-            {autoBackups.laatste ? (
-              <span className="tc-hint-badge tc-badge-strength">
-                laatste: {formatDateNL(autoBackups.laatste.date)} · {Math.round(autoBackups.laatste.bytes / 1024)} KB
-              </span>
-            ) : (
-              <span className="tc-hint-badge tc-badge-warning">nog geen kopie</span>
-            )}
-          </div>
+      {/* Wanneer de laatste kopie is gemaakt stond in een eigen kaart hierboven.
+          Dat is de enige regel die je regelmatig wilt zien, dus die staat nu in
+          de kop: een back-up die je niet kunt controleren vertrouwt niemand,
+          maar een hele kaart is er te veel eer voor. */}
+      <CollapsibleCard
+        id="schema-backup"
+        title="Back-ups"
+        className="tc-backup-card"
+        subtitle={
+          autoBackups
+            ? autoBackups.laatste
+              ? `laatste automatische kopie: ${formatDateNL(autoBackups.laatste.date)}`
+              : "nog geen automatische kopie"
+            : null
+        }
+        badge={
+          autoBackups && !autoBackups.laatste
+            ? <span className="tc-hint-badge tc-badge-warning">nog geen kopie</span>
+            : null
+        }
+      >
+        {autoBackups && autoBackups.backups.length > 0 && (
           <p className="tc-import-help" style={{ marginTop: 0 }}>
-            {autoBackups.backups.length > 0
-              ? `${autoBackups.backups.length} kopie${autoBackups.backups.length === 1 ? "" : "\u00ebn"} bewaard op de server (maximaal ${autoBackups.bewaartermijnDagen} dagen). Terugzetten kan met "Herstel vanuit back-up" \u2014 de bestanden staan in data/backups/.`
-              : "De eerste kopie wordt vannacht gemaakt. Draait de server al langer, controleer dan of data/backups/ beschrijfbaar is."}
+            {`${autoBackups.backups.length} kopie${autoBackups.backups.length === 1 ? "" : "\u00ebn"} bewaard op de server (maximaal ${autoBackups.bewaartermijnDagen} dagen), laatste ${formatDateNL(autoBackups.laatste.date)} \u00b7 ${Math.round(autoBackups.laatste.bytes / 1024)} KB. De bestanden staan in data/backups/.`}
           </p>
-        </div>
-      )}
-      <CollapsibleCard id="schema-backup" title="Zelf een kopie downloaden of terugzetten" className="tc-backup-card">
+        )}
+        {autoBackups && autoBackups.backups.length === 0 && (
+          <p className="tc-import-help" style={{ marginTop: 0 }}>
+            De eerste kopie wordt vannacht gemaakt. Draait de server al langer, controleer dan of
+            data/backups/ beschrijfbaar is.
+          </p>
+        )}
         <div className="tc-backup-row">
           <button className="tc-btn tc-btn-ghost" onClick={exportBackup}>
             <Download size={16} /> Exporteer alles (JSON)
