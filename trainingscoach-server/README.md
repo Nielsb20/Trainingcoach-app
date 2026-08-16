@@ -786,3 +786,38 @@ DELETE /api/coach/schema-proposals/:id
 De automatische coachruns raken je schema niet aan: die maken weekvoorstellen in de
 planning. Een schemavoorstel komt er alleen als je er zelf om vraagt — een schema dat
 vanzelf verandert is precies het tegenovergestelde van waar een schema voor dient.
+
+
+## De coach onthoudt jullie gesprek
+
+Elke consultatie was een losstaande aanroep: de vraag ging met een berg trainingsdata
+naar het model en verder niets. Dat werkt prima voor "hoe staat mijn belasting ervoor",
+want dat antwoord zit in de cijfers. Maar een vervolgvraag — *"waarom stelde je dat
+voor?"*, *"en als ik dat naar woensdag verplaats?"* — had geen aanknopingspunt. Het
+model wist niet wat "dat" was en antwoordde iets aannemelijks in plaats van iets
+kloppends. Precies het soort fout dat je pas opmerkt als je erop let, want het klínkt
+als een antwoord.
+
+De antwoorden stonden al die tijd al in `coach_history`; ze gingen alleen nooit terug
+mee. Nu wel, als `eerderGesprek` in de payload:
+
+- **de laatste vijf beurten**, oudste eerst, want een gesprek leest vooruit;
+- **niet ouder dan drie weken** — daarboven is het geen lopend gesprek meer;
+- per beurt: de vraag van de cliënt, jouw analyse, tips, waarschuwing en de trainingen
+  die je voorstelde. Dat laatste is essentieel: zonder de voorstellen is "dat" nog
+  steeds niets;
+- automatische runs gaan mee met hun aanleiding erbij, want de coach zei die dingen
+  ook, en "je zei dat ik het rustig aan moest doen" kan daarnaar verwijzen.
+
+Lange antwoorden worden ingekort (met een `…`, zodat het zichtbaar afgekapt is en niet
+stilletjes). Vijf beurten met korte velden is genoeg om een verwijzing te kunnen volgen
+zonder dat elke vraag een maandoverzicht meesleept — dat kost tokens, en er zit een
+kostenrem op deze aanroepen.
+
+De prompt legt drie dingen op: zoek de betekenis van een verwijzing in `eerderGesprek`
+in plaats van te raden, en zeg eerlijk dat je het niet weet als het er niet in staat;
+herhaal een eerdere tip niet woordelijk maar bouw erop voort; en — het belangrijkste —
+**de berekende cijfers gaan altijd voor op je eigen eerdere uitspraken.** Wat de coach
+vorige week zei is geen bewijs van hoe het er nu voor staat. Verandert het advies, dan
+moet hij zeggen dát hij van gedachten verandert en waarom, want een coach die zonder
+uitleg iets anders zegt dan vorige week is niet te volgen.

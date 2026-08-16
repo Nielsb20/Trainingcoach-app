@@ -80,7 +80,11 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
   return (
     <div>
       <h1 className="tc-title">Coach feedback</h1>
-      <p className="tc-sub">De coach analyseert je meest recente kracht- en cardiologs en stelt ook concrete cardiotrainingen voor op je vaste momenten.</p>
+      <p className="tc-sub">
+        De coach analyseert je meest recente kracht- en cardiologs en stelt concrete trainingen voor
+        op je vaste momenten. Hij kent ook jullie gesprekken van de afgelopen weken, dus een
+        vervolgvraag als "en als ik dat naar woensdag verplaats?" hoeft je niet opnieuw uit te leggen.
+      </p>
 
       {!hasData && (
         <div className="tc-empty"><p>Log eerst een training of cardiosessie, dan heeft de coach iets om op te reageren.</p></div>
@@ -178,7 +182,7 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
 
       <div className="tc-card">
         <label className="tc-label">Specifieke vraag voor de coach (optioneel)</label>
-        <textarea className="tc-input tc-textarea" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Bijv. 'Moet ik dit blok het gewicht verhogen bij squat?' of 'Wat moet ik dinsdag lopen?'" />
+        <textarea className="tc-input tc-textarea" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Bijv. 'Moet ik dit blok het gewicht verhogen bij squat?', 'Wat moet ik dinsdag lopen?' of een vervolgvraag op zijn vorige antwoord" />
         <div className="tc-actionbar">
           <button className="tc-btn tc-btn-strength" onClick={handleAsk} disabled={loading || !hasData}>
             {loading ? <Loader2 className="spin" size={16} /> : <Send size={15} />}
