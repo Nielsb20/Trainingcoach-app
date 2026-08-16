@@ -32,6 +32,10 @@ function serialize(row) {
     timeOfDay: row.time_of_day,
     locked: !!row.locked,
     replacesId: row.replaces_id,
+    // Left behind by advice that has since been replaced. Only meaningful
+    // while the session is still open — once it's done or skipped it is
+    // history, and history is never stale.
+    verouderd: !!row.superseded_by && row.status === "gepland",
   };
 }
 
@@ -528,14 +532,81 @@ router.post("/:id/accept", (req, res) => {
     db.prepare("DELETE FROM planned_sessions WHERE id = ? AND locked = 0").run(plan.replaces_id);
   }
   db.prepare("UPDATE planned_sessions SET status = 'gepland' WHERE id = ?").run(plan.id);
+
+  // Accepting one at a time should end up in the same place as "accept all",
+  // so the leftovers are worked out once the last proposal from this answer
+  // has been dealt with — not per session, which would flag days the athlete
+  // is still deciding about.
+  let verouderd = [];
+  if (plan.source_coach_entry_id) {
+    const stillOpen = db
+      .prepare("SELECT COUNT(*) c FROM planned_sessions WHERE status = 'voorgesteld' AND source_coach_entry_id = ?")
+      .get(plan.source_coach_entry_id).c;
+    if (stillOpen === 0) {
+      const accepted = db
+        .prepare("SELECT id FROM planned_sessions WHERE status = 'gepland' AND source_coach_entry_id = ?")
+        .all(plan.source_coach_entry_id)
+        .map((r) => r.id);
+      verouderd = markSupersededSessions(accepted, plan.source_coach_entry_id);
+    }
+  }
+
   refreshCompletions();
-  res.json({ ok: true });
+  res.json({ ok: true, verouderd });
 });
+
+/**
+ * Flags what an accepted plan leaves behind.
+ *
+ * A coach answer only touches the days it mentions — deliberately, because a
+ * plan that gets rewritten on every question is not a plan. The side effect
+ * was that a session from last week's advice kept standing on a day the new
+ * advice left empty, and then the planner appears to contradict the coach: you
+ * follow the new plan, and there is still a ride on Monday nobody asked for.
+ *
+ * Those leftovers are marked, not deleted. They stay in the plan exactly where
+ * they were; they are only recognisable as remnants, with one click to clear
+ * them or keep them. Deleting them outright would break the promise the rest
+ * of the planner is built on — nothing changes unless the athlete says so.
+ *
+ * Deliberately narrow. Only sessions that
+ *   - are still open (done and skipped are history),
+ *   - are not locked (a fixed appointment is never a leftover),
+ *   - came from a *different* coach answer (the athlete's own schedule and
+ *     hand-planned sessions are theirs, not superseded advice),
+ *   - and fall between today and the last day the new plan covers
+ * are touched.
+ */
+function markSupersededSessions(acceptedIds, coachEntryId) {
+  if (!coachEntryId || acceptedIds.length === 0) return [];
+
+  const placeholders = acceptedIds.map(() => "?").join(",");
+  const accepted = db.prepare(`SELECT * FROM planned_sessions WHERE id IN (${placeholders})`).all(...acceptedIds);
+  const lastDate = accepted.map((a) => a.date).sort().at(-1);
+  if (!lastDate) return [];
+
+  const keep = new Set(accepted.map((a) => a.id));
+  const leftovers = db
+    .prepare(
+      `SELECT * FROM planned_sessions
+        WHERE status = 'gepland' AND locked = 0
+          AND date >= ? AND date <= ?
+          AND source_coach_entry_id IS NOT NULL
+          AND source_coach_entry_id != ?`
+    )
+    .all(calc.todayStr(), lastDate, coachEntryId)
+    .filter((row) => !keep.has(row.id));
+
+  const mark = db.prepare("UPDATE planned_sessions SET superseded_by = ? WHERE id = ?");
+  leftovers.forEach((row) => mark.run(coachEntryId, row.id));
+  // Serialized from the marked state, not the rows as they were read a moment
+  // ago — otherwise the caller is handed leftovers that claim not to be stale.
+  return leftovers.map((row) => serialize({ ...row, superseded_by: coachEntryId }));
+}
 
 /** POST /api/planned/accept-all - accept every outstanding proposal at once. */
 router.post("/accept-all", (req, res) => {
   const proposals = db.prepare("SELECT * FROM planned_sessions WHERE status = 'voorgesteld'").all();
-  const replace = !!req.body?.replaceConflicting;
   const run = db.transaction(() => {
     proposals.forEach((p) => {
       if (p.replaces_id) {
@@ -545,8 +616,39 @@ router.post("/accept-all", (req, res) => {
     });
   });
   run();
+
+  // Only when the whole batch comes from one answer. Proposals from two
+  // different answers should not be possible (a new answer clears the old
+  // ones), and guessing which of them supersedes what would be worse than
+  // leaving it alone.
+  const entryIds = [...new Set(proposals.map((p) => p.source_coach_entry_id).filter(Boolean))];
+  const verouderd = entryIds.length === 1
+    ? markSupersededSessions(proposals.map((p) => p.id), entryIds[0])
+    : [];
+
   refreshCompletions();
-  res.json({ geaccepteerd: proposals.length });
+  res.json({ geaccepteerd: proposals.length, verouderd });
+});
+
+/**
+ * POST /api/planned/verouderd/opruimen
+ * Removes the leftovers in one go — the point of flagging them.
+ */
+router.post("/verouderd/opruimen", (req, res) => {
+  const result = db
+    .prepare("DELETE FROM planned_sessions WHERE superseded_by IS NOT NULL AND status = 'gepland' AND locked = 0")
+    .run();
+  res.json({ verwijderd: result.changes });
+});
+
+/**
+ * POST /api/planned/:id/behouden
+ * "I know it is from older advice, I am doing it anyway." Clears the flag so
+ * the session stops being marked, without touching anything else.
+ */
+router.post("/:id/behouden", (req, res) => {
+  db.prepare("UPDATE planned_sessions SET superseded_by = NULL WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
 });
 
 /**
@@ -679,10 +781,12 @@ router.patch("/:id/move", (req, res) => {
 
   // Remember where it came from: a day the athlete emptied on purpose should
   // not be treated by the coach as simply free.
+  // Moving a session is the athlete claiming it, so it stops counting as a
+  // leftover from older advice — they have just decided when to do it.
   db.prepare(
     `UPDATE planned_sessions
      SET date = ?, weekday = ?, status = 'gepland',
-         completed_cardio_log_id = NULL,
+         completed_cardio_log_id = NULL, superseded_by = NULL,
          moved_from = COALESCE(moved_from, ?), moved_at = ?
      WHERE id = ?`
   ).run(date, calc.weekdayNameForDate(date), plan.date, new Date().toISOString(), plan.id);
@@ -792,4 +896,4 @@ function getUpcomingPlan(days = 14) {
     .map(serialize);
 }
 
-module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, getRecentMoves, createProposalsFromCoachEntry };
+module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, getRecentMoves, createProposalsFromCoachEntry, markSupersededSessions };
