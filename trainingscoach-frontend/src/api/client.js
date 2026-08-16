@@ -144,6 +144,10 @@ export const createPlannedSession = (entry) =>
 export const updatePlannedSession = (id, status) =>
   request(`/planned/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deletePlannedSession = (id) => request(`/planned/${id}`, { method: "DELETE" });
+/** "Ik doe hem toch" — haalt de markering weg zonder de sessie te wijzigen. */
+export const keepPlannedSession = (id) => request(`/planned/${id}/behouden`, { method: "POST" });
+/** Verwijdert in één keer alle openstaande restanten van vervangen advies. */
+export const cleanupStalePlanned = () => request("/planned/verouderd/opruimen", { method: "POST" });
 
 /* --------------------------------- strava ------------------------------ */
 

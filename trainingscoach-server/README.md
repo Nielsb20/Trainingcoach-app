@@ -821,3 +821,35 @@ herhaal een eerdere tip niet woordelijk maar bouw erop voort; en — het belangr
 vorige week zei is geen bewijs van hoe het er nu voor staat. Verandert het advies, dan
 moet hij zeggen dát hij van gedachten verandert en waarom, want een coach die zonder
 uitleg iets anders zegt dan vorige week is niet te volgen.
+
+
+## Restanten van een vervangen advies
+
+Een coachantwoord raakt alleen de dagen die het zelf noemt. Dat is bewust: een plan dat
+bij elke vraag herschreven wordt is geen plan, en de hele planner rust op de belofte dat
+er niets verandert zonder dat je het accepteert.
+
+Het onbedoelde gevolg was dat een training uit een ouder advies bleef staan op een dag
+die het nieuwe advies leeg liet. Je volgt dan keurig het nieuwe plan, en er staat nog
+een rit op maandag die nergens meer bij hoort — de planning lijkt zo de coach tegen te
+spreken.
+
+Bij het accepteren van een plan wordt daarom uitgerekend wat er blijft liggen: sessies
+die nog openstaan, niet vastgezet zijn, uit een *ander* coachantwoord komen, en tussen
+vandaag en de laatste dag van het nieuwe plan vallen. Die krijgen `superseded_by` en
+worden in de planner gemarkeerd als "ouder advies", met per sessie "toch doen" of
+"verwijderen", en bovenaan een balk om ze in één keer op te ruimen.
+
+**Ze worden gemarkeerd, niet verwijderd.** De sessie blijft staan waar hij stond; er
+verandert niets tot je zelf kiest. Automatisch wissen zou precies de belofte breken waar
+de rest van de planner op gebouwd is.
+
+Bewust buiten schot: vastgezette sessies (een afspraak is nooit een restant), sessies
+uit je eigen schema (`source_coach_entry_id` is dan leeg — dat is jouw indeling, geen
+vervangen advies), en alles wat al gedaan of overgeslagen is; geschiedenis veroudert
+niet. Verplaats je een gemarkeerde sessie zelf, dan vervalt de markering: je hebt hem
+dan net geclaimd.
+
+Accepteer je één voor één in plaats van met "Alles accepteren", dan gebeurt hetzelfde —
+de restanten worden pas bepaald zodra het laatste voorstel uit dat antwoord is
+afgehandeld, zodat er niets wordt gemarkeerd terwijl je nog aan het beslissen bent.

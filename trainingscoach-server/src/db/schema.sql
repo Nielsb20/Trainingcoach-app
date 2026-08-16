@@ -347,3 +347,16 @@ ALTER TABLE schema_proposals ADD COLUMN correcties_json TEXT;
 -- De inhoud blijft wel aan de coach: hij bepaalt WAT je die dag doet, jij WANNEER.
 ALTER TABLE schema_days ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE schema_cardio_days ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
+
+-- Sessies die zijn blijven staan uit een ouder coachadvies.
+--
+-- Een nieuw advies raakt alleen de dagen die het zelf noemt: dat is bewust,
+-- want een plan dat bij elke vraag herschreven wordt is geen plan. Maar het
+-- gevolg was dat een training van vorige week bleef staan op een dag die het
+-- nieuwe advies leeg liet, en dan lijkt de planning de coach tegen te spreken.
+--
+-- Zo'n sessie wordt hier gemarkeerd in plaats van verwijderd. Hij blijft dus
+-- gewoon in de planning staan; hij is alleen herkenbaar als restant, met één
+-- klik om hem weg te halen of te laten staan. Automatisch wissen zou precies
+-- de belofte breken waar de rest van de planner op gebouwd is.
+ALTER TABLE planned_sessions ADD COLUMN superseded_by TEXT;

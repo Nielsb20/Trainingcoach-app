@@ -78,6 +78,10 @@ export default function PlannerTab({ onOpenSession }) {
   const strengthSessions = data?.krachttrainingen || [];
   const events = data?.evenementen || [];
   const proposals = plans.filter((p) => p.status === "voorgesteld");
+  // Trainingen die zijn blijven staan uit advies dat je inmiddels vervangen
+  // hebt. Ze staan gewoon in de planning; dit is de plek om ze in één keer op
+  // te ruimen zonder er per dag naartoe te scrollen.
+  const stale = plans.filter((p) => p.verouderd);
   const committed = plans.filter((p) => p.status !== "voorgesteld" && p.status !== "afgewezen");
 
   // Two weeks from today, so "what's coming" is always visible even on a
@@ -150,6 +154,31 @@ export default function PlannerTab({ onOpenSession }) {
           Volgende <ChevronRight size={14} />
         </button>
       </div>
+
+      {stale.length > 0 && (
+        <div className="tc-card tc-import-card" style={{ borderColor: "#B85C5C" }}>
+          <div className="tc-card-head">
+            <span className="tc-ex-name">Restanten van een eerder advies</span>
+            <span className="tc-hint-badge tc-badge-warning">{stale.length}</span>
+          </div>
+          <p className="tc-import-help">
+            {stale.length === 1 ? "Deze training staat" : "Deze trainingen staan"} nog in je planning,
+            maar {stale.length === 1 ? "komt" : "komen"} uit een advies dat je inmiddels hebt vervangen:{" "}
+            {stale.map((p) => `${p.weekday || formatDateNL(p.date)} — ${p.type}`).join(", ")}. Er is niets
+            automatisch verwijderd; je bepaalt zelf wat ermee gebeurt.
+          </p>
+          <div className="tc-actionbar">
+            <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+              onClick={() => act(() => api.cleanupStalePlanned())}>
+              <Trash2 size={13} /> Allemaal verwijderen
+            </button>
+            <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+              onClick={() => act(async () => { for (const p of stale) await api.keepPlannedSession(p.id); })}>
+              Allemaal laten staan
+            </button>
+          </div>
+        </div>
+      )}
 
       {proposals.length > 0 && (
         <CollapsibleCard
@@ -282,8 +311,27 @@ export default function PlannerTab({ onOpenSession }) {
                           : <Activity size={12} style={{ marginRight: 5, color: "var(--cardio)" }} />}
                         {p.type}
                         {p.timeOfDay && <span className="tc-planner-moment">{p.timeOfDay}</span>}
+                        {/* Blijft staan waar hij stond, maar is herkenbaar als
+                            restant van advies dat je inmiddels hebt vervangen. */}
+                        {p.verouderd && <span className="tc-hint-badge tc-badge-warning">ouder advies</span>}
                       </span>
                       <span className="tc-event-notes">{p.description}</span>
+
+                      {p.verouderd && (
+                        <div className="tc-actionbar" style={{ marginTop: 6, gap: 8 }}>
+                          <span className="tc-import-help" style={{ margin: 0 }}>
+                            Deze training komt uit een eerder advies en staat niet in je huidige plan.
+                          </span>
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm"
+                            onClick={() => act(() => api.keepPlannedSession(p.id))}>
+                            Toch doen
+                          </button>
+                          <button className="tc-btn tc-btn-ghost tc-btn-sm"
+                            onClick={() => act(() => api.deletePlannedSession(p.id))}>
+                            Verwijderen
+                          </button>
+                        </div>
+                      )}
 
                       {/* What actually happened, for a session that's been done —
                           the same treatment a completed event gets. */}
