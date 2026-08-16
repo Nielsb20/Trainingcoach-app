@@ -22,15 +22,70 @@ function timeOfDayLabel(id) {
 }
 
 /**
- * Runs a full coach consultation and stores the answer. Extracted from the
- * route so the scheduler can call it directly for automatic runs — going back
- * out through HTTP just to reach our own endpoint would be silly.
+ * Assembles everything the coach is shown for a consultation.
  *
- * triggerType records why the answer exists ('handmatig', 'wekelijks',
- * 'signaal') so the athlete can see whether they asked for it or the app did.
+ * Split out of runCoachConsultation so it can be inspected without calling a
+ * language model: what the coach does or does not know is the thing worth
+ * testing, and it is invisible from the outside otherwise.
  */
-async function runCoachConsultation({ question = null, triggerType = "handmatig", triggerReason = null }) {
+/** Keeps one field of an earlier answer short enough to be worth carrying. */
+function shorten(text, max) {
+  if (typeof text !== "string") return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
+}
 
+// How much of the conversation travels with a new question. Five exchanges is
+// enough for "and what if I move that?" to mean something, without turning
+// every consultation into a re-read of the whole month.
+const CONVERSATION_TURNS = 5;
+const CONVERSATION_DAYS = 21;
+
+/**
+ * The recent conversation, oldest first.
+ *
+ * Each consultation used to be a single, isolated call: the question went to
+ * the model with a pile of training data and nothing else, so a follow-up like
+ * "why did you suggest that?" had no referent and the coach quietly answered
+ * something plausible instead. The answers were stored all along — they were
+ * just never given back.
+ *
+ * Automatic runs are included and labelled as such. The coach said those
+ * things too, and "you told me to take it easy this week" refers to them just
+ * as much as to an answer the athlete asked for.
+ */
+function getRecentConversation(limit = CONVERSATION_TURNS) {
+  const cutoff = new Date(calc.todayStr() + "T00:00:00");
+  cutoff.setDate(cutoff.getDate() - CONVERSATION_DAYS);
+
+  const rows = db
+    .prepare("SELECT * FROM coach_history WHERE date >= ? ORDER BY date DESC LIMIT ?")
+    .all(cutoff.toISOString(), limit);
+
+  return rows
+    .reverse() // oldest first: a conversation reads forwards
+    .map((r) => {
+      const cardio = r.cardio_voorstel_json ? JSON.parse(r.cardio_voorstel_json) : [];
+      const kracht = r.kracht_voorstel_json ? JSON.parse(r.kracht_voorstel_json) : [];
+      return {
+        datum: r.date.slice(0, 10),
+        // null for an automatic run — that is the difference between something
+        // the athlete raised and something the app brought up by itself.
+        vraagVanDeCliënt: r.question,
+        aanleiding: r.trigger_type === "handmatig" ? null : r.trigger_reason || r.trigger_type,
+        jouwAnalyse: shorten(r.analyse, 400),
+        jouwTips: (r.tips_json ? JSON.parse(r.tips_json) : []).slice(0, 3).map((t) => shorten(t, 160)),
+        jouwWaarschuwing: shorten(r.waarschuwing, 200),
+        jouwVoorstellen: [
+          ...cardio.map((p) => `${p.dag}: ${p.type} — ${shorten(p.invulling, 120)}`),
+          ...kracht.map((p) => `${p.dag} (${p.schemaDag}): ${shorten(p.invulling, 120)}`),
+        ].slice(0, 8),
+      };
+    });
+}
+
+function buildCoachPayload({ question = null } = {}) {
   const schema = getFullSchema();
   const workoutLogs = serializeWorkoutLogs(
     db.prepare("SELECT * FROM workout_logs ORDER BY date DESC, created_at DESC").all()
@@ -137,9 +192,10 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
     };
   }
 
-  const payload = {
+  return {
     vandaag: calc.todayStr(),
     vandaagWeekdag: calc.weekdayNameForDate(calc.todayStr()),
+    eerderGesprek: getRecentConversation(),
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     lichaamsgewicht: weightSummary,
     herstel,
@@ -196,6 +252,19 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
     geplandeEvenementen: upcomingEvents.map((e) => ({ naam: e.name, datum: e.date, overDagen: calc.daysUntil(e.date), type: e.type, doel: e.target, notities: e.notes })),
     vraagVanGebruiker: question,
   };
+}
+
+/**
+ * Runs a full coach consultation and stores the answer. Extracted from the
+ * route so the scheduler can call it directly for automatic runs — going back
+ * out through HTTP just to reach our own endpoint would be silly.
+ *
+ * triggerType records why the answer exists ('handmatig', 'wekelijks',
+ * 'signaal') so the athlete can see whether they asked for it or the app did.
+ */
+async function runCoachConsultation({ question = null, triggerType = "handmatig", triggerReason = null }) {
+  const payload = buildCoachPayload({ question });
+
 
   try {
     const { rawText, provider, model } = await callCoachModel({
@@ -293,3 +362,5 @@ router.delete("/history/:id", (req, res) => {
 
 module.exports = router;
 module.exports.runCoachConsultation = runCoachConsultation;
+module.exports.buildCoachPayload = buildCoachPayload;
+module.exports.getRecentConversation = getRecentConversation;
