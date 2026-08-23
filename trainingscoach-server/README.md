@@ -853,3 +853,38 @@ dan net geclaimd.
 Accepteer je één voor één in plaats van met "Alles accepteren", dan gebeurt hetzelfde —
 de restanten worden pas bepaald zodra het laatste voorstel uit dat antwoord is
 afgehandeld, zodat er niets wordt gemarkeerd terwijl je nog aan het beslissen bent.
+
+
+## Vergelijken over verschillend terrein
+
+Bij een sessie zie je eerdere ritten van vergelijkbare afstand, zodat "sneller dan vorige
+keer" ergens op slaat. Afstand alleen bleek daarvoor te grof: vijftig kilometer over een
+dijk en vijftig kilometer door het heuvelland zijn dezelfde afstand en twee heel andere
+ritten. Een heuvelrit werd zo vergeleken met drie vlakke ritten en leek zes km/u trager —
+wat als vormverlies leest terwijl het gewoon het parcours was.
+
+De maat is nu **hoogtemeters per kilometer**:
+
+- kandidaten worden nog steeds op afstand gefilterd (binnen 20%), maar daarna
+  **gerangschikt op hoe dicht het klimwerk bij elkaar ligt**, met de meest recente eerst
+  bij gelijke geschiktheid;
+- terrein heet vergelijkbaar bij een verschil van ≤ 3 hm/km óf ≤ 30% relatief. Allebei is
+  nodig: 1 tegen 4 hm/km is relatief een factor vier maar in de benen niets, en 14 tegen
+  18 ligt relatief dicht bij elkaar maar zijn twee andere ritten;
+- het gemiddelde waar je tegen wordt afgezet gebruikt **alleen de ritten over vergelijkbaar
+  terrein**. Een gemiddelde over vlak én heuvelachtig is een getal waar niets uit volgt;
+- ritten over ander terrein blijven wel in de tabel staan — op vermogen zijn ze nog prima
+  bruikbaar — maar zijn gemarkeerd als "ander terrein", met ↑hm, hm/km, NP en W/kg erbij.
+
+Er wordt bewust **geen** hoogtegecorrigeerde snelheid uitgerekend. Dat vraagt om aannames
+die deze data niet dragen, en een verzonnen correctiefactor is erger dan een eerlijk
+"deze twee zijn niet te vergelijken op snelheid, kijk naar vermogen". Waar vermogen
+beschikbaar is, is Normalized Power de eerlijke maat over verschillend terrein: die weegt
+de pieken op de klimmetjes mee.
+
+Heeft de rit zelf geen hoogtemeters, dan verandert er niets aan het oude gedrag: dan valt
+er niets op terrein te sorteren en blijft het de meest recente eerst. Een rit met onbekend
+klimwerk dringt niet voor op een rit waarvan we wél weten dat hij vergelijkbaar is.
+
+Dezelfde cijfers gaan naar de coach bij "beoordeel deze sessie", met de opdracht om nooit
+snelheden te vergelijken zonder het klimwerk ernaast te leggen.
