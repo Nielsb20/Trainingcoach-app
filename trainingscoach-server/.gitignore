@@ -7,3 +7,5 @@ public/
 __pycache__/
 *.pyc
 scripts/garmin-venv/
+data-test/
+data-backup/

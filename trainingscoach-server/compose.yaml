@@ -1,0 +1,10 @@
+services:
+  trainingscoach:
+    build: .
+    container_name: trainingscoach
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
