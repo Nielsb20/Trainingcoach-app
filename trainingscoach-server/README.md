@@ -888,3 +888,41 @@ klimwerk dringt niet voor op een rit waarvan we wél weten dat hij vergelijkbaar
 
 Dezelfde cijfers gaan naar de coach bij "beoordeel deze sessie", met de opdracht om nooit
 snelheden te vergelijken zonder het klimwerk ernaast te leggen.
+
+
+## Het coachadvies waar je het nodig hebt
+
+De coach geeft per krachtsessie een concrete invulling — met welk gewicht je begint,
+welke oefening een set minder krijgt, wanneer je niet tot falen gaat. Die tekst stond
+alleen in het Coach- en Planning-tabblad. Bij **Kracht loggen**, het scherm dat je in de
+sportschool openhebt, zag je hem niet: precies daar waar je hem nodig hebt was hij weg.
+
+Het advies voor de gekozen datum staat nu bovenaan dat tabblad. Bron is de planning
+(`planned_sessions` met `discipline = 'kracht'`), dus het is het advies dat je zelf hebt
+geaccepteerd, niet een los voorstel dat er nog ligt. Staat er voor die dag niets, dan
+zie je wanneer het eerstvolgende advies wel is — anders lijkt het alsof de coach niets
+over je krachttraining heeft gezegd.
+
+De trainingsdag wordt daarbij automatisch op het advies gezet, zolang je zelf nog geen
+dag hebt gekozen. Kies je wél iets anders, dan blijft die keuze staan en meldt het scherm
+alleen dat het advies bij een andere dag hoort — niet corrigeren, wel benoemen.
+
+Het advies wordt bewust niet per oefening uitgesplitst. Dat zou betekenen dat vrije tekst
+uit elkaar geplukt wordt op oefeningnaam, en een verkeerd toegewezen gewicht is erger dan
+één alinea die je zelf leest.
+
+## Rusttimer
+
+Bij het loggen staat een timer voor de rust tussen sets: presets van 1 tot 3 minuten, een
+piep en een trilling als de tijd om is, en de gekozen rusttijd wordt onthouden.
+
+Twee dingen die de moeite waard zijn om zo te houden:
+
+- **Eén timer, twee plekken.** Hij staat groot boven de oefeningen en als knopje achter
+  elke set. Dat zijn geen losse timers: ze delen dezelfde state (module-niveau in
+  `shared/RestTimer.jsx`), want een knopje bij set 3 dat een andere timer start dan die
+  je bovenaan ziet aftellen is een valstrik.
+- **Aftellen op een eindtijdstip**, opgeslagen in `localStorage`, niet op een teller die
+  per seconde omlaag gaat. Ga je tussendoor naar een ander tabblad of dimt je scherm, dan
+  loopt de rust gewoon door — een timer die opnieuw begint zodra je wegkijkt is in de gym
+  niets waard. Het alarm hangt om dezelfde reden aan de timer zelf en niet aan het scherm.
