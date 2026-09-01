@@ -853,3 +853,76 @@ dan net geclaimd.
 Accepteer je één voor één in plaats van met "Alles accepteren", dan gebeurt hetzelfde —
 de restanten worden pas bepaald zodra het laatste voorstel uit dat antwoord is
 afgehandeld, zodat er niets wordt gemarkeerd terwijl je nog aan het beslissen bent.
+
+
+## Vergelijken over verschillend terrein
+
+Bij een sessie zie je eerdere ritten van vergelijkbare afstand, zodat "sneller dan vorige
+keer" ergens op slaat. Afstand alleen bleek daarvoor te grof: vijftig kilometer over een
+dijk en vijftig kilometer door het heuvelland zijn dezelfde afstand en twee heel andere
+ritten. Een heuvelrit werd zo vergeleken met drie vlakke ritten en leek zes km/u trager —
+wat als vormverlies leest terwijl het gewoon het parcours was.
+
+De maat is nu **hoogtemeters per kilometer**:
+
+- kandidaten worden nog steeds op afstand gefilterd (binnen 20%), maar daarna
+  **gerangschikt op hoe dicht het klimwerk bij elkaar ligt**, met de meest recente eerst
+  bij gelijke geschiktheid;
+- terrein heet vergelijkbaar bij een verschil van ≤ 3 hm/km óf ≤ 30% relatief. Allebei is
+  nodig: 1 tegen 4 hm/km is relatief een factor vier maar in de benen niets, en 14 tegen
+  18 ligt relatief dicht bij elkaar maar zijn twee andere ritten;
+- het gemiddelde waar je tegen wordt afgezet gebruikt **alleen de ritten over vergelijkbaar
+  terrein**. Een gemiddelde over vlak én heuvelachtig is een getal waar niets uit volgt;
+- ritten over ander terrein blijven wel in de tabel staan — op vermogen zijn ze nog prima
+  bruikbaar — maar zijn gemarkeerd als "ander terrein", met ↑hm, hm/km, NP en W/kg erbij.
+
+Er wordt bewust **geen** hoogtegecorrigeerde snelheid uitgerekend. Dat vraagt om aannames
+die deze data niet dragen, en een verzonnen correctiefactor is erger dan een eerlijk
+"deze twee zijn niet te vergelijken op snelheid, kijk naar vermogen". Waar vermogen
+beschikbaar is, is Normalized Power de eerlijke maat over verschillend terrein: die weegt
+de pieken op de klimmetjes mee.
+
+Heeft de rit zelf geen hoogtemeters, dan verandert er niets aan het oude gedrag: dan valt
+er niets op terrein te sorteren en blijft het de meest recente eerst. Een rit met onbekend
+klimwerk dringt niet voor op een rit waarvan we wél weten dat hij vergelijkbaar is.
+
+Dezelfde cijfers gaan naar de coach bij "beoordeel deze sessie", met de opdracht om nooit
+snelheden te vergelijken zonder het klimwerk ernaast te leggen.
+
+
+## Het coachadvies waar je het nodig hebt
+
+De coach geeft per krachtsessie een concrete invulling — met welk gewicht je begint,
+welke oefening een set minder krijgt, wanneer je niet tot falen gaat. Die tekst stond
+alleen in het Coach- en Planning-tabblad. Bij **Kracht loggen**, het scherm dat je in de
+sportschool openhebt, zag je hem niet: precies daar waar je hem nodig hebt was hij weg.
+
+Het advies voor de gekozen datum staat nu bovenaan dat tabblad. Bron is de planning
+(`planned_sessions` met `discipline = 'kracht'`), dus het is het advies dat je zelf hebt
+geaccepteerd, niet een los voorstel dat er nog ligt. Staat er voor die dag niets, dan
+zie je wanneer het eerstvolgende advies wel is — anders lijkt het alsof de coach niets
+over je krachttraining heeft gezegd.
+
+De trainingsdag wordt daarbij automatisch op het advies gezet, zolang je zelf nog geen
+dag hebt gekozen. Kies je wél iets anders, dan blijft die keuze staan en meldt het scherm
+alleen dat het advies bij een andere dag hoort — niet corrigeren, wel benoemen.
+
+Het advies wordt bewust niet per oefening uitgesplitst. Dat zou betekenen dat vrije tekst
+uit elkaar geplukt wordt op oefeningnaam, en een verkeerd toegewezen gewicht is erger dan
+één alinea die je zelf leest.
+
+## Rusttimer
+
+Bij het loggen staat een timer voor de rust tussen sets: presets van 1 tot 3 minuten, een
+piep en een trilling als de tijd om is, en de gekozen rusttijd wordt onthouden.
+
+Twee dingen die de moeite waard zijn om zo te houden:
+
+- **Eén timer, twee plekken.** Hij staat groot boven de oefeningen en als knopje achter
+  elke set. Dat zijn geen losse timers: ze delen dezelfde state (module-niveau in
+  `shared/RestTimer.jsx`), want een knopje bij set 3 dat een andere timer start dan die
+  je bovenaan ziet aftellen is een valstrik.
+- **Aftellen op een eindtijdstip**, opgeslagen in `localStorage`, niet op een teller die
+  per seconde omlaag gaat. Ga je tussendoor naar een ander tabblad of dimt je scherm, dan
+  loopt de rust gewoon door — een timer die opnieuw begint zodra je wegkijkt is in de gym
+  niets waard. Het alarm hangt om dezelfde reden aan de timer zelf en niet aan het scherm.

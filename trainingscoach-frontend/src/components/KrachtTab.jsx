@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
-import { Plus, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, X, MessageCircle } from "lucide-react";
 import TimeOfDayPicker from "./shared/TimeOfDayPicker";
-import { todayStr } from "../lib/calculations";
+import RestTimer from "./shared/RestTimer";
+import * as api from "../api/client";
+import { todayStr, formatDateNL } from "../lib/calculations";
 import { uid, defaultTimeOfDay, timeOfDayLabel } from "../lib/uiHelpers";
 
 export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSchema }) {
@@ -14,7 +16,42 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
   const [durationMin, setDurationMin] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
 
+  // De krachtvoorstellen die de coach heeft gedaan en die in de planning
+  // staan. Die stonden alleen in het Coach- en Planning-tabblad, terwijl je ze
+  // juist hier nodig hebt: met welk gewicht je moet beginnen lees je niet meer
+  // terug op het moment dat je voor het rek staat.
+  const [plannedStrength, setPlannedStrength] = useState([]);
+  const dayChosenByUser = useRef(false);
+
+  useEffect(() => {
+    api
+      .getPlannedSessions(3)
+      .then((data) => setPlannedStrength((data.plans || []).filter((p) => p.discipline === "kracht")))
+      .catch(() => setPlannedStrength([])); // advies is meegenomen, loggen moet altijd kunnen
+  }, []);
+
   const day = schema.days.find((d) => d.id === dayId);
+
+  // Het advies voor de dag die je logt. Alleen op datum: dat is wat de coach
+  // bedoelde, ook als je een andere trainingsdag uit je schema kiest.
+  const adviceForDate = plannedStrength.find(
+    (p) => p.date === date && (p.status === "gepland" || p.status === "gedaan")
+  );
+  // Niets voor vandaag? Dan is het nuttig te weten wanneer wél — anders lijkt
+  // het alsof de coach niets over je krachttraining heeft gezegd.
+  const nextAdvice = plannedStrength
+    .filter((p) => p.date > date && p.status === "gepland")
+    .sort((a, b) => (a.date > b.date ? 1 : -1))[0];
+
+  // Traint je vandaag zonder dat je het zelf hebt aangeklikt, dan staat de
+  // juiste trainingsdag meteen goed — schelen twee handelingen in de gym.
+  useEffect(() => {
+    if (dayChosenByUser.current || !adviceForDate) return;
+    const match = schema.days.find(
+      (d) => d.name.trim().toLowerCase() === (adviceForDate.type || "").trim().toLowerCase()
+    );
+    if (match && match.id !== dayId) setDayId(match.id);
+  }, [adviceForDate, schema.days]);
 
   function lastLogFor(exName) {
     for (const log of workoutLogs) {
@@ -94,10 +131,38 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
       <h1 className="tc-title">Krachttraining loggen</h1>
       <p className="tc-sub">Kies je trainingsdag en vul de gewichten en herhalingen in. De vorige sessie zie je als richtlijn.</p>
 
+      {/* Het advies van de coach voor deze dag, bovenaan: met welk gewicht je
+          begint is precies wat je kwijt bent op het moment dat je het nodig hebt. */}
+      {adviceForDate && (
+        <div className="tc-card" style={{ borderColor: "var(--strength)" }}>
+          <div className="tc-card-head">
+            <span className="tc-ex-name">
+              <MessageCircle size={14} style={{ marginRight: 6, verticalAlign: "middle", color: "var(--strength)" }} />
+              Wat de coach voor deze training adviseert
+            </span>
+            <span className="tc-hint-badge tc-badge-strength">{adviceForDate.type}</span>
+          </div>
+          <p className="tc-feedback-text" style={{ marginTop: 0 }}>{adviceForDate.description}</p>
+          {day && adviceForDate.type && day.name.trim().toLowerCase() !== adviceForDate.type.trim().toLowerCase() && (
+            <p className="tc-import-help" style={{ marginBottom: 0 }}>
+              Let op: dit advies hoort bij "{adviceForDate.type}", en je logt nu "{day.name}".
+            </p>
+          )}
+        </div>
+      )}
+
+      {!adviceForDate && nextAdvice && (
+        <p className="tc-import-help">
+          Voor {formatDateNL(date)} staat geen coachadvies. Het eerstvolgende is{" "}
+          {formatDateNL(nextAdvice.date)} ({nextAdvice.type}).
+        </p>
+      )}
+
       <div className="tc-form-row">
         <div>
           <label className="tc-label">Trainingsdag</label>
-          <select className="tc-input" value={dayId} onChange={(e) => setDayId(e.target.value)}>
+          <select className="tc-input" value={dayId}
+            onChange={(e) => { dayChosenByUser.current = true; setDayId(e.target.value); }}>
             {schema.days.map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
@@ -111,6 +176,13 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
 
       <label className="tc-label">Moment van de dag</label>
       <TimeOfDayPicker value={timeOfDay} onChange={setTimeOfDay} />
+
+      {day && day.exercises.length > 0 && (
+        <>
+          <label className="tc-label">Rust tussen sets</label>
+          <RestTimer />
+        </>
+      )}
 
       {day && (
         <div className="tc-ex-log-list">
@@ -146,6 +218,9 @@ export default function KrachtTab({ schema, workoutLogs, addWorkoutLog, goToSche
                         onChange={(e) => updateSet(ex.id, idx, "reps", e.target.value)}
                       />
                       <span className="tc-x">reps</span>
+                      {/* Rust starten vanaf de set die je net hebt afgerond,
+                          zonder eerst terug te scrollen naar de timer. */}
+                      <RestTimer compact />
                       <button className="tc-icon-btn" onClick={() => removeSet(ex.id, idx)}><X size={14} /></button>
                     </div>
                   ))}

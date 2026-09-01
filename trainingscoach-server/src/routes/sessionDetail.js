@@ -21,20 +21,69 @@ function getProfile() {
   return { maxHr: row?.max_hr ?? null, restingHr: row?.resting_hr ?? null, ftp: row?.ftp ?? null };
 }
 
+/** Hoogtemeters per kilometer — de maat voor hoe zwaar het parcours was. */
+function climbPerKm(distanceKm, elevationGainM) {
+  if (!distanceKm || elevationGainM === null || elevationGainM === undefined) return null;
+  return Math.round((elevationGainM / distanceKm) * 10) / 10;
+}
+
+/**
+ * Twee ritten liggen qua terrein in elkaars buurt.
+ *
+ * Absoluut én relatief, want geen van beide alleen werkt: 1 tegen 4 hm/km is
+ * relatief een factor vier maar in de benen nauwelijks verschil, terwijl 14
+ * tegen 18 hm/km relatief dicht bij elkaar ligt en toch twee heel andere
+ * ritten zijn.
+ */
+function similarTerrain(a, b) {
+  if (a === null || b === null) return null; // niet te zeggen, en dat is iets anders dan "ja"
+  const absolute = Math.abs(a - b);
+  if (absolute <= 3) return true;
+  const relative = absolute / Math.max(a, b, 1);
+  return relative <= 0.3;
+}
+
 /**
  * Comparable earlier sessions: same sport, within 20% distance, so "faster
  * than last time" means something. A 20 km ride and a 200 km ride aren't
  * usefully compared, however similar the sport.
+ *
+ * Afstand alleen is niet genoeg. Vijftig kilometer over een dijk en vijftig
+ * kilometer door het heuvelland zijn dezelfde afstand en totaal verschillende
+ * ritten, en dan leest "twee km/u langzamer dan vorige keer" als vormverlies
+ * terwijl het gewoon het parcours is. De kandidaten worden daarom gerangschikt
+ * op hoe dicht het klimwerk bij elkaar ligt; wat overblijft is bij gelijke
+ * geschiktheid het meest recent.
  */
 function findComparableSessions(session, limit = 5) {
   if (!session.distance_km) return [];
   const rows = db
     .prepare("SELECT * FROM cardio_logs WHERE type = ? AND date < ? AND distance_km IS NOT NULL ORDER BY date DESC LIMIT 60")
     .all(session.type, session.date);
-  return rows
-    .filter((r) => Math.abs(r.distance_km - session.distance_km) / session.distance_km <= 0.2)
+
+  const ownClimb = climbPerKm(session.distance_km, session.elevation_gain_m);
+  const withinDistance = rows.filter(
+    (r) => Math.abs(r.distance_km - session.distance_km) / session.distance_km <= 0.2
+  );
+
+  // Zonder hoogtemeters op deze rit valt er niets op terrein te sorteren; dan
+  // blijft het gedrag zoals het was, namelijk de meest recente eerst.
+  if (ownClimb === null) return withinDistance.slice(0, limit).map(serializeCardio);
+
+  return withinDistance
+    .map((r, index) => {
+      const climb = climbPerKm(r.distance_km, r.elevation_gain_m);
+      return {
+        row: r,
+        index, // bewaart de oorspronkelijke volgorde op datum als tiebreak
+        // Onbekend klimwerk achteraan: liever een rit waarvan we weten dat hij
+        // vergelijkbaar is dan een rit waarvan we het maar hopen.
+        afwijking: climb === null ? Number.POSITIVE_INFINITY : Math.abs(climb - ownClimb),
+      };
+    })
+    .sort((a, b) => a.afwijking - b.afwijking || a.index - b.index)
     .slice(0, limit)
-    .map(serializeCardio);
+    .map((c) => serializeCardio(c.row));
 }
 
 // GET /api/sessions/:id
@@ -123,20 +172,57 @@ router.get("/:id", (req, res) => {
         }))
       : null,
     drift,
-    vergelijking: {
-      aantalVergelijkbaar: comparable.length,
-      gemSnelheidEerder: comparableSpeeds.length
-        ? Math.round((comparableSpeeds.reduce((a, b) => a + b, 0) / comparableSpeeds.length) * 10) / 10
-        : null,
-      sessies: comparable.map((c) => ({
-        id: c.id,
-        datum: c.date,
-        afstandKm: c.distance_km,
-        snelheidKmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),
-        gemHartslag: c.avg_hr,
-        gemVermogen: c.avg_power,
-      })),
-    },
+    vergelijking: (() => {
+      const weightLogs = db.prepare("SELECT * FROM weight_logs ORDER BY date").all();
+      const ownClimb = climbPerKm(session.distance_km, session.elevation_gain_m);
+
+      const sessies = comparable.map((c) => {
+        const klimPerKm = climbPerKm(c.distance_km, c.elevation_gain_m);
+        // Normalized Power weegt de pieken op de klimmetjes mee en is daarmee
+        // een eerlijkere maat over verschillend terrein dan een kaal gemiddelde
+        // — en veel eerlijker dan snelheid.
+        const np = c.weighted_avg_power || null;
+        return {
+          id: c.id,
+          datum: c.date,
+          afstandKm: c.distance_km,
+          snelheidKmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),
+          gemHartslag: c.avg_hr,
+          gemVermogen: c.avg_power,
+          genormaliseerdVermogen: np,
+          wattPerKg: calc.computeWattsPerKg(np || c.avg_power, calc.getWeightAtDate(weightLogs, c.date)),
+          hoogtemeters: c.elevation_gain_m ?? null,
+          klimPerKm,
+          terreinVergelijkbaar: similarTerrain(ownClimb, klimPerKm),
+        };
+      });
+
+      // Snelheid alleen naast elkaar leggen als het parcours dat toelaat.
+      const bruikbaarVoorSnelheid = sessies.filter((s) => s.terreinVergelijkbaar !== false && s.snelheidKmu);
+      const afwijkendTerrein = sessies.filter((s) => s.terreinVergelijkbaar === false).length;
+      const heeftVermogen = !!session.weighted_avg_power || !!session.avg_power;
+
+      return {
+        aantalVergelijkbaar: comparable.length,
+        klimPerKm: ownClimb,
+        // Bewust op de sessies met vergelijkbaar terrein: een gemiddelde over
+        // vlakke én heuvelachtige ritten is een getal waar niets uit volgt.
+        gemSnelheidEerder: bruikbaarVoorSnelheid.length
+          ? Math.round((bruikbaarVoorSnelheid.reduce((a, b) => a + b.snelheidKmu, 0) / bruikbaarVoorSnelheid.length) * 10) / 10
+          : null,
+        snelheidVergelijkbaarMet: bruikbaarVoorSnelheid.length,
+        afwijkendTerrein,
+        terreinWaarschuwing:
+          afwijkendTerrein > 0
+            ? `${afwijkendTerrein} van de ${sessies.length} sessies liep over duidelijk ander terrein` +
+              (ownClimb !== null ? ` (deze rit: ${ownClimb} hm/km)` : "") +
+              (heeftVermogen
+                ? ". Vergelijk dan op vermogen in plaats van snelheid — dat is terreinonafhankelijk."
+                : ". Zonder vermogensmeter zegt snelheid hier weinig; hartslag bij gelijke inspanning is een betere maat.")
+            : null,
+        sessies,
+      };
+    })(),
     evenement: db.prepare("SELECT * FROM events WHERE date = ?").get(session.date) || null,
     feedback: feedbackRow
       ? {
@@ -212,11 +298,18 @@ router.post("/:id/feedback", async (req, res) => {
         ? calc.timeInPowerZones(powerHistogram, calc.computePowerZones(profile.ftp))
         : null,
     evenement: event ? { naam: event.name, doel: event.target, type: event.type } : null,
+    // Met hoogtemeters erbij, en per rit hoeveel klimwerk per kilometer: zonder
+    // dat leest de coach een tragere tijd op een zwaarder parcours als
+    // vormverlies.
     vergelijkbareEerdereSessies: comparable.map((c) => ({
       datum: c.date, afstand_km: c.distance_km,
       snelheid_kmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),
       gem_hartslag: c.avg_hr, gem_vermogen_watt: c.avg_power,
+      gewogen_gem_vermogen_watt: c.weighted_avg_power ?? null,
+      hoogtemeters: c.elevation_gain_m ?? null,
+      klim_per_km: climbPerKm(c.distance_km, c.elevation_gain_m),
     })),
+    klimPerKmDezeSessie: climbPerKm(session.distance_km, session.elevation_gain_m),
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     ftp: profile.ftp,
   };
@@ -226,8 +319,9 @@ router.post("/:id/feedback", async (req, res) => {
     "Alle cijfers zijn vooraf berekend en hard: reken ze niet opnieuw uit en wijk er niet vanaf. " +
     "Kijk naar het karakter van de sessie (verloop, tijd in zones, verhouding vermogen/hartslag), naar wat er goed ging, " +
     "en naar wat opvalt. Vergelijk met vergelijkbareEerdereSessies als die er zijn — dat maakt 'sneller' of 'efficiënter' pas betekenisvol. " +
-    "Betrek hoogtemeters voordat je iets over snelheid zegt, en let op oplopende hartslag bij gelijkblijvend vermogen (cardiac drift), " +
-    "maar controleer eerst of dat niet door het terrein komt. " +
+    "TERREIN EERST. Elke sessie heeft klim_per_km (hoogtemeters per kilometer); klimPerKmDezeSessie is die van de rit die je beoordeelt. Vergelijk nooit snelheden zonder die naast elkaar te leggen: een tragere tijd op een zwaarder parcours is geen vormverlies, en dat als achteruitgang benoemen is ronduit misleidend. Scheelt het klimwerk duidelijk, zeg dan expliciet dat de snelheden niet vergelijkbaar zijn en baseer je oordeel op vermogen. " +
+    "Is er vermogen beschikbaar, gebruik dan gewogen_gem_vermogen_watt (Normalized Power) als hoofdmaat: dat weegt de pieken op de klimmetjes mee en is daarmee de eerlijkste vergelijking over verschillend terrein. Zonder vermogensmeter is de verhouding tussen hartslag en tempo bruikbaarder dan tempo alleen — en zeg er dan bij dat het een indicatie is. " +
+    "Let op oplopende hartslag bij gelijkblijvend vermogen (cardiac drift), maar controleer eerst of dat niet gewoon oplopend terrein is. " +
     "Hoort er een evenement bij, beoordeel de uitvoering dan ook tegen het gestelde doel. " +
     "Antwoord UITSLUITEND met geldig JSON, zonder markdown: " +
     '{"analyse": string, "tips": string[]}. ' +
@@ -282,3 +376,6 @@ router.post("/:id/feedback", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.findComparableSessions = findComparableSessions;
+module.exports.climbPerKm = climbPerKm;
+module.exports.similarTerrain = similarTerrain;
