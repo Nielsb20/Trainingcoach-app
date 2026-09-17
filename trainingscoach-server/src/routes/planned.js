@@ -166,12 +166,23 @@ function findCompletion(plan, claimed = new Set()) {
   return sameDay[0].id;
 }
 
-/** Refreshes completion status for all plans that aren't resolved yet. */
+/**
+ * Refreshes completion status for all plans that aren't resolved yet.
+ *
+ * Kijkt ook naar sessies die de automaat zelf op overgeslagen heeft gezet.
+ * Synchroniseer je maandag pas woensdag met Strava, dan is die rit inmiddels
+ * als gemist weggezet en kon geen enkele import dat nog rechtzetten — terwijl
+ * het bewijs er alsnog is. Een overslaan dat de sporter zélf heeft gekozen
+ * blijft onaangeroerd; dat is een beslissing, geen gebrek aan gegevens.
+ */
 function refreshCompletions() {
-  const open = db.prepare("SELECT * FROM planned_sessions WHERE status = 'gepland'").all();
   const today = calc.todayStr();
+  const open = db.prepare("SELECT * FROM planned_sessions WHERE status = 'gepland'").all();
+  const autoSkipped = db
+    .prepare("SELECT * FROM planned_sessions WHERE status = 'overgeslagen' AND auto_skipped = 1")
+    .all();
   const update = db.prepare(
-    "UPDATE planned_sessions SET completed_cardio_log_id = ?, status = ? WHERE id = ?"
+    "UPDATE planned_sessions SET completed_cardio_log_id = ?, status = ?, auto_skipped = ? WHERE id = ?"
   );
   // Sessions already tied to a plan, so one workout can't satisfy two.
   const claimed = new Set(
@@ -193,10 +204,21 @@ function refreshCompletions() {
     const completedId = findCompletion(plan, claimed);
     if (completedId) {
       claimed.add(completedId);
-      update.run(completedId, "gedaan", plan.id);
+      update.run(completedId, "gedaan", 0, plan.id);
     } else if (plan.date < today) {
-      // Only mark as missed once the day has actually passed.
-      update.run(null, "overgeslagen", plan.id);
+      // Only mark as missed once the day has actually passed. Vastgelegd dat
+      // de automaat dit deed, zodat een latere import het mag rechtzetten.
+      update.run(null, "overgeslagen", 1, plan.id);
+    }
+  });
+
+  // Pas hierna, zodat een nog openstaande sessie altijd voorrang heeft op een
+  // training die al als gemist was weggezet.
+  autoSkipped.forEach((plan) => {
+    const completedId = findCompletion(plan, claimed);
+    if (completedId) {
+      claimed.add(completedId);
+      update.run(completedId, "gedaan", 0, plan.id);
     }
   });
 }
@@ -832,11 +854,15 @@ router.patch("/:id", (req, res) => {
   // after being undone or moved.
   const reopening = status === "gepland" || status === "voorgesteld";
   if (reopening) {
-    db.prepare("UPDATE planned_sessions SET status = ?, completed_cardio_log_id = NULL WHERE id = ?")
+    db.prepare("UPDATE planned_sessions SET status = ?, completed_cardio_log_id = NULL, auto_skipped = 0 WHERE id = ?")
       .run(status, req.params.id);
     refreshCompletions(); // it may well be completable again straight away
   } else {
-    db.prepare("UPDATE planned_sessions SET status = ? WHERE id = ?").run(status, req.params.id);
+    // Een status die de sporter zelf zet is een beslissing, geen gevolg van
+    // ontbrekende gegevens: auto_skipped gaat uit, zodat de automaat er
+    // afblijft. Dat geldt voor "toch gedaan" net zo goed als voor "overslaan".
+    db.prepare("UPDATE planned_sessions SET status = ?, auto_skipped = 0 WHERE id = ?")
+      .run(status, req.params.id);
   }
   res.json({ ok: true });
 });

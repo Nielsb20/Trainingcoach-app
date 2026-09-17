@@ -403,6 +403,19 @@ export default function PlannerTab({ onOpenSession }) {
                         </>
                       )}
 
+                      {/* Alsnog afvinken, ook als de dag allang voorbij is.
+                          "Ongedaan maken" zet hem terug op gepland, en dan zet
+                          de automaat hem meteen weer op overgeslagen omdat er
+                          niets gelogd is — zonder deze knop kom je daar dus
+                          niet uit. */}
+                      {p.status === "overgeslagen" && (
+                        <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
+                          title="Deze training heb ik toch gedaan"
+                          onClick={() => act(() => api.updatePlannedSession(p.id, "gedaan"))}>
+                          Toch gedaan
+                        </button>
+                      )}
+
                       {/* A wrong call should be correctable — an accidental "overslaan"
                           otherwise sticks around in your adherence figures. */}
                       {(p.status === "gedaan" || p.status === "overgeslagen") && (

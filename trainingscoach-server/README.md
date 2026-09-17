@@ -926,3 +926,27 @@ Twee dingen die de moeite waard zijn om zo te houden:
   per seconde omlaag gaat. Ga je tussendoor naar een ander tabblad of dimt je scherm, dan
   loopt de rust gewoon door — een timer die opnieuw begint zodra je wegkijkt is in de gym
   niets waard. Het alarm hangt om dezelfde reden aan de timer zelf en niet aan het scherm.
+
+
+## Een training achteraf alsnog afvinken
+
+Dit kon niet, en dat was een dichtgemetselde deur. Bij een overgeslagen sessie bood de
+planner alleen "ongedaan maken", en die zet hem terug op `gepland` — waarna
+`refreshCompletions()` hem meteen weer op `overgeslagen` zette, want de dag was voorbij
+en er stond niets gelogd. Je kwam er dus nooit uit.
+
+Er is nu een knop **"Toch gedaan"** bij elke overgeslagen sessie, die de status direct op
+`gedaan` zet. Dat blijft staan: de automaat kijkt alleen naar sessies die nog openstaan.
+
+Daarnaast kent de tabel nu `auto_skipped`. Dat onderscheid — heeft de automaat dit
+weggezet, of koos de sporter er zelf voor — ontbrak, en daardoor bleef een tweede geval
+onopgelost: rijd je maandag maar synchroniseer je pas woensdag, dan stond die rit al als
+gemist weggezet en kon geen enkele import dat nog rechtzetten. De controleronde kijkt nu
+ook naar automatisch overgeslagen sessies en vinkt ze alsnog af zodra het bewijs
+binnenkomt.
+
+De bestaande garantie blijft overeind: een overslaan dat de sporter zelf koos wordt nooit
+overruled, ook niet als er die dag tóch een rit gelogd wordt. Elke handmatige
+statuswijziging zet `auto_skipped` op 0 — een beslissing is iets anders dan een gebrek aan
+gegevens. En een nog openstaande sessie claimt een gelogde rit vóór een sessie die al was
+weggezet, zodat de rit van vandaag niet bij een gemiste training van vorige week belandt.

@@ -360,3 +360,17 @@ ALTER TABLE schema_cardio_days ADD COLUMN locked INTEGER NOT NULL DEFAULT 0;
 -- klik om hem weg te halen of te laten staan. Automatisch wissen zou precies
 -- de belofte breken waar de rest van de planner op gebouwd is.
 ALTER TABLE planned_sessions ADD COLUMN superseded_by TEXT;
+
+-- Heeft de automaat deze sessie als gemist weggezet, of koos de sporter daar
+-- zelf voor?
+--
+-- Dat onderscheid ontbrak, met twee gevolgen. Een rit die je maandag deed maar
+-- pas woensdag synchroniseerde stond inmiddels op overgeslagen, en geen enkele
+-- import kon dat nog rechtzetten. En een sessie alsnog op gedaan zetten lukte
+-- niet: "ongedaan maken" zette hem terug op gepland, waarna de automaat hem
+-- meteen weer wegzette omdat de dag voorbij was.
+--
+-- Alleen een automatisch overslaan mag later worden bijgesteld. Kiest de
+-- sporter zelf voor overslaan of voor gedaan, dan blijft dat staan — dat is
+-- een beslissing, geen gebrek aan gegevens.
+ALTER TABLE planned_sessions ADD COLUMN auto_skipped INTEGER NOT NULL DEFAULT 0;
