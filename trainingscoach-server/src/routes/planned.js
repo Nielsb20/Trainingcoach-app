@@ -192,13 +192,14 @@ function refreshCompletions() {
   );
 
   // Same-sport matches take priority: check plans whose sport was actually
-  // logged before letting a leftover session count as a swap.
-  const ordered = [...open].sort((a, b) => {
-    const logged = (plan) =>
-      db.prepare("SELECT 1 FROM cardio_logs WHERE date = ? AND LOWER(type) LIKE ?")
-        .get(plan.date, baseSport(plan.type) + "%") ? 0 : 1;
-    return logged(a) - logged(b);
-  });
+  // logged before letting a leftover session count as a swap. De vraag "is deze
+  // sport die dag gelogd?" wordt één keer per sessie beantwoord en niet in de
+  // comparator zelf — daar werd hij bij elke vergelijking opnieuw gesteld.
+  const loggedStmt = db.prepare("SELECT 1 FROM cardio_logs WHERE date = ? AND LOWER(type) LIKE ?");
+  const ordered = open
+    .map((plan) => ({ plan, sportGelogd: loggedStmt.get(plan.date, baseSport(plan.type) + "%") ? 0 : 1 }))
+    .sort((a, b) => a.sportGelogd - b.sportGelogd)
+    .map((entry) => entry.plan);
 
   ordered.forEach((plan) => {
     const completedId = findCompletion(plan, claimed);

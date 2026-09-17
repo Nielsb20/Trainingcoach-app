@@ -4,6 +4,7 @@ import { Loader2, RefreshCw, X } from "lucide-react";
 import { NAV } from "./lib/constants";
 import * as api from "./api/client";
 
+import ErrorBoundary from "./components/shared/ErrorBoundary";
 import SchemaTab from "./components/SchemaTab";
 import KrachtTab from "./components/KrachtTab";
 
@@ -289,6 +290,9 @@ export default function App() {
           </div>
         )}
 
+        {/* resetKey = het tabblad: overstappen geeft een nieuwe kans, want de
+            fout zat vrijwel zeker in het scherm dat je net verliet. */}
+        <ErrorBoundary resetKey={tab}>
         <Suspense fallback={<TabLoading />}>
         {tab === "schema" && <SchemaTab schema={schema} setSchema={setSchema} onRestored={loadAll} />}
         {tab === "kracht" && (
@@ -336,12 +340,15 @@ export default function App() {
           />
         )}
         </Suspense>
+        </ErrorBoundary>
       </main>
 
       {detailSessionId && (
-        <Suspense fallback={<TabLoading />}>
-          <SessionDetail sessionId={detailSessionId} onClose={() => setDetailSessionId(null)} />
-        </Suspense>
+        <ErrorBoundary resetKey={detailSessionId}>
+          <Suspense fallback={<TabLoading />}>
+            <SessionDetail sessionId={detailSessionId} onClose={() => setDetailSessionId(null)} />
+          </Suspense>
+        </ErrorBoundary>
       )}
     </div>
   );

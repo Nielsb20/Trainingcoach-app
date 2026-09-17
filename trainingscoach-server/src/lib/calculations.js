@@ -116,6 +116,75 @@ function computePowerZones(ftp) {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Pace zones (running)                                                   */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Hardlopen had geen eigen maatstaf. Fietsen krijgt vermogenszones en
+ * FTP-gebaseerde TSS; een hardloopsessie viel terug op de hartslagschatting,
+ * terwijl tempo voor hardlopers is wat vermogen voor wielrenners is.
+ *
+ * De zones lopen rond het drempeltempo — het tempo dat je ongeveer een uur
+ * volhoudt — met dezelfde indeling als de vermogenszones. Let op de omkering:
+ * een hogere intensiteit betekent een *lager* aantal seconden per kilometer.
+ */
+const PACE_ZONE_DEFS = [
+  { zone: 1, naam: "Herstel", van: 0, tot: 0.78 },
+  { zone: 2, naam: "Duurloop", van: 0.78, tot: 0.87 },
+  { zone: 3, naam: "Tempo", van: 0.87, tot: 0.94 },
+  { zone: 4, naam: "Drempel", van: 0.94, tot: 1.03 },
+  { zone: 5, naam: "VO2max", van: 1.03, tot: 1.15 },
+  { zone: 6, naam: "Anaeroob", van: 1.15, tot: 1.4 },
+];
+
+/** Formatteert seconden per kilometer als 4:35. */
+function formatPace(secondsPerKm) {
+  if (!secondsPerKm || !Number.isFinite(secondsPerKm)) return null;
+  const total = Math.round(secondsPerKm);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** Seconden per kilometer uit afstand en duur. */
+function computePaceSecPerKm(distanceKm, durationMin) {
+  if (!distanceKm || !durationMin) return null;
+  if (distanceKm <= 0 || durationMin <= 0) return null;
+  return Math.round(((durationMin * 60) / distanceKm) * 10) / 10;
+}
+
+/**
+ * Tempozones rond het drempeltempo, in seconden per kilometer.
+ *
+ * `vanSec` is het langzame eind van de zone en `totSec` het snelle: bij tempo
+ * telt een lager getal als harder, dus de grenzen staan omgekeerd ten opzichte
+ * van de vermogenszones om een leesbaar bereik te houden.
+ */
+function computePaceZones(thresholdSecPerKm) {
+  if (!thresholdSecPerKm) return null;
+  return PACE_ZONE_DEFS.map((z) => ({
+    zone: z.zone,
+    naam: z.naam,
+    vanSec: z.van > 0 ? Math.round(thresholdSecPerKm / z.van) : null, // null = geen traagheidsgrens
+    totSec: Math.round(thresholdSecPerKm / z.tot),
+    van: z.van > 0 ? formatPace(thresholdSecPerKm / z.van) : null,
+    tot: formatPace(thresholdSecPerKm / z.tot),
+  }));
+}
+
+/** Welke tempozone hoort bij een gelopen tempo? */
+function zoneForPace(secPerKm, paceZones) {
+  if (!secPerKm || !paceZones) return null;
+  const hit = paceZones.find((z) => (z.vanSec === null || secPerKm <= z.vanSec) && secPerKm > z.totSec);
+  // Sneller dan de snelste ondergrens telt als de zwaarste zone.
+  return hit ? hit.zone : paceZones[paceZones.length - 1].zone;
+}
+
+/** Herkent een hardloopsessie aan de sportnaam die de app en Strava gebruiken. */
+function isRunning(type) {
+  if (!type) return false;
+  return /hardlo|running|run\b|trail/i.test(String(type));
+}
+
+/* ---------------------------------------------------------------------- */
 /* Speed / distance                                                       */
 /* ---------------------------------------------------------------------- */
 
@@ -192,7 +261,18 @@ function computeNormalizedPower(points) {
  * @param {number|null} ftp
  * @param {Array|null} hrZones - result of computeHrZones()
  */
-function computeSessionTSS(session, ftp, hrZones) {
+/**
+ * Trainingsbelasting van één sessie.
+ *
+ * Volgorde van betrouwbaarheid: gemeten vermogen, dan gelopen tempo, dan een
+ * schatting op hartslag. Die middelste stap ontbrak, waardoor elke hardloop
+ * terugviel op de hartslagschatting terwijl het tempo — de hardloopequivalent
+ * van vermogen — gewoon beschikbaar was.
+ *
+ * `thresholdPaceSecPerKm` is optioneel; zonder drempeltempo verandert er niets
+ * aan het oude gedrag.
+ */
+function computeSessionTSS(session, ftp, hrZones, thresholdPaceSecPerKm = null) {
   const durationHours = (session.duration_min || 0) / 60;
   if (durationHours <= 0) return null;
 
@@ -204,6 +284,21 @@ function computeSessionTSS(session, ftp, hrZones) {
       intensityFactor: Math.round(intensityFactor * 100) / 100,
       method: "vermogen",
     };
+  }
+
+  // rTSS: bij tempo is de verhouding omgekeerd — sneller lopen is minder
+  // seconden per kilometer, dus de intensiteit is drempeltempo gedeeld door
+  // het gelopen tempo.
+  if (thresholdPaceSecPerKm && isRunning(session.type)) {
+    const paceSecPerKm = computePaceSecPerKm(session.distance_km, session.duration_min);
+    if (paceSecPerKm) {
+      const intensityFactor = thresholdPaceSecPerKm / paceSecPerKm;
+      return {
+        tss: Math.round(durationHours * intensityFactor * intensityFactor * 100),
+        intensityFactor: Math.round(intensityFactor * 100) / 100,
+        method: "tempo",
+      };
+    }
   }
 
   if (hrZones && session.avg_hr) {
@@ -235,11 +330,11 @@ function computeSessionTSS(session, ftp, hrZones) {
  * @param {Array|null} hrZones
  * @returns {Array<{date, label, ctl, atl, tsb, tss}>|null}
  */
-function computeTrainingLoadSeries(cardioLogs, ftp, hrZones) {
+function computeTrainingLoadSeries(cardioLogs, ftp, hrZones, thresholdPaceSecPerKm = null) {
   if (!cardioLogs || cardioLogs.length === 0) return null;
   const tssByDate = {};
   cardioLogs.forEach((c) => {
-    const result = computeSessionTSS(c, ftp, hrZones);
+    const result = computeSessionTSS(c, ftp, hrZones, thresholdPaceSecPerKm);
     if (result) tssByDate[c.date] = (tssByDate[c.date] || 0) + result.tss;
   });
   const dates = Object.keys(tssByDate).sort();
@@ -602,6 +697,11 @@ module.exports = {
   computeHrZones,
   zoneForHr,
   computePowerZones,
+  computePaceZones,
+  computePaceSecPerKm,
+  formatPace,
+  zoneForPace,
+  isRunning,
   computeAvgSpeedKmh,
   haversineKm,
   computeNormalizedPower,

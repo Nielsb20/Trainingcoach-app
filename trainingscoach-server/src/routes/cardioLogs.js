@@ -2,6 +2,7 @@
 
 const express = require("express");
 const { db } = require("../db/db");
+const { validateCardioEntry, validateCardioBulk } = require("../lib/validate");
 
 const router = express.Router();
 
@@ -106,10 +107,16 @@ router.get("/:id/profile", (req, res) => {
 // POST /api/cardio-logs - single entry (manual form or single GPX upload)
 router.post("/", (req, res) => {
   try {
+    validateCardioEntry(req.body);
     insertOne(req.body, req.body.source);
     res.status(201).json(serialize(db.prepare("SELECT * FROM cardio_logs WHERE id = ?").get(req.body.id)));
   } catch (err) {
-    res.status(500).json({ error: "Kon cardiosessie niet opslaan", details: err.message });
+    // Een afgewezen invoer is geen serverfout: 400 met wat er mis is, zodat de
+    // interface het kan tonen in plaats van "er ging iets mis".
+    res.status(err.status === 400 ? 400 : 500).json({
+      error: err.status === 400 ? err.message : "Kon cardiosessie niet opslaan",
+      details: err.status === 400 ? undefined : err.message,
+    });
   }
 });
 
@@ -121,16 +128,40 @@ router.post("/bulk", (req, res) => {
     items.forEach((entry) => insertOne(entry, source));
   });
   try {
+    // Vóór de transactie: één slechte rij halverwege een import van duizend
+    // sessies moet niet de helft geïmporteerd achterlaten.
+    validateCardioBulk(entries);
     insertMany(entries);
     res.status(201).json({ inserted: entries.length });
   } catch (err) {
-    res.status(500).json({ error: "Kon sessies niet in bulk opslaan", details: err.message });
+    res.status(err.status === 400 ? 400 : 500).json({
+      error: err.status === 400 ? err.message : "Kon sessies niet in bulk opslaan",
+      details: err.status === 400 ? undefined : err.message,
+    });
   }
 });
 
-// DELETE /api/cardio-logs/:id
+/**
+ * DELETE /api/cardio-logs/:id
+ *
+ * De rit weghalen betekent ook: de geplande sessie die erdoor was afgevinkt
+ * staat weer open. Dat gebeurde niet, waardoor die sessie op "gedaan" bleef
+ * staan met een rit die niet meer bestond — een vinkje zonder dekking, dat
+ * bovendien meetelde in je opvolgingspercentage.
+ *
+ * Na het loskoppelen draait de controleronde opnieuw: misschien is er die dag
+ * nog een andere rit die de sessie alsnog invult, en anders komt hij netjes
+ * als overgeslagen terug.
+ */
 router.delete("/:id", (req, res) => {
-  db.prepare("DELETE FROM cardio_logs WHERE id = ?").run(req.params.id);
+  const { refreshCompletions } = require("./planned");
+  const remove = db.transaction(() => {
+    db.prepare("UPDATE planned_sessions SET completed_cardio_log_id = NULL, status = 'gepland' WHERE completed_cardio_log_id = ?")
+      .run(req.params.id);
+    db.prepare("DELETE FROM cardio_logs WHERE id = ?").run(req.params.id);
+  });
+  remove();
+  refreshCompletions();
   res.status(204).end();
 });
 

@@ -37,7 +37,7 @@ function gatherState() {
   const hrZones = profile?.max_hr ? calc.computeHrZones(profile.max_hr, profile.resting_hr) : null;
 
   const cardioLogs = db.prepare("SELECT * FROM cardio_logs ORDER BY date DESC").all();
-  const loadSeries = calc.computeTrainingLoadSeries(cardioLogs, profile?.ftp, hrZones);
+  const loadSeries = calc.computeTrainingLoadSeries(cardioLogs, profile?.ftp, hrZones, profile?.threshold_pace_sec_per_km);
 
   const wellness = db.prepare("SELECT * FROM wellness_logs ORDER BY date DESC LIMIT 30").all();
   const plans = db.prepare("SELECT * FROM planned_sessions").all();

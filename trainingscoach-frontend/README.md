@@ -88,3 +88,20 @@ cp .env.example .env
 - **FIT-bestanden** worden niet ondersteund, alleen GPX (en `.gpx.gz`).
 - **Geen authenticatie.** Prima binnen je eigen netwerk; wil je dit van buitenaf
   bereikbaar maken, voeg dan eerst een vorm van afscherming toe.
+
+## Tests
+
+```bash
+npm test          # eenmalig
+npm run test:watch
+```
+
+Vitest met jsdom: geen browser en geen draaiende server nodig, dus het draait ook op de
+Pi. De tests leggen niet de opmaak vast maar het gedrag dat stilletjes kan breken — dat de
+error boundary een vastgelopen scherm opvangt, dat een ingeklapt blok zijn stand onthoudt
+(en niet omvalt als de browser opslag weigert), dat de rusttimer op beide plekken dezelfde
+tijd aftelt, dat het coachadvies bij het loggen verschijnt, en dat een evenement bewerken
+hetzelfde id houdt.
+
+De rekenkern zelf wordt aan de serverkant getest; `src/lib/calculations.js` is daar een
+gegenereerde kopie van.

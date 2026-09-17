@@ -374,3 +374,11 @@ ALTER TABLE planned_sessions ADD COLUMN superseded_by TEXT;
 -- sporter zelf voor overslaan of voor gedaan, dan blijft dat staan — dat is
 -- een beslissing, geen gebrek aan gegevens.
 ALTER TABLE planned_sessions ADD COLUMN auto_skipped INTEGER NOT NULL DEFAULT 0;
+
+-- Drempeltempo voor hardlopen, in seconden per kilometer.
+--
+-- Fietsen had FTP en daarmee vermogenszones en een nauwkeurige TSS; hardlopen
+-- viel terug op de hartslagschatting, terwijl tempo voor een hardloper is wat
+-- vermogen voor een wielrenner is. Dit is het tempo dat je ongeveer een uur
+-- volhoudt — de hardloopequivalent van FTP.
+ALTER TABLE profile ADD COLUMN threshold_pace_sec_per_km INTEGER;

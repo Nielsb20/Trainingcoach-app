@@ -166,7 +166,7 @@ function buildProposalPayload({ question = null } = {}) {
   const events = db.prepare("SELECT * FROM events ORDER BY date ASC").all();
 
   const hrZones = schema.profile.maxHr ? calc.computeHrZones(schema.profile.maxHr, schema.profile.restingHr) : null;
-  const trainingLoadSeries = calc.computeTrainingLoadSeries(cardioLogs, schema.profile.ftp, hrZones);
+  const trainingLoadSeries = calc.computeTrainingLoadSeries(cardioLogs, schema.profile.ftp, hrZones, schema.profile.thresholdPaceSecPerKm);
   const currentLoad = trainingLoadSeries ? trainingLoadSeries[trainingLoadSeries.length - 1] : null;
 
   const today = calc.todayStr();

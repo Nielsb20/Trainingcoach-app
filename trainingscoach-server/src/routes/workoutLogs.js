@@ -2,6 +2,7 @@
 
 const express = require("express");
 const { db } = require("../db/db");
+const { validateWorkoutEntry } = require("../lib/validate");
 
 const router = express.Router();
 
@@ -108,12 +109,15 @@ router.post("/", (req, res) => {
   });
 
   try {
+    validateWorkoutEntry(entry);
     insert();
     res.status(201).json(serializeWorkoutLog(db.prepare("SELECT * FROM workout_logs WHERE id = ?").get(entry.id)));
   } catch (err) {
     // Include the underlying reason: "kon niet opslaan" on its own leaves the
     // athlete with nothing to act on and nothing to report.
-    res.status(500).json({ error: `Kon training niet opslaan: ${err.message}` });
+    res.status(err.status === 400 ? 400 : 500).json({
+      error: err.status === 400 ? err.message : `Kon training niet opslaan: ${err.message}`,
+    });
   }
 });
 
@@ -186,7 +190,16 @@ router.put("/:id", (req, res) => {
 
 // DELETE /api/workout-logs/:id
 router.delete("/:id", (req, res) => {
-  db.prepare("DELETE FROM workout_logs WHERE id = ?").run(req.params.id); // cascades to exercises/sets
+  // Zelfde reden als bij een cardiosessie: een geplande krachttraining die door
+  // deze log was afgevinkt, is niet meer gedekt zodra de log verdwijnt.
+  const { refreshCompletions } = require("./planned");
+  const remove = db.transaction(() => {
+    db.prepare("UPDATE planned_sessions SET completed_cardio_log_id = NULL, status = 'gepland' WHERE completed_cardio_log_id = ?")
+      .run(req.params.id);
+    db.prepare("DELETE FROM workout_logs WHERE id = ?").run(req.params.id); // cascades to exercises/sets
+  });
+  remove();
+  refreshCompletions();
   res.status(204).end();
 });
 

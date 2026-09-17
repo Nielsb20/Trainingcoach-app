@@ -63,10 +63,13 @@ router.post("/import", (req, res) => {
     (s.cardioDays || []).forEach((c) =>
       insertCardioDay.run(c.id, c.weekday, c.type, c.notes || null, c.timeOfDay || null, c.locked ? 1 : 0)
     );
-    db.prepare("UPDATE profile SET max_hr = ?, resting_hr = ?, ftp = ? WHERE id = 1").run(
+    db.prepare(
+      "UPDATE profile SET max_hr = ?, resting_hr = ?, ftp = ?, threshold_pace_sec_per_km = ? WHERE id = 1"
+    ).run(
       s.profile?.maxHr ?? null,
       s.profile?.restingHr ?? null,
-      s.profile?.ftp ?? null
+      s.profile?.ftp ?? null,
+      s.profile?.thresholdPaceSecPerKm ?? null
     );
 
     const insertWorkout = db.prepare(

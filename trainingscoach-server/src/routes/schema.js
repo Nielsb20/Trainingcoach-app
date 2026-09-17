@@ -27,7 +27,12 @@ function getFullSchema() {
     cardioDays: cardioDays.map((c) => ({
       id: c.id, weekday: c.weekday, type: c.type, notes: c.notes, timeOfDay: c.time_of_day, locked: !!c.locked,
     })),
-    profile: { maxHr: profileRow.max_hr, restingHr: profileRow.resting_hr, ftp: profileRow.ftp },
+    profile: {
+      maxHr: profileRow.max_hr,
+      restingHr: profileRow.resting_hr,
+      ftp: profileRow.ftp,
+      thresholdPaceSecPerKm: profileRow.threshold_pace_sec_per_km,
+    },
   };
 }
 
@@ -64,10 +69,13 @@ function replaceSchema({ days = [], cardioDays = [], profile = {} }) {
       insertCardioDay.run(c.id, c.weekday, c.type, c.notes || null, c.timeOfDay || null, c.locked ? 1 : 0)
     );
 
-    db.prepare("UPDATE profile SET max_hr = ?, resting_hr = ?, ftp = ? WHERE id = 1").run(
+    db.prepare(
+      "UPDATE profile SET max_hr = ?, resting_hr = ?, ftp = ?, threshold_pace_sec_per_km = ? WHERE id = 1"
+    ).run(
       profile.maxHr ?? null,
       profile.restingHr ?? null,
-      profile.ftp ?? null
+      profile.ftp ?? null,
+      profile.thresholdPaceSecPerKm ?? null
     );
   });
 
