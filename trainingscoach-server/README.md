@@ -950,3 +950,42 @@ overruled, ook niet als er die dag tóch een rit gelogd wordt. Elke handmatige
 statuswijziging zet `auto_skipped` op 0 — een beslissing is iets anders dan een gebrek aan
 gegevens. En een nog openstaande sessie claimt een gelogde rit vóór een sessie die al was
 weggezet, zodat de rit van vandaag niet bij een gemiste training van vorige week belandt.
+
+
+## Tempo voor hardlopen
+
+Fietsen had FTP, en daarmee vermogenszones en een nauwkeurige TSS. Hardlopen had niets:
+het `pace`-veld werd wel opgeslagen maar nergens gebruikt, en elke hardloopsessie viel
+terug op de hartslagschatting — terwijl tempo voor een hardloper is wat vermogen voor een
+wielrenner is.
+
+Vul in **Schema → Persoonlijk profiel** je drempeltempo in (het tempo dat je ongeveer een
+uur volhoudt, in min:sec per km; je 10 km-wedstrijdtempo zit er dicht bij). Daarmee:
+
+- krijg je **tempozones** rond dat drempeltempo, met dezelfde indeling als de
+  vermogenszones. Let op de omkering: sneller is een *lager* aantal seconden per
+  kilometer, dus de grenzen staan gespiegeld;
+- wordt de belasting van een hardloopsessie op **tempo** berekend in plaats van op
+  hartslag. Een uur op drempeltempo levert per definitie 100 TSS, net als een uur op FTP —
+  dezelfde schaal, dus CTL/ATL/TSB blijven onderling vergelijkbaar.
+
+De volgorde van betrouwbaarheid is nu: gemeten vermogen, dan gelopen tempo, dan de
+hartslagschatting. Vul je geen drempeltempo in, dan verandert er niets.
+
+Bewust géén hoogtecorrectie op het tempo (Normalized Graded Pace). Dat vraagt om gegevens
+per meetpunt die niet elke sessie heeft, en een verzonnen correctie is erger dan een
+eerlijk getal met een bekende beperking — dezelfde afweging als bij de sessievergelijking.
+
+## Invoer wordt gecontroleerd
+
+`lib/validate.js` staat voor de schrijfroutes. Modeluitvoer werd al als onbetrouwbaar
+behandeld (`normalizeProposal`), maar wat de client stuurde ging rechtstreeks de database
+in: een CSV-kolom in de verkeerde eenheid of een halve rij uit een mislukte GPX-parse gaf
+een 500 met een ruwe SQL-melding, of een rij die nergens op sloeg.
+
+Geweigerd wordt alleen wat aantoonbaar fout is — een ontbrekend id, een datum die geen
+datum is, een getal buiten elk menselijk bereik — met een melding die zegt wát er mis is,
+en met 400 in plaats van 500. Ontbrekende velden blijven toegestaan: niet elke rit heeft
+vermogen. Een bulkimport wordt vóór de transactie in zijn geheel gecontroleerd, zodat één
+slechte rij halverwege niet de helft geïmporteerd achterlaat, en is begrensd op 5000
+sessies per aanroep.

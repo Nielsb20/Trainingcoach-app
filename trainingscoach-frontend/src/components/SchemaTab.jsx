@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2, Lock, Unlock } from "lucide-react";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
-import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones } from "../lib/calculations";
+import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones, computePaceZones, formatPace } from "../lib/calculations";
 import { uid } from "../lib/uiHelpers";
 import * as api from "../api/client";
 import AutomationPanel from "./AutomationPanel";
@@ -16,6 +16,35 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
   const backupFileInputRef = useRef(null);
 
   const [exportError, setExportError] = useState("");
+
+  // Tempo typ je als 4:35, niet als 275 seconden. De invoer blijft dus tekst en
+  // wordt pas bij het verlaten van het veld omgezet — anders vecht de parser
+  // met je vingers terwijl je de dubbele punt nog moet typen.
+  const [paceInput, setPaceInput] = useState(() => formatPace(schema.profile?.thresholdPaceSecPerKm) || "");
+  useEffect(() => {
+    setPaceInput(formatPace(schema.profile?.thresholdPaceSecPerKm) || "");
+  }, [schema.profile?.thresholdPaceSecPerKm]);
+
+  function commitPace() {
+    const text = paceInput.trim();
+    if (!text) {
+      setSchema({ ...schema, profile: { ...schema.profile, thresholdPaceSecPerKm: null } });
+      return;
+    }
+    const match = text.match(/^(\d{1,2})[:.,](\d{1,2})$/);
+    const seconds = match
+      ? Number(match[1]) * 60 + Number(match[2])
+      : /^\d+$/.test(text) ? Number(text) : null;   // kaal getal = al seconden per km
+    if (!seconds || seconds < 120 || seconds > 1200) {
+      setPaceInput(formatPace(schema.profile?.thresholdPaceSecPerKm) || ""); // onbruikbaar: terug naar wat er stond
+      return;
+    }
+    setSchema({ ...schema, profile: { ...schema.profile, thresholdPaceSecPerKm: seconds } });
+  }
+
+  const paceZones = schema.profile?.thresholdPaceSecPerKm
+    ? computePaceZones(schema.profile.thresholdPaceSecPerKm)
+    : null;
   // A backup nobody can see is a backup nobody trusts, so the automatic ones
   // are reported here rather than only existing on disk.
   const [autoBackups, setAutoBackups] = useState(null);
@@ -437,6 +466,46 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
                   <td className="tc-mono">Zone {z.zone}</td>
                   <td>{z.naam}</td>
                   <td className="tc-mono">{z.vanW}{z.totW ? `–${z.totW}` : "+"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* Hardlopen had geen eigen maatstaf en viel terug op de
+            hartslagschatting. Drempeltempo is voor een hardloper wat FTP voor
+            een wielrenner is. */}
+        <div className="tc-form-row" style={{ marginTop: 16 }}>
+          <div>
+            <label className="tc-label">Drempeltempo hardlopen (min:sec per km)</label>
+            <input
+              className="tc-input tc-mono"
+              type="text"
+              inputMode="numeric"
+              value={paceInput}
+              onChange={(e) => setPaceInput(e.target.value)}
+              onBlur={commitPace}
+              placeholder="bv. 4:35"
+            />
+          </div>
+        </div>
+        <p className="tc-import-help" style={{ marginTop: 4 }}>
+          Het tempo dat je ongeveer een uur kunt volhouden — de hardloopequivalent van FTP. Hiermee
+          worden je hardloopsessies op tempo beoordeeld in plaats van op een hartslagschatting, en
+          krijg je de tempozones hieronder. Weet je het niet precies: je tempo over een 10 km-wedstrijd
+          zit er dicht bij.
+        </p>
+        {paceZones && (
+          <table className="tc-table" style={{ marginTop: 12 }}>
+            <thead><tr><th>Zone</th><th>Naam</th><th>Tempo (per km)</th></tr></thead>
+            <tbody>
+              {paceZones.map((z) => (
+                <tr key={z.zone}>
+                  <td className="tc-mono">Zone {z.zone}</td>
+                  <td>{z.naam}</td>
+                  {/* Zone 1 heeft geen traagheidsgrens: alles langzamer dan het
+                      snelle eind telt als herstel. */}
+                  <td className="tc-mono">{z.van ? `${z.tot}–${z.van}` : `langzamer dan ${z.tot}`}</td>
                 </tr>
               ))}
             </tbody>

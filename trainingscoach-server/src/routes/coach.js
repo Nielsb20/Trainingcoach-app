@@ -102,7 +102,7 @@ function buildCoachPayload({ question = null } = {}) {
   const upcomingEvents = events.filter((e) => calc.daysUntil(e.date) >= 0).slice(0, 5);
   const cardioHistorySummary = calc.computeCardioHistorySummary(cardioLogs);
   const strengthHistorySummary = calc.computeStrengthHistorySummary(workoutLogs);
-  const trainingLoadSeries = calc.computeTrainingLoadSeries(cardioLogs, schema.profile.ftp, hrZones);
+  const trainingLoadSeries = calc.computeTrainingLoadSeries(cardioLogs, schema.profile.ftp, hrZones, schema.profile.thresholdPaceSecPerKm);
   const currentLoad = trainingLoadSeries ? trainingLoadSeries[trainingLoadSeries.length - 1] : null;
   const loadWeekAgo = trainingLoadSeries && trainingLoadSeries.length > 7 ? trainingLoadSeries[trainingLoadSeries.length - 8] : null;
 
@@ -238,7 +238,7 @@ function buildCoachPayload({ question = null } = {}) {
       oefeningen: l.exercises.map((e) => ({ naam: e.name, sets: e.sets.map((s) => `${s.weight}kg x ${s.reps}`) })),
     })),
     recenteCardio: cardioLogs.slice(0, 8).map((c) => {
-      const tssResult = calc.computeSessionTSS(c, schema.profile.ftp, hrZones);
+      const tssResult = calc.computeSessionTSS(c, schema.profile.ftp, hrZones, schema.profile.thresholdPaceSecPerKm);
       return {
         datum: c.date, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, type: c.type, duur_min: c.duration_min, afstand_km: c.distance_km,
         gem_hartslag: c.avg_hr, max_hartslag: c.max_hr, hartslagzone: calc.zoneForHr(c.avg_hr, hrZones), gem_snelheid_kmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),

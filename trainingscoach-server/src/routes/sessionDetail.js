@@ -18,7 +18,12 @@ const router = express.Router();
 
 function getProfile() {
   const row = db.prepare("SELECT * FROM profile WHERE id = 1").get();
-  return { maxHr: row?.max_hr ?? null, restingHr: row?.resting_hr ?? null, ftp: row?.ftp ?? null };
+  return {
+    maxHr: row?.max_hr ?? null,
+    restingHr: row?.resting_hr ?? null,
+    ftp: row?.ftp ?? null,
+    thresholdPaceSecPerKm: row?.threshold_pace_sec_per_km ?? null,
+  };
 }
 
 /** Hoogtemeters per kilometer — de maat voor hoe zwaar het parcours was. */
@@ -100,7 +105,7 @@ router.get("/:id", (req, res) => {
   const powerHistogram = row.power_histogram_json ? JSON.parse(row.power_histogram_json) : null;
   const powerCurve = row.power_curve_json ? JSON.parse(row.power_curve_json) : null;
 
-  const tss = calc.computeSessionTSS(session, profile.ftp, hrZones);
+  const tss = calc.computeSessionTSS(session, profile.ftp, hrZones, profile.thresholdPaceSecPerKm);
   const weightKg = calc.getWeightAtDate(
     db.prepare("SELECT * FROM weight_logs ORDER BY date").all(),
     session.date
@@ -260,7 +265,7 @@ router.post("/:id/feedback", async (req, res) => {
   const session = serializeCardio(row);
   const profile = getProfile();
   const hrZones = profile.maxHr ? calc.computeHrZones(profile.maxHr, profile.restingHr) : null;
-  const tss = calc.computeSessionTSS(session, profile.ftp, hrZones);
+  const tss = calc.computeSessionTSS(session, profile.ftp, hrZones, profile.thresholdPaceSecPerKm);
   const weightKg = calc.getWeightAtDate(db.prepare("SELECT * FROM weight_logs ORDER BY date").all(), session.date);
   const hrHistogram = row.hr_histogram_json ? JSON.parse(row.hr_histogram_json) : null;
   const powerHistogram = row.power_histogram_json ? JSON.parse(row.power_histogram_json) : null;

@@ -187,10 +187,10 @@ De suite draait bewust onder meerdere tijdzones; datumfouten die alleen buiten
 UTC zichtbaar zijn, hebben hier eerder echte bugs opgeleverd.
 
 Nog te doen:
-1. Strava-webhook afmaken (`server/src/routes/stravaWebhook.js` bevat de structuur
-   en TODO's; vereist een geregistreerde Strava API-app)
-2. Authenticatie. Nu is de server onbeschermd, dus alleen geschikt binnen je
+1. Authenticatie. Nu is de server onbeschermd, dus alleen geschikt binnen je
    eigen netwerk — zie "Beveiliging" hierboven
+2. Back-ups buiten de Pi. De nachtelijke kopieën staan op dezelfde SD-kaart als
+   de database, dus een kapotte kaart neemt allebei mee
 
 ## Belangrijk bij aanpassingen
 

@@ -2,6 +2,7 @@
 
 const express = require("express");
 const { db } = require("../db/db");
+const { validateWeightEntry } = require("../lib/validate");
 
 const router = express.Router();
 
@@ -18,10 +19,8 @@ router.get("/", (req, res) => {
 // POST /api/weight-logs
 router.post("/", (req, res) => {
   const entry = req.body;
-  if (!entry?.date || entry.weight_kg === undefined || entry.weight_kg === null) {
-    return res.status(400).json({ error: "Datum en gewicht zijn verplicht." });
-  }
   try {
+    validateWeightEntry(entry);
     // Upsert rather than plain insert: the Garmin fetch re-sends the last few
     // days on every run, so re-sending a measurement that's already stored is
     // normal operation, not an error. A plain INSERT made every scheduled run

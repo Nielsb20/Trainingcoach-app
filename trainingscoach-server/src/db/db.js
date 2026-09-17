@@ -43,12 +43,17 @@ function initSchema() {
 }
 
 /**
- * Clears completion links on sessions that are open again.
+ * Clears completion links that no longer mean anything.
  *
- * An earlier version left `completed_cardio_log_id` in place when a session
- * was undone or moved, which made the workout count as already claimed and
- * stopped the session from ever being ticked off automatically. Rows saved in
- * that state need cleaning up once.
+ * Twee gevallen. Een sessie die weer openstaat mag niet naar een training
+ * blijven wijzen: dat hield die training bezet, zodat de automatische controle
+ * hem nooit meer kon koppelen en de sessie eeuwig open bleef — precies het
+ * symptoom van een rit die zich na "ongedaan maken" niet meer liet afvinken.
+ *
+ * En een sessie die verwijst naar een log die is verwijderd. Die stond op
+ * "gedaan" met een rit die niet meer bestond: een vinkje zonder dekking, dat
+ * wel meetelde in het opvolgingspercentage. Sinds kort halen de verwijderroutes
+ * die koppeling zelf weg; dit ruimt op wat er daarvóór is ontstaan.
  */
 function repairOrphanedCompletions() {
   const result = db
@@ -60,6 +65,20 @@ function repairOrphanedCompletions() {
     .run();
   if (result.changes > 0) {
     console.log(`[db] ${result.changes} openstaande sessie(s) losgekoppeld van hun oude training`);
+  }
+
+  const dangling = db
+    .prepare(
+      `UPDATE planned_sessions SET completed_cardio_log_id = NULL, status = 'gepland'
+       WHERE completed_cardio_log_id IS NOT NULL
+         AND completed_cardio_log_id NOT IN (SELECT id FROM cardio_logs)
+         AND completed_cardio_log_id NOT IN (SELECT id FROM workout_logs)`
+    )
+    .run();
+  if (dangling.changes > 0) {
+    console.log(
+      `[db] ${dangling.changes} sessie(s) stonden op 'gedaan' met een verwijderde training — weer opengezet`
+    );
   }
 }
 
