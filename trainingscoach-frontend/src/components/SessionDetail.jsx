@@ -204,26 +204,54 @@ export default function SessionDetail({ sessionId, onClose }) {
           <>
             <h3 className="tc-section-title">Vergeleken met eerder</h3>
             <p className="tc-import-help">
-              {vergelijking.aantalVergelijkbaar} eerdere sessie(s) van vergelijkbare afstand.
+              {vergelijking.aantalVergelijkbaar} eerdere sessie(s) van vergelijkbare afstand
+              {vergelijking.klimPerKm !== null && <>, gesorteerd op vergelijkbaar klimwerk (deze rit: {vergelijking.klimPerKm} hm/km)</>}.
+              {/* Alleen over de ritten waar het parcours het toelaat: een gemiddelde
+                  over vlak én heuvelachtig is een getal waar niets uit volgt. */}
               {sneller !== null && (
                 <> Je gemiddelde snelheid lag {Math.abs(sneller)} km/u {sneller >= 0 ? "hoger" : "lager"} dan
-                  het gemiddelde daarvan ({vergelijking.gemSnelheidEerder} km/u).</>
+                  het gemiddelde van {vergelijking.snelheidVergelijkbaarMet ?? vergelijking.aantalVergelijkbaar} rit(ten)
+                  over vergelijkbaar terrein ({vergelijking.gemSnelheidEerder} km/u).</>
               )}
             </p>
-            <table className="tc-table">
-              <thead><tr><th>Datum</th><th>Afstand</th><th>Snelheid</th><th>Gem. HR</th><th>Vermogen</th></tr></thead>
-              <tbody>
-                {vergelijking.sessies.map((s) => (
-                  <tr key={s.id}>
-                    <td>{formatDateNL(s.datum)}</td>
-                    <td className="tc-mono">{s.afstandKm} km</td>
-                    <td className="tc-mono">{s.snelheidKmu ? `${s.snelheidKmu} km/u` : "–"}</td>
-                    <td className="tc-mono">{s.gemHartslag ?? "–"}</td>
-                    <td className="tc-mono">{s.gemVermogen ? `${s.gemVermogen} W` : "–"}</td>
+
+            {vergelijking.terreinWaarschuwing && (
+              <div className="tc-warning-box">{vergelijking.terreinWaarschuwing}</div>
+            )}
+
+            <div className="tc-import-table">
+              <table className="tc-table">
+                <thead>
+                  <tr>
+                    <th>Datum</th><th>Afstand</th><th>↑ hm</th><th>hm/km</th>
+                    <th>Snelheid</th><th>Gem. HR</th><th>Vermogen</th><th>NP</th><th>W/kg</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {vergelijking.sessies.map((s) => (
+                    // Een rit over duidelijk ander terrein blijft staan — hij is
+                    // qua vermogen nog steeds bruikbaar — maar is als zodanig
+                    // herkenbaar, zodat de snelheid niet als appels met appels leest.
+                    <tr key={s.id} className={s.terreinVergelijkbaar === false ? "tc-row-disabled" : ""}>
+                      <td>{formatDateNL(s.datum)}</td>
+                      <td className="tc-mono">{s.afstandKm} km</td>
+                      <td className="tc-mono">{s.hoogtemeters != null ? `${s.hoogtemeters} m` : "–"}</td>
+                      <td className="tc-mono">
+                        {s.klimPerKm != null ? s.klimPerKm : "–"}
+                        {s.terreinVergelijkbaar === false && (
+                          <span className="tc-hint-badge tc-badge-warning" style={{ marginLeft: 6 }}>ander terrein</span>
+                        )}
+                      </td>
+                      <td className="tc-mono">{s.snelheidKmu ? `${s.snelheidKmu} km/u` : "–"}</td>
+                      <td className="tc-mono">{s.gemHartslag ?? "–"}</td>
+                      <td className="tc-mono">{s.gemVermogen ? `${s.gemVermogen} W` : "–"}</td>
+                      <td className="tc-mono">{s.genormaliseerdVermogen ? `${s.genormaliseerdVermogen} W` : "–"}</td>
+                      <td className="tc-mono">{s.wattPerKg ?? "–"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
 
@@ -253,7 +281,8 @@ export default function SessionDetail({ sessionId, onClose }) {
           <div className="tc-card">
             <p className="tc-import-help">
               Vraag de coach om deze sessie te beoordelen. Hij kijkt naar het verloop, de zones en je
-              eerdere sessies van vergelijkbare afstand.
+              eerdere sessies van vergelijkbare afstand — met de hoogtemeters erbij, zodat een tragere
+              tijd op een zwaarder parcours niet als vormverlies leest.
             </p>
             <div className="tc-actionbar">
               <button className="tc-btn tc-btn-strength" onClick={() => askFeedback(false)} disabled={askingFeedback}>

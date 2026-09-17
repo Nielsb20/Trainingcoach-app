@@ -390,3 +390,12 @@ html, body, #root {
   color: var(--cardio); margin-top: 3px;
 }
 .tc-planner-analyse { align-self: flex-start; margin-top: 6px; }
+
+/* Rusttimer tussen sets (zie shared/RestTimer.jsx). Groot genoeg om met een
+   haltermuts op vanaf een meter afstand te lezen. */
+.tc-resttimer { padding: 12px 16px; }
+.tc-resttimer-main { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.tc-resttimer-value { font-size: 26px; font-weight: 600; letter-spacing: 0.5px; min-width: 76px; }
+.tc-resttimer-running { color: var(--strength); }
+.tc-resttimer-done { border-color: var(--strength); background: var(--strength-dim); }
+.tc-resttimer-active { color: var(--strength); border-color: var(--strength); }
