@@ -5,6 +5,7 @@ import ErrorBoundary from "../components/shared/ErrorBoundary";
 import CollapsibleCard from "../components/shared/CollapsibleCard";
 import RestTimer from "../components/shared/RestTimer";
 import WorkoutFilePanel from "../components/shared/WorkoutFilePanel";
+import GearMapping from "../components/shared/GearMapping";
 import KrachtTab from "../components/KrachtTab";
 import EventsTab from "../components/EventsTab";
 import * as api from "../api/client";
@@ -250,5 +251,34 @@ describe("WorkoutFilePanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Maak een trainingsbestand/ }));
     expect(await screen.findByText(/geen blokkenstructuur uit te halen/)).toBeInTheDocument();
+  });
+});
+
+describe("GearMapping", () => {
+  it("koppelt een fiets en meldt hoeveel historie is bijgewerkt", async () => {
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({
+      materiaal: [
+        { id: "b999", naam: "Santa Cruz Hightower", ondergrond: null, aantalRitten: 3, inStrava: true },
+      ],
+      zonderMateriaal: 0,
+    });
+    vi.spyOn(api, "setStravaGearSubType").mockResolvedValue({ id: "b999", ondergrond: "mtb", bijgewerkt: 3 });
+
+    render(<GearMapping />);
+    expect(await screen.findByText("Santa Cruz Hightower")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "mtb" } });
+
+    await waitFor(() => expect(api.setStravaGearSubType).toHaveBeenCalledWith("b999", "mtb"));
+    // De hele winst van deze koppeling zit in die terugwerkende kracht, dus
+    // dat moet je ook te zien krijgen.
+    expect(await screen.findByText(/3 eerdere sessies meteen bijgewerkt/)).toBeInTheDocument();
+  });
+
+  it("toont niets als er geen fietsen bekend zijn", async () => {
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({ materiaal: [], zonderMateriaal: 0 });
+    const { container } = render(<GearMapping />);
+    await waitFor(() => expect(container.querySelector("table")).toBeNull());
+    expect(screen.queryByText(/Welke fiets/)).not.toBeInTheDocument();
   });
 });

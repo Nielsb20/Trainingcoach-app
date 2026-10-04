@@ -1059,10 +1059,29 @@ bij hardlopen `weg-hardlopen`, `trail`, `baan`, `loopband`. Wat dat doet:
   ondergrond vergelijken. Vermogen en TSS blijven over alles vergelijkbaar: die
   zijn gemeten.
 
-Strava's eigen labels worden overgenomen; een kale `Ride` niet. Dat is het type
-dat de meeste mensen voor elke rit laten staan, dus daar een racefiets uit
-concluderen zou een verzinsel in je geschiedenis zetten. Zet het zelf op de
-sessie (het detailscherm heeft een keuzelijst) of kies het sporttype in Strava.
+### Waar het label vandaan komt
+
+Drie bronnen, in deze volgorde:
+
+1. **De fiets die je in Strava aan de rit hangt.** Dit is de betrouwbare weg,
+   want het is een registratie en geen gissing. Onder **Cardio loggen →
+   Strava-koppeling** staat een lijstje met je fietsen; hang daar één keer een
+   ondergrond aan elke fiets. Dat wordt meteen op al je eerdere ritten met die
+   fiets toegepast en geldt daarna vanzelf voor nieuwe.
+2. **Strava's sporttype**, als de fiets onbekend is. `MountainBikeRide`,
+   `GravelRide` en `VirtualRide` zeggen genoeg; een kale `Ride` niet — dat is
+   het type dat de meeste mensen voor elke rit laten staan, dus daar een
+   racefiets uit concluderen zou een verzinsel in je geschiedenis zetten.
+3. **Wat je zelf op de sessie zet**, in het detailscherm.
+
+De naam van de fiets wordt níet uitgelezen om er een type uit te raden. "Canyon
+Grail" is een gravelfiets en "Grail" staat in geen enkele trefwoordenlijst;
+zoiets afleiden levert een label op dat stellig oogt en fout is. Eén keer
+aanwijzen kost een halve minuut en klopt daarna altijd.
+
+Al geïmporteerde ritten hebben nog geen fiets, want die werd niet bewaard. De
+analyseversie is opgehoogd, dus de knop **Analysedata bijwerken** in het
+Strava-blok haalt hem alsnog op — in blokken van 25 vanwege Strava's limiet.
 
 **Uitdrukkelijk geen belastingsfactor.** Een MTB-rit zwaarder laten meetellen
 met een vermenigvuldiger zou een verzonnen getal in de CTL/ATL-reeks schuiven.

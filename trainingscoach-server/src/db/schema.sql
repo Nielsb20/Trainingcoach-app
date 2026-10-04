@@ -428,3 +428,29 @@ ALTER TABLE planned_sessions ADD COLUMN structure_source TEXT;
 -- ligt structureel iets hoger dan Garmin's getal (een gemiddelde tegenover
 -- een minimum), dus ze worden naast elkaar bewaard in plaats van door elkaar.
 ALTER TABLE wellness_logs ADD COLUMN sleeping_hr INTEGER;
+
+-- Welk materiaal er onder de rit zat, volgens Strava.
+--
+-- Het sporttype raden werkte maar half: een kale "Ride" zegt niets over de
+-- ondergrond, en dat is precies het type dat de meeste mensen laten staan. De
+-- fiets die je in Strava aan de rit hangt zegt het wel, en dat is geen
+-- gissing maar een registratie.
+--
+-- gear_id is Strava's eigen sleutel ("b1234567"), gear_name de naam zoals hij
+-- in Strava staat. Beide worden bewaard: de naam om te tonen, het id om op te
+-- koppelen, want een naam kan veranderen zonder dat het een andere fiets is.
+ALTER TABLE cardio_logs ADD COLUMN gear_id TEXT;
+ALTER TABLE cardio_logs ADD COLUMN gear_name TEXT;
+
+-- De koppeling fiets -> ondergrond, één keer door de sporter gelegd.
+--
+-- Waarom dit niet uit de naam wordt afgeleid: "Canyon Grail" is een gravelfiets
+-- en "Grail" komt niet in enige trefwoordenlijst voor. Zoiets raden levert een
+-- label op dat er stellig uitziet en fout is. Eén keer aanwijzen kost een
+-- halve minuut en klopt daarna voor elke rit, ook met terugwerkende kracht.
+CREATE TABLE IF NOT EXISTS strava_gear (
+  id TEXT PRIMARY KEY,              -- Strava's gear_id
+  name TEXT,
+  sub_type TEXT,                    -- null = nog niet toegewezen
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
