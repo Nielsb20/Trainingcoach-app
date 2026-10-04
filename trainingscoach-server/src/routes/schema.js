@@ -2,8 +2,33 @@
 
 const express = require("express");
 const { db } = require("../db/db");
+const calc = require("../lib/calculations");
 
 const router = express.Router();
+
+/**
+ * De gemeten rusthartslag naast de ingetikte.
+ *
+ * Read-only: hij wordt nergens automatisch overgenomen. De hartslagzones
+ * verschuiven ermee, en zones onder je voeten laten wegschuiven omdat een
+ * meting dat zei is precies het soort verandering dat de atleet zelf hoort te
+ * accepteren. De interface zet de twee naast elkaar en biedt een knop.
+ */
+function getMeasuredRestingHr() {
+  const rows = db
+    .prepare("SELECT date, resting_hr FROM wellness_logs WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 400")
+    .all();
+  const baseline = calc.computeRestingHrBaseline(rows);
+  if (!baseline) return null;
+  // Waar de metingen vandaan komen bepaalt hoe je het getal moet lezen: uit de
+  // slaap is het strikt genomen iets lager dan een rusthartslag die je 's
+  // ochtends zittend meet.
+  const sources = db
+    .prepare("SELECT DISTINCT source FROM wellness_logs WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 5")
+    .all()
+    .map((r) => r.source);
+  return { ...baseline, bronnen: sources };
+}
 
 function getFullSchema() {
   const days = db.prepare("SELECT * FROM schema_days ORDER BY sort_order").all();
@@ -32,6 +57,7 @@ function getFullSchema() {
       restingHr: profileRow.resting_hr,
       ftp: profileRow.ftp,
       thresholdPaceSecPerKm: profileRow.threshold_pace_sec_per_km,
+      restingHrGemeten: getMeasuredRestingHr(),
     },
   };
 }

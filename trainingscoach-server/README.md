@@ -989,3 +989,90 @@ en met 400 in plaats van 500. Ontbrekende velden blijven toegestaan: niet elke r
 vermogen. Een bulkimport wordt vóór de transactie in zijn geheel gecontroleerd, zodat één
 slechte rij halverwege niet de helft geïmporteerd achterlaat, en is begrensd op 5000
 sessies per aanroep.
+
+## Rusthartslag uit de slaap
+
+De rusthartslag in je profiel voedt de hartslagzones (Karvonen, op basis van je
+hartslagreserve). Dat getal tikte je één keer in, waarna het nooit meer
+veranderde — terwijl er elke nacht een meting bijkomt.
+
+De wellness-import leest de rusthartslag uit het slaapvenster van Garmin. Dat
+is de meest gestandaardiseerde meting die er is: dezelfde houding, geen koffie,
+geen stress van de dag. Daar wordt een basislijn uit berekend — de **mediaan**
+over de nachten in de laatste 28 dagen, zodat één nacht met griep of een biertje
+het getal niet meetrekt. Minder dan zeven nachten levert geen basislijn op; dan
+is het een losse meting en geen patroon.
+
+Die basislijn staat op het tabblad **Schema** naast het ingetikte getal, met een
+knop om hem over te nemen. Hij wordt nooit automatisch overgenomen: je zones
+verschuiven ermee, en dat is een verandering die je zelf hoort te accepteren.
+Wijken de twee meer dan zo'n vijf slagen af, dan benoemt de coach dat ook —
+rekenen met zones die niet meer kloppen is vervelender dan welk trainingsadvies
+dan ook.
+
+Let op bij het lezen: een slaapwaarde ligt enkele slagen lager dan een
+rusthartslag die je 's ochtends zittend meet. Voor het volgen van je eigen
+trend maakt dat niet uit (het is consequent dezelfde meting), maar plak er geen
+normaalwaarden uit de literatuur op.
+
+## Welke fiets, welke ondergrond
+
+Alles wat op Strava `Ride`, `MountainBikeRide`, `GravelRide` of `VirtualRide`
+heet werd hier één type: *Fietsen*. Daarmee verdween het verschil tussen 40 km
+over asfalt en 40 km door het bos, en dat is geen detail — op de MTB ligt de
+snelheid lager, is de cadans onrustiger en de hartslag hoger bij hetzelfde
+vermogen.
+
+Sessies hebben nu een ondersoort: `weg`, `gravel`, `mtb`, `indoor`, `ebike`, en
+bij hardlopen `weg-hardlopen`, `trail`, `baan`, `loopband`. Wat dat doet:
+
+- **Vergelijkingen** rangschikken eerst op dezelfde ondergrond, dan pas op
+  vergelijkbaar klimwerk. Een rit op een andere fiets telt niet mee in het
+  snelheidsgemiddelde en is in de tabel als zodanig gemarkeerd.
+- **De coach** ziet de ondergrond en mag snelheid alleen binnen dezelfde
+  ondergrond vergelijken. Vermogen en TSS blijven over alles vergelijkbaar: die
+  zijn gemeten.
+
+Strava's eigen labels worden overgenomen; een kale `Ride` niet. Dat is het type
+dat de meeste mensen voor elke rit laten staan, dus daar een racefiets uit
+concluderen zou een verzinsel in je geschiedenis zetten. Zet het zelf op de
+sessie (het detailscherm heeft een keuzelijst) of kies het sporttype in Strava.
+
+**Uitdrukkelijk geen belastingsfactor.** Een MTB-rit zwaarder laten meetellen
+met een vermenigvuldiger zou een verzonnen getal in de CTL/ATL-reeks schuiven.
+Meet je vermogen, dan is de TSS al juist; meet je dat niet, dan blijft de
+hartslagschatting de eerlijkste maat die er is.
+
+## Trainingsbestanden voor de indoortrainer
+
+Een geplande cardiotraining kan als bestand naar ROUVY (en Zwift, en de meeste
+andere trainerapps), zodat je hem niet met de hand hoeft over te typen. Drie
+formaten, alle drie door ROUVY gelezen:
+
+| Formaat | Eenheid | Waarom |
+|---|---|---|
+| `.zwo` | fractie van FTP | standaard — houdt een interval één blok en neemt de aanwijzing van de coach mee als tekstcue |
+| `.mrc` | procenten van FTP | platte tekst, voor apps die geen `.zwo` lezen |
+| `.erg` | absolute watt | idem, maar in watt; vereist een ingevulde FTP |
+
+Importeren in ROUVY: **Workouts → Add your own workout → Import from file**.
+
+Het bestand wordt gemaakt uit een *blokkenstructuur*, niet uit de omschrijving.
+Die structuur komt op twee manieren binnen:
+
+1. **De coach levert hem mee.** Bij een sessie op de trainer (`indoor`) is dat
+   verplicht; bij buitentrainingen alleen als de training een duidelijke
+   structuur heeft.
+2. **Je laat hem er één keer uit halen.** `POST /api/planned/:id/structuur`
+   zet de omschrijving om in blokken en geeft die terug *zonder op te slaan*.
+   De planner toont de blokken, en pas als je bevestigt (`PUT`) staan ze vast.
+
+Die tussenstap is het hele punt. Een regex die "2x20 min op 95%" aankan doet
+net alsof hij "een uurtje opbouwend met wat versnellingen" ook snapt, en een
+bestand dat iets anders voorschrijft dan er in je planning staat merk je pas
+halverwege het tweede interval. Geen structuur betekent geen bestand, en dat is
+het eerlijke antwoord.
+
+Blokken worden gecontroleerd zoals alle modeluitvoer: een blok zonder duur of
+zonder doelintensiteit wordt weggelaten (niet aangevuld), en een onmogelijke
+intensiteit wordt begrensd op 200% FTP.

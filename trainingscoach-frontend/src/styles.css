@@ -183,6 +183,9 @@
 .tc-tip-list { margin: 10px 0; padding-left: 18px; font-size:13.5px; line-height:1.6; }
 .tc-tip-list li { margin-bottom: 4px; }
 .tc-warning-box { background: rgba(184,92,92,0.12); border:1px solid #B85C5C; color:#D08585; border-radius:8px; padding:9px 12px; font-size:13px; margin: 10px 0; }
+/* Een gemeten waarde naast een ingetikte: informatief, geen waarschuwing. */
+.tc-inline-note { background: var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.55; color: var(--text-muted); }
+.tc-inline-note strong { color: var(--text); }
 .tc-feedback-subtitle { font-family:'Oswald',sans-serif; font-weight:600; font-size:14px; color: var(--cardio); margin: 14px 0 8px; }
 .tc-proposal-list { display:flex; flex-direction:column; gap:6px; }
 .tc-proposal-row { display:flex; align-items:baseline; gap:10px; background: var(--surface-alt); border-radius:8px; padding:8px 11px; flex-wrap:wrap; }
@@ -399,3 +402,10 @@ html, body, #root {
 .tc-resttimer-running { color: var(--strength); }
 .tc-resttimer-done { border-color: var(--strength); background: var(--strength-dim); }
 .tc-resttimer-active { color: var(--strength); border-color: var(--strength); }
+
+/* Trainingsbestand voor de indoortrainer, onder een geplande sessie. */
+.tc-workoutfile { margin-top: 8px; padding: 8px 10px; background: var(--surface-alt); border:1px solid var(--border); border-radius:8px; }
+.tc-workoutfile-title { display:flex; align-items:center; gap:6px; font-family:'Oswald',sans-serif; font-weight:600; font-size:12px; color: var(--cardio); text-transform:uppercase; letter-spacing:0.04em; }
+.tc-workoutfile-blocks { margin: 6px 0 8px; padding-left: 18px; font-size:12.5px; line-height:1.6; color: var(--text); }
+.tc-spin { animation: tc-spin 1s linear infinite; }
+@keyframes tc-spin { to { transform: rotate(360deg); } }

@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { X, Loader2, MessageCircle, TrendingDown, Flag, RefreshCw } from "lucide-react";
 import * as api from "../api/client";
-import { formatDateNL } from "../lib/calculations";
+import { formatDateNL, subTypesFor } from "../lib/calculations";
 
 const ZONE_COLORS = ["#4FA8A0", "#5B8FBF", "#8C86C9", "#C97A3F", "#B85C5C", "#8C4A4A", "#6B3A3A"];
 
@@ -29,15 +29,20 @@ export default function SessionDetail({ sessionId, onClose }) {
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState(null);
   const [askingFeedback, setAskingFeedback] = useState(false);
+  const [ondergrond, setOndergrond] = useState("");
+  const [ondergrondBusy, setOndergrondBusy] = useState(false);
+
+  async function load() {
+    const d = await api.getSessionDetail(sessionId);
+    setData(d);
+    setFeedback(d.feedback);
+    setOndergrond(d.sessie?.subType || "");
+    return d;
+  }
 
   useEffect(() => {
     setLoading(true);
-    api
-      .getSessionDetail(sessionId)
-      .then((d) => {
-        setData(d);
-        setFeedback(d.feedback);
-      })
+    load()
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [sessionId]);
@@ -94,6 +99,7 @@ export default function SessionDetail({ sessionId, onClose }) {
             <span className="tc-history-detail">
               {formatDateNL(sessie.date)}
               {evenement ? ` · ${sessie.type}` : ""}
+              {vergelijking.ondergrond ? ` · ${vergelijking.ondergrond}` : ""}
               {sessie.notes && !evenement ? ` · ${sessie.notes}` : ""}
             </span>
           </div>
@@ -106,6 +112,38 @@ export default function SessionDetail({ sessionId, onClose }) {
               <Flag size={12} style={{ verticalAlign: "middle" }} /> {evenement.type || "evenement"}
               {evenement.target ? ` · doel: ${evenement.target}` : ""}
             </span>
+          </div>
+        )}
+
+        {/* Welke fiets het was. Hier te zetten en niet alleen bij het loggen,
+            omdat de import het meestal niet weet: Strava's kale "Ride" zegt
+            niets over de ondergrond, en zo is de hele geschiedenis binnen-
+            gekomen. Dit is het enige veld van een sessie dat je achteraf mag
+            bijstellen — de rest is gemeten. */}
+        {subTypesFor(sessie.type).length > 0 && (
+          <div className="tc-chiprow" style={{ alignItems: "center", gap: 8 }}>
+            <label className="tc-label" style={{ margin: 0 }}>Fiets / ondergrond</label>
+            <select
+              className="tc-input"
+              style={{ width: "auto" }}
+              value={ondergrond}
+              disabled={ondergrondBusy}
+              onChange={async (e) => {
+                const nieuw = e.target.value;
+                setOndergrond(nieuw);
+                setOndergrondBusy(true);
+                try {
+                  await api.setCardioSubType(sessie.id, nieuw || null);
+                  await load();
+                } finally {
+                  setOndergrondBusy(false);
+                }
+              }}
+            >
+              <option value="">Niet opgegeven</option>
+              {subTypesFor(sessie.type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+            </select>
+            {ondergrondBusy && <Loader2 size={14} className="tc-spin" />}
           </div>
         )}
 
@@ -215,6 +253,9 @@ export default function SessionDetail({ sessionId, onClose }) {
               )}
             </p>
 
+            {vergelijking.ondergrondWaarschuwing && (
+              <div className="tc-warning-box">{vergelijking.ondergrondWaarschuwing}</div>
+            )}
             {vergelijking.terreinWaarschuwing && (
               <div className="tc-warning-box">{vergelijking.terreinWaarschuwing}</div>
             )}
@@ -223,7 +264,7 @@ export default function SessionDetail({ sessionId, onClose }) {
               <table className="tc-table">
                 <thead>
                   <tr>
-                    <th>Datum</th><th>Afstand</th><th>↑ hm</th><th>hm/km</th>
+                    <th>Datum</th><th>Ondergrond</th><th>Afstand</th><th>↑ hm</th><th>hm/km</th>
                     <th>Snelheid</th><th>Gem. HR</th><th>Vermogen</th><th>NP</th><th>W/kg</th>
                   </tr>
                 </thead>
@@ -232,8 +273,14 @@ export default function SessionDetail({ sessionId, onClose }) {
                     // Een rit over duidelijk ander terrein blijft staan — hij is
                     // qua vermogen nog steeds bruikbaar — maar is als zodanig
                     // herkenbaar, zodat de snelheid niet als appels met appels leest.
-                    <tr key={s.id} className={s.terreinVergelijkbaar === false ? "tc-row-disabled" : ""}>
+                    <tr key={s.id} className={s.terreinVergelijkbaar === false || !s.zelfdeOndergrond ? "tc-row-disabled" : ""}>
                       <td>{formatDateNL(s.datum)}</td>
+                      <td>
+                        {s.ondergrond || "–"}
+                        {!s.zelfdeOndergrond && (
+                          <span className="tc-hint-badge tc-badge-warning" style={{ marginLeft: 6 }}>andere fiets</span>
+                        )}
+                      </td>
                       <td className="tc-mono">{s.afstandKm} km</td>
                       <td className="tc-mono">{s.hoogtemeters != null ? `${s.hoogtemeters} m` : "–"}</td>
                       <td className="tc-mono">

@@ -92,6 +92,56 @@ function zoneForHr(hr, zones) {
   return 5;
 }
 
+/**
+ * De gemeten rusthartslag over de afgelopen weken, als één getal.
+ *
+ * De rusthartslag in het profiel is een getal dat je één keer intikt en daarna
+ * vergeet, terwijl er elke nacht een nieuwe meting bijkomt. Die metingen komen
+ * uit de slaap: Garmin leest de rusthartslag uit het slaapvenster, wat de
+ * meest gestandaardiseerde omstandigheid is die er is — zelfde houding, geen
+ * koffie, geen stress van de dag. Precies wat je wil voor een basislijn.
+ *
+ * Mediaan, niet gemiddelde. Eén nacht na een biertje of met een opkomende
+ * verkoudheid tilt een gemiddelde omhoog; de mediaan haalt zijn schouders op.
+ *
+ * Vier weken is een afweging: lang genoeg om rustig te staan, kort genoeg om
+ * een echte verbetering binnen een seizoen te volgen.
+ */
+const RESTING_HR_WINDOW_DAYS = 28;
+const RESTING_HR_MIN_NIGHTS = 7;
+
+function computeRestingHrBaseline(wellnessLogs, options = {}) {
+  const windowDays = options.windowDays || RESTING_HR_WINDOW_DAYS;
+  const minNights = options.minNights || RESTING_HR_MIN_NIGHTS;
+  if (!Array.isArray(wellnessLogs) || wellnessLogs.length === 0) return null;
+
+  const cutoff = new Date((options.today || todayStr()) + "T00:00:00");
+  cutoff.setDate(cutoff.getDate() - windowDays);
+  const cutoffStr = toDateStr(cutoff);
+
+  const values = wellnessLogs
+    .filter((w) => w.date >= cutoffStr)
+    .map((w) => (w.resting_hr !== undefined ? w.resting_hr : w.restingHr))
+    .filter((v) => v !== null && v !== undefined && !isNaN(v))
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  // Te weinig nachten is geen basislijn maar een losse meting. Dan liever
+  // niets beweren dan een getal dat stevig lijkt.
+  if (values.length < minNights) return null;
+
+  const mid = Math.floor(values.length / 2);
+  const median = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+
+  return {
+    bpm: Math.round(median),
+    nachten: values.length,
+    laagste: values[0],
+    hoogste: values[values.length - 1],
+    vensterDagen: windowDays,
+  };
+}
+
 /* ---------------------------------------------------------------------- */
 /* Power zones (Coggan 7-zone model)                                      */
 /* ---------------------------------------------------------------------- */
@@ -182,6 +232,68 @@ function zoneForPace(secPerKm, paceZones) {
 function isRunning(type) {
   if (!type) return false;
   return /hardlo|running|run\b|trail/i.test(String(type));
+}
+
+/* ---------------------------------------------------------------------- */
+/* Ondersoort: welke fiets, welke ondergrond                              */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Binnen "Fietsen" zitten ritten die niet met elkaar te vergelijken zijn.
+ * 25 km/u op de MTB en 25 km/u op de racefiets zijn twee verschillende
+ * inspanningen, en 40 km door het bos kost meer dan 40 km over asfalt.
+ *
+ * Dit is bewust een korte lijst: elk extra hokje is er één die iemand moet
+ * kiezen, en de enige reden dat ze bestaan is dat ze een vergelijking of een
+ * uitspraak van de coach veranderen.
+ */
+const CARDIO_SUB_TYPES = [
+  { id: "weg", naam: "Racefiets", sport: "Fietsen" },
+  { id: "gravel", naam: "Gravel", sport: "Fietsen" },
+  { id: "mtb", naam: "Mountainbike", sport: "Fietsen" },
+  { id: "indoor", naam: "Indoor trainer", sport: "Fietsen" },
+  { id: "ebike", naam: "E-bike", sport: "Fietsen" },
+  { id: "weg-hardlopen", naam: "Weg", sport: "Hardlopen" },
+  { id: "trail", naam: "Trail", sport: "Hardlopen" },
+  { id: "baan", naam: "Baan", sport: "Hardlopen" },
+  { id: "loopband", naam: "Loopband", sport: "Hardlopen" },
+];
+
+/** Welke sport een type is, los van hoe het precies geschreven staat. */
+function baseSportOf(type) {
+  const t = String(type || "").toLowerCase();
+  if (isRunning(t)) return "Hardlopen";
+  if (/fiets|ride|cycl|bike|mtb|gravel/.test(t)) return "Fietsen";
+  return null;
+}
+
+/** De keuzes die bij een sport horen; leeg als de sport ze niet onderscheidt. */
+function subTypesFor(type) {
+  const sport = baseSportOf(type);
+  return sport ? CARDIO_SUB_TYPES.filter((s) => s.sport === sport) : [];
+}
+
+/** "mtb" -> "Mountainbike". Onbekende waarden komen ongewijzigd terug. */
+function subTypeLabel(id) {
+  if (!id) return null;
+  const hit = CARDIO_SUB_TYPES.find((s) => s.id === id);
+  return hit ? hit.naam : String(id);
+}
+
+/** Een sessie binnen op de trainer: geen wind, geen afdalingen, wél blokken. */
+function isIndoorTrainer(subType) {
+  return subType === "indoor" || subType === "loopband";
+}
+
+/**
+ * Zijn deze twee sessies op dezelfde ondergrond gereden?
+ *
+ * Onbekend geldt alleen als gelijk aan onbekend. Een rit zonder label kan
+ * alles zijn geweest, dus hem gelijkstellen aan een racefietsrit zou precies
+ * de verwarring terugbrengen die dit veld moet oplossen.
+ */
+function sameSubType(a, b) {
+  return (a || null) === (b || null);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -696,12 +808,21 @@ module.exports = {
   daysUntil,
   computeHrZones,
   zoneForHr,
+  computeRestingHrBaseline,
+  RESTING_HR_WINDOW_DAYS,
+  RESTING_HR_MIN_NIGHTS,
   computePowerZones,
   computePaceZones,
   computePaceSecPerKm,
   formatPace,
   zoneForPace,
   isRunning,
+  CARDIO_SUB_TYPES,
+  baseSportOf,
+  subTypesFor,
+  subTypeLabel,
+  isIndoorTrainer,
+  sameSubType,
   computeAvgSpeedKmh,
   haversineKm,
   computeNormalizedPower,

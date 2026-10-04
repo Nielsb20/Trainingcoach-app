@@ -382,3 +382,34 @@ ALTER TABLE planned_sessions ADD COLUMN auto_skipped INTEGER NOT NULL DEFAULT 0;
 -- vermogen voor een wielrenner is. Dit is het tempo dat je ongeveer een uur
 -- volhoudt — de hardloopequivalent van FTP.
 ALTER TABLE profile ADD COLUMN threshold_pace_sec_per_km INTEGER;
+
+-- Wat voor fiets, of wat voor ondergrond.
+--
+-- Alles wat op Strava "Ride", "MountainBikeRide", "GravelRide" of
+-- "VirtualRide" heet werd hier één type: "Fietsen". Daarmee verdween het
+-- verschil tussen 40 km over de weg en 40 km door het bos, en dat is geen
+-- detail: op de MTB is de snelheid lager, de cadans onrustiger en de hartslag
+-- hoger bij hetzelfde vermogen. Zonder dit veld ziet een vergelijking een rit
+-- die "slechter" was, en kan de coach niet anders dan daar iets over zeggen.
+--
+-- Uitdrukkelijk GEEN belastingsfactor. Een MTB-rit zwaarder laten meetellen
+-- door er een vermenigvuldiger op te zetten zou een verzonnen getal in de
+-- CTL/ATL-reeks schuiven. Meet je vermogen, dan is de TSS al juist; meet je
+-- dat niet, dan blijft de hartslagschatting de eerlijkste die er is. Wat dit
+-- veld wel doet: zorgen dat onvergelijkbare ritten niet meer met elkaar
+-- worden vergeleken, en dat iedereen die ernaar kijkt weet wat hij ziet.
+ALTER TABLE cardio_logs ADD COLUMN sub_type TEXT;
+ALTER TABLE planned_sessions ADD COLUMN sub_type TEXT;
+ALTER TABLE schema_cardio_days ADD COLUMN sub_type TEXT;
+
+-- De blokkenstructuur van een geplande training: warm-up, intervallen,
+-- uitrijden, elk met een duur en een doelintensiteit in procenten van FTP.
+--
+-- De omschrijving van de coach ("2x20 min op 95% met 10 min herstel") is voor
+-- een mens genoeg, maar een indoortrainer wil blokken. Die structuur raden uit
+-- vrije tekst gaat een keer goed en een keer mis, dus hij wordt expliciet
+-- opgeslagen: of de coach levert hem direct mee, of hij wordt er één keer uit
+-- gehaald en ter controle voorgelegd. Zonder structuur geen bestand, en dat is
+-- beter dan een bestand dat iets anders voorschrijft dan er staat.
+ALTER TABLE planned_sessions ADD COLUMN structure_json TEXT;
+ALTER TABLE planned_sessions ADD COLUMN structure_source TEXT;

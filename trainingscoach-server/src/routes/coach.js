@@ -168,7 +168,20 @@ function buildCoachPayload({ question = null } = {}) {
     };
     const recent = wellnessLogs.slice(0, 7);
     const baseline = wellnessLogs.slice(7, 28);
+    const gemetenRust = calc.computeRestingHrBaseline(wellnessLogs);
     herstel = {
+      // De rusthartslag komt uit het slaapvenster, niet uit een meting op de
+      // bank. Dat is het verschil tussen een getal dat elke nacht onder
+      // dezelfde omstandigheden ontstaat en een getal dat afhangt van hoe lang
+      // je net had stilgezeten.
+      rusthartslagGemetenIn: "slaap",
+      gemetenBasislijn: gemetenRust
+        ? { rusthartslag: gemetenRust.bpm, nachten: gemetenRust.nachten, vensterDagen: gemetenRust.vensterDagen }
+        : null,
+      // De zones hieronder zijn met dit getal gerekend. Loopt het uit de pas
+      // met de meting, dan rekent de coach met zones die niet meer kloppen —
+      // en dan is dat het eerste dat benoemd moet worden.
+      rusthartslagInProfielVoorZones: schema.profile.restingHr ?? null,
       laatste7Dagen: {
         gemRusthartslag: avg(recent, "resting_hr"),
         gemHrvMs: avg(recent, "hrv_ms"),
@@ -240,7 +253,8 @@ function buildCoachPayload({ question = null } = {}) {
     recenteCardio: cardioLogs.slice(0, 8).map((c) => {
       const tssResult = calc.computeSessionTSS(c, schema.profile.ftp, hrZones, schema.profile.thresholdPaceSecPerKm);
       return {
-        datum: c.date, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, type: c.type, duur_min: c.duration_min, afstand_km: c.distance_km,
+        datum: c.date, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, type: c.type,
+        ondergrond: calc.subTypeLabel(c.subType), duur_min: c.duration_min, afstand_km: c.distance_km,
         gem_hartslag: c.avg_hr, max_hartslag: c.max_hr, hartslagzone: calc.zoneForHr(c.avg_hr, hrZones), gem_snelheid_kmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),
         gem_vermogen_watt: c.avg_power, max_vermogen_watt: c.max_power, gewogen_gem_vermogen_watt: c.weighted_avg_power,
         watt_per_kg: calc.computeWattsPerKg(c.avg_power, calc.getWeightAtDate(weightLogs, c.date)),

@@ -71,22 +71,34 @@ function findComparableSessions(session, limit = 5) {
     (r) => Math.abs(r.distance_km - session.distance_km) / session.distance_km <= 0.2
   );
 
-  // Zonder hoogtemeters op deze rit valt er niets op terrein te sorteren; dan
-  // blijft het gedrag zoals het was, namelijk de meest recente eerst.
-  if (ownClimb === null) return withinDistance.slice(0, limit).map(serializeCardio);
-
+  // De ondergrond weegt zwaarder dan het klimwerk. Veertig kilometer MTB tegen
+  // veertig kilometer asfalt is geen vergelijking die je iets rustiger moet
+  // interpreteren — het is er gewoon geen. Dus eerst op dezelfde fiets
+  // sorteren, binnen dat groepje op vergelijkbaar klimwerk, en bij gelijke
+  // geschiktheid het meest recent.
   return withinDistance
     .map((r, index) => {
       const climb = climbPerKm(r.distance_km, r.elevation_gain_m);
       return {
         row: r,
         index, // bewaart de oorspronkelijke volgorde op datum als tiebreak
+        anderOndergrond: calc.sameSubType(r.sub_type, session.subType ?? session.sub_type) ? 0 : 1,
         // Onbekend klimwerk achteraan: liever een rit waarvan we weten dat hij
-        // vergelijkbaar is dan een rit waarvan we het maar hopen.
-        afwijking: climb === null ? Number.POSITIVE_INFINITY : Math.abs(climb - ownClimb),
+        // vergelijkbaar is dan een rit waarvan we het maar hopen. Zonder
+        // hoogtemeters op deze rit valt er niets te sorteren en telt alleen de
+        // ondergrond.
+        afwijking:
+          ownClimb === null || climb === null
+            ? Number.POSITIVE_INFINITY
+            : Math.abs(climb - ownClimb),
       };
     })
-    .sort((a, b) => a.afwijking - b.afwijking || a.index - b.index)
+    .sort(
+      (a, b) =>
+        a.anderOndergrond - b.anderOndergrond ||
+        a.afwijking - b.afwijking ||
+        a.index - b.index
+    )
     .slice(0, limit)
     .map((c) => serializeCardio(c.row));
 }
@@ -199,17 +211,32 @@ router.get("/:id", (req, res) => {
           hoogtemeters: c.elevation_gain_m ?? null,
           klimPerKm,
           terreinVergelijkbaar: similarTerrain(ownClimb, klimPerKm),
+          ondergrond: calc.subTypeLabel(c.subType),
+          zelfdeOndergrond: calc.sameSubType(c.subType, session.subType),
         };
       });
 
-      // Snelheid alleen naast elkaar leggen als het parcours dat toelaat.
-      const bruikbaarVoorSnelheid = sessies.filter((s) => s.terreinVergelijkbaar !== false && s.snelheidKmu);
+      // Snelheid alleen naast elkaar leggen als het parcours dat toelaat én de
+      // fiets dezelfde was. Een MTB-rit in het gemiddelde trekt dat gemiddelde
+      // omlaag en laat elke wegrit er daarna beter uitzien dan hij was.
+      const bruikbaarVoorSnelheid = sessies.filter(
+        (s) => s.terreinVergelijkbaar !== false && s.zelfdeOndergrond && s.snelheidKmu
+      );
       const afwijkendTerrein = sessies.filter((s) => s.terreinVergelijkbaar === false).length;
+      const andereOndergrond = sessies.filter((s) => !s.zelfdeOndergrond).length;
       const heeftVermogen = !!session.weighted_avg_power || !!session.avg_power;
 
       return {
         aantalVergelijkbaar: comparable.length,
         klimPerKm: ownClimb,
+        ondergrond: calc.subTypeLabel(session.subType),
+        andereOndergrond,
+        ondergrondWaarschuwing:
+          andereOndergrond > 0
+            ? `${andereOndergrond} van de ${sessies.length} sessies ging over een andere ondergrond` +
+              (session.subType ? ` (deze rit: ${calc.subTypeLabel(session.subType)})` : " — op deze rit staat geen fietstype") +
+              ". Snelheid en afstand zijn daartussen niet te vergelijken; die sessies zijn uit het snelheidsgemiddelde gelaten."
+            : null,
         // Bewust op de sessies met vergelijkbaar terrein: een gemiddelde over
         // vlakke én heuvelachtige ritten is een getal waar niets uit volgt.
         gemSnelheidEerder: bruikbaarVoorSnelheid.length

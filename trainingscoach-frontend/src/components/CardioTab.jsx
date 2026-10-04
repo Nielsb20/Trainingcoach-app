@@ -6,7 +6,7 @@ import TimeOfDayPicker from "./shared/TimeOfDayPicker";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import StravaPanel from "./StravaPanel";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
-import { todayStr, formatDateNL, getWeightAtDate } from "../lib/calculations";
+import { todayStr, formatDateNL, getWeightAtDate, subTypesFor } from "../lib/calculations";
 import { uid, defaultTimeOfDay, timeOfDayLabel } from "../lib/uiHelpers";
 import { mapActivitiesCsv, guessCardioType } from "../lib/csvImport";
 import { parseGpxToSession, readGpxFileAsText } from "../lib/gpxParser";
@@ -14,6 +14,7 @@ import { parseGpxToSession, readGpxFileAsText } from "../lib/gpxParser";
 export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk, weightLogs, onStravaImported }) {
   const [date, setDate] = useState(todayStr());
   const [type, setType] = useState(CARDIO_TYPES[0]);
+  const [subType, setSubType] = useState("");
   const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay());
   const [duration, setDuration] = useState("");
   const [distance, setDistance] = useState("");
@@ -151,6 +152,7 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
     if (!date || !type) return;
     const entry = {
       id: uid(), date, timeOfDay, type,
+      sub_type: subType || null,
       duration_min: duration ? Number(duration) : null,
       distance_km: distance ? Number(distance) : null,
       avg_hr: avgHr ? Number(avgHr) : null,
@@ -346,6 +348,21 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
             </select>
           </div>
         </div>
+
+        {/* Alleen bij sporten waar het uitmaakt: 25 km/u op de MTB en 25 km/u
+            op de racefiets zijn twee verschillende inspanningen, en zonder dit
+            veld worden ze in de vergelijkingen op één hoop gegooid. */}
+        {subTypesFor(type).length > 0 && (
+          <div className="tc-form-row">
+            <div>
+              <label className="tc-label">Fiets / ondergrond (optioneel)</label>
+              <select className="tc-input" value={subType} onChange={(e) => setSubType(e.target.value)}>
+                <option value="">Niet opgegeven</option>
+                {subTypesFor(type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
 
         <label className="tc-label">Moment van de dag</label>
         <TimeOfDayPicker value={timeOfDay} onChange={setTimeOfDay} />

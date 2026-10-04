@@ -149,6 +149,48 @@ export const keepPlannedSession = (id) => request(`/planned/${id}/behouden`, { m
 /** Verwijdert in één keer alle openstaande restanten van vervangen advies. */
 export const cleanupStalePlanned = () => request("/planned/verouderd/opruimen", { method: "POST" });
 
+/* ------------------------- trainingsbestanden -------------------------- */
+
+/** Zet de omschrijving om in blokken. Nog niets opgeslagen: eerst controleren. */
+export const derivePlannedStructure = (id) => request(`/planned/${id}/structuur`, { method: "POST" });
+/** Legt de blokken vast zoals je ze hebt goedgekeurd (of wist ze met null). */
+export const savePlannedStructure = (id, blokken, bron = "handmatig") =>
+  request(`/planned/${id}/structuur`, { method: "PUT", body: JSON.stringify({ blokken, bron }) });
+
+/**
+ * Downloadt het trainingsbestand. Gaat buiten `request` om: dit is geen JSON
+ * maar een bestand, en de browser moet het als download aanbieden.
+ */
+export async function downloadWorkoutFile(id, formaat = "zwo") {
+  const res = await fetch(`${BASE}/planned/${id}/trainingsbestand?formaat=${formaat}`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body.error || "";
+    } catch {
+      /* geen JSON — dan blijft het bij de status */
+    }
+    throw new Error(detail || `Kon het bestand niet maken (${res.status})`);
+  }
+  const blob = await res.blob();
+  const naam = (res.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/)?.[1]
+    || `training.${formaat}`;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = naam;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return naam;
+}
+
+/** Welke fiets of ondergrond het was; corrigeert ook geïmporteerde historie. */
+export const setCardioSubType = (id, subType) =>
+  request(`/cardio-logs/${id}/ondersoort`, { method: "PATCH", body: JSON.stringify({ subType }) });
+
 /* --------------------------------- strava ------------------------------ */
 
 export const getStravaStatus = () => request("/strava/status");

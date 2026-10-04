@@ -12,8 +12,19 @@
 const express = require("express");
 const { db } = require("../db/db");
 const calc = require("../lib/calculations");
+const { normalizeStructure, renderWorkoutFile, describeStructure } = require("../lib/workoutFile");
 
 const router = express.Router();
+
+/** Een ondersoort uit modeluitvoer: alleen als hij bestaat en bij de sport past. */
+function veiligeOndersoort(waarde, type) {
+  if (!waarde) return null;
+  const hit = calc.CARDIO_SUB_TYPES.find((s) => s.id === waarde);
+  if (!hit) return null;
+  const sport = calc.baseSportOf(type);
+  if (sport && hit.sport !== sport) return null;
+  return hit.id;
+}
 
 function serialize(row) {
   return {
@@ -27,6 +38,11 @@ function serialize(row) {
     status: row.status,
     durationMin: row.duration_min,
     intensity: row.intensity,
+    subType: row.sub_type,
+    // De blokkenstructuur, als die er is. Alleen dan kan er een
+    // trainingsbestand voor de indoortrainer van gemaakt worden.
+    structuur: row.structure_json ? JSON.parse(row.structure_json) : null,
+    structuurBron: row.structure_source || null,
     discipline: row.discipline || 'cardio',
     movedFrom: row.moved_from,
     timeOfDay: row.time_of_day,
@@ -441,8 +457,9 @@ function createProposalsFromCoachEntry(coachEntryId) {
 
   const insert = db.prepare(
     `INSERT INTO planned_sessions
-       (id, date, weekday, type, description, source_coach_entry_id, status, replaces_id, discipline)
-     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?)`
+       (id, date, weekday, type, description, source_coach_entry_id, status, replaces_id, discipline,
+        sub_type, structure_json, structure_source)
+     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?, ?, ?, ?)`
   );
   // Conflicts are per discipline: a strength session and a ride on the same
   // day is a normal double day, not a clash.
@@ -488,8 +505,15 @@ function createProposalsFromCoachEntry(coachEntryId) {
     }
 
     const id = `plan-${coachEntryId}-${i}`;
+    // Modeluitvoer, dus allebei door de poort: een ondersoort die niet bestaat
+    // wordt weggelaten, en een blokkenstructuur die niet klopt eveneens. Beter
+    // geen label en geen bestand dan een verzonnen label en een bestand dat
+    // iets anders voorschrijft dan er staat.
+    const subType = veiligeOndersoort(p.ondergrond ?? p.subType, p.label);
+    const structuur = p.discipline === "cardio" ? normalizeStructure(p.blokken) : null;
     insert.run(id, date, p.dag || null, p.label || "Anders", p.invulling || "", coachEntryId,
-               existing ? existing.id : null, p.discipline);
+               existing ? existing.id : null, p.discipline,
+               subType, structuur ? JSON.stringify(structuur) : null, structuur ? "coach" : null);
 
     created.push({
       id,
@@ -497,6 +521,8 @@ function createProposalsFromCoachEntry(coachEntryId) {
       type: p.label,
       discipline: p.discipline,
       description: p.invulling,
+      subType,
+      structuur,
       soort: existing ? "wijziging" : "nieuw",
       vervangt: existing
         ? { id: existing.id, type: existing.type, description: existing.description }
@@ -830,16 +856,202 @@ router.patch("/:id/move", (req, res) => {
 
 /** POST /api/planned - add a session yourself, without going via the coach. */
 router.post("/", (req, res) => {
-  const { date, type, description, durationMin, intensity, discipline } = req.body || {};
+  const { date, type, description, durationMin, intensity, discipline, subType } = req.body || {};
   if (!date || !type) return res.status(400).json({ error: "Datum en type zijn verplicht." });
   const id = `plan-manual-${Date.now()}`;
   db.prepare(
-    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status, discipline)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland', ?)`
+    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status, discipline, sub_type)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland', ?, ?)`
   ).run(id, date, calc.weekdayNameForDate(date), type, description || "", durationMin ?? null,
-        intensity ?? null, discipline === "kracht" ? "kracht" : "cardio");
+        intensity ?? null, discipline === "kracht" ? "kracht" : "cardio",
+        veiligeOndersoort(subType, type));
   refreshCompletions();
   res.status(201).json({ id });
+});
+
+/* ------------------- trainingsbestand voor de trainer ------------------ */
+
+/**
+ * GET /api/planned/:id/trainingsbestand?formaat=zwo
+ *
+ * Een geplande sessie als bestand voor de indoortrainer. ROUVY leest .zwo,
+ * .erg en .mrc; .zwo is de standaard omdat intervallen daarin als intervallen
+ * blijven staan en de aanwijzing van de coach als tekstcue meegaat.
+ *
+ * Alleen als er een blokkenstructuur ligt. Een sessie met enkel "duurrit van
+ * twee uur" levert geen bestand op, en dat is het eerlijke antwoord: wat de
+ * weerstand dan per minuut moet zijn staat nergens.
+ */
+router.get("/:id/trainingsbestand", (req, res) => {
+  const row = db.prepare("SELECT * FROM planned_sessions WHERE id = ?").get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Geplande sessie niet gevonden." });
+
+  const blokken = row.structure_json ? JSON.parse(row.structure_json) : null;
+  if (!blokken) {
+    return res.status(409).json({
+      error: "Deze training heeft nog geen blokkenstructuur, dus er is geen bestand van te maken.",
+      hint: "Laat de structuur eerst opstellen via POST /api/planned/:id/structuur, en controleer hem.",
+    });
+  }
+
+  const formaat = String(req.query.formaat || "zwo").toLowerCase();
+  const profile = db.prepare("SELECT ftp FROM profile WHERE id = 1").get();
+  const naam = `${calc.formatDateNL(row.date)} ${row.type}`.trim();
+
+  try {
+    const bestand = renderWorkoutFile(blokken, {
+      format: formaat,
+      naam,
+      beschrijving: row.description || "",
+      ftp: profile?.ftp ?? null,
+      sport: calc.baseSportOf(row.type) === "Hardlopen" ? "run" : "bike",
+    });
+    res.setHeader("Content-Type", bestand.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${bestand.bestandsnaam}"`);
+    res.send(bestand.inhoud);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/planned/:id/structuur
+ *
+ * Zet de omschrijving van een geplande training om in blokken.
+ *
+ * Dit is een modelaanroep en geen parser, om één reden: "2x20 min op 95% met
+ * 10 min los ertussen" is prima te lezen, maar "een uurtje opbouwend met wat
+ * versnellingen" ook, en een reguliere expressie die het eerste aankan doet
+ * net alsof hij het tweede ook snapt. Het antwoord wordt NIET meteen gebruikt
+ * — het gaat terug naar de interface, de sporter ziet de blokken, en pas als
+ * hij ze bevestigt (PUT) komen ze in de planning. Een trainingsbestand dat
+ * iets anders voorschrijft dan er staat merk je pas halverwege een interval.
+ */
+router.post("/:id/structuur", async (req, res) => {
+  const row = db.prepare("SELECT * FROM planned_sessions WHERE id = ?").get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Geplande sessie niet gevonden." });
+  if ((row.discipline || "cardio") !== "cardio") {
+    return res.status(400).json({ error: "Alleen cardiotrainingen worden een trainingsbestand." });
+  }
+  if (!row.description || !row.description.trim()) {
+    return res.status(400).json({ error: "Deze training heeft geen omschrijving om blokken uit te halen." });
+  }
+
+  const profile = db.prepare("SELECT ftp, max_hr FROM profile WHERE id = 1").get();
+
+  const systemPrompt =
+    "Je zet de omschrijving van één trainingssessie om in een blokkenstructuur voor een indoortrainer. " +
+    "Je verzint geen training: je schrijft alleen op wat er in de omschrijving staat, in blokken. " +
+    "Intensiteit druk je uit in procenten van FTP (drempelvermogen). Staat er een wattage in de omschrijving en is ftp bekend, reken dat dan om naar een percentage. " +
+    "Staat er een hartslagzone of een woord als 'duurtempo', 'tempo' of 'drempel', gebruik dan de gangbare omrekening: herstel 50-60%, duur 60-75%, tempo 76-90%, drempel 91-105%, VO2max 106-120%. " +
+    "Begin met een warmup en eindig met een cooldown als de omschrijving die noemt of duidelijk veronderstelt bij een intensieve training; voeg ze niet toe aan een rustige duurrit die al een lengte heeft. " +
+    "Is de omschrijving te vaag om blokken van te maken (bijvoorbeeld alleen 'rustig uurtje' zonder verdere aanwijzing), geef dan één duurblok met de genoemde duur en intensiteit, of een leeg blokken-array als zelfs dat niet kan. Verzin NOOIT intervallen die er niet staan. " +
+    "De som van alle blokken moet ongeveer overeenkomen met de genoemde totale duur. " +
+    "Antwoord UITSLUITEND met geldig JSON, zonder markdown: " +
+    '{"blokken": [{"soort": "warmup"|"duur"|"interval"|"herstel"|"cooldown"|"vrij", "minuten": number, "pctFtp": number, "pctFtpTot": number|null, "herhalingen": number|null, "aanMinuten": number|null, "uitMinuten": number|null, "aanPctFtp": number|null, "uitPctFtp": number|null, "tekst": string|null}], "toelichting": string}. ' +
+    "Bij soort 'interval' vul je herhalingen, aanMinuten, uitMinuten, aanPctFtp en uitPctFtp, en laat je minuten en pctFtp weg. Bij alle andere soorten vul je minuten en pctFtp. pctFtpTot alleen bij warmup of cooldown die oploopt of afloopt. " +
+    "tekst is een korte aanwijzing die in de trainer wordt getoond, maximaal ongeveer tien woorden, of null. " +
+    "toelichting: één zin over hoe je de omschrijving hebt gelezen, zodat de cliënt kan controleren of dat klopt.";
+
+  const payload = {
+    datum: row.date,
+    type: row.type,
+    omschrijving: row.description,
+    geplandeDuurMin: row.duration_min ?? null,
+    intensiteit: row.intensity ?? null,
+    ftp: profile?.ftp ?? null,
+    maxHartslag: profile?.max_hr ?? null,
+  };
+
+  try {
+    const { callCoachModel } = require("../lib/llmProvider");
+    const { rawText } = await callCoachModel({
+      systemPrompt,
+      userContent: JSON.stringify(payload),
+      maxTokens: 900,
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          blokken: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                soort: { type: "STRING" },
+                minuten: { type: "NUMBER" },
+                pctFtp: { type: "NUMBER" },
+                pctFtpTot: { type: "NUMBER" },
+                herhalingen: { type: "NUMBER" },
+                aanMinuten: { type: "NUMBER" },
+                uitMinuten: { type: "NUMBER" },
+                aanPctFtp: { type: "NUMBER" },
+                uitPctFtp: { type: "NUMBER" },
+                tekst: { type: "STRING" },
+              },
+              required: ["soort"],
+            },
+          },
+          toelichting: { type: "STRING" },
+        },
+        required: ["blokken"],
+      },
+    });
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(rawText.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```\s*$/, "").trim());
+    } catch {
+      parsed = null;
+    }
+
+    const blokken = normalizeStructure(parsed?.blokken);
+    if (!blokken) {
+      return res.status(422).json({
+        error: "Hier is geen blokkenstructuur uit te halen. Vul de blokken zelf aan, of houd het bij de omschrijving.",
+        toelichting: parsed?.toelichting || null,
+      });
+    }
+
+    // Bewust nog niet opgeslagen: eerst zien, dan bevestigen met PUT.
+    res.json({
+      blokken,
+      toelichting: parsed?.toelichting || null,
+      samenvatting: describeStructure(blokken, profile?.ftp ?? null),
+      bron: "coach-omzetting",
+      nogNietOpgeslagen: true,
+    });
+  } catch (err) {
+    res.status(502).json({ error: "Omzetten mislukt", details: err.message });
+  }
+});
+
+/**
+ * PUT /api/planned/:id/structuur  { blokken }
+ *
+ * De structuur zoals de sporter hem heeft goedgekeurd of aangepast. Gaat door
+ * dezelfde poort als modeluitvoer: wat niet klopt wordt niet opgeslagen.
+ */
+router.put("/:id/structuur", (req, res) => {
+  const row = db.prepare("SELECT id FROM planned_sessions WHERE id = ?").get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Geplande sessie niet gevonden." });
+
+  // Expliciet leegmaken mag: dan is er weer geen bestand, en dat is duidelijk.
+  if (req.body?.blokken === null) {
+    db.prepare("UPDATE planned_sessions SET structure_json = NULL, structure_source = NULL WHERE id = ?").run(row.id);
+    return res.json({ structuur: null });
+  }
+
+  const blokken = normalizeStructure(req.body?.blokken);
+  if (!blokken) {
+    return res.status(400).json({
+      error: "Geen bruikbare blokken. Elk blok heeft een soort, een duur en een doelintensiteit in procenten van je FTP.",
+    });
+  }
+  db.prepare("UPDATE planned_sessions SET structure_json = ?, structure_source = ? WHERE id = ?")
+    .run(JSON.stringify(blokken), req.body?.bron || "handmatig", row.id);
+
+  const profile = db.prepare("SELECT ftp FROM profile WHERE id = 1").get();
+  res.json({ structuur: blokken, samenvatting: describeStructure(blokken, profile?.ftp ?? null) });
 });
 
 // PATCH /api/planned/:id  { status }  - manual override

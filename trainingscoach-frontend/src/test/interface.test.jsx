@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import ErrorBoundary from "../components/shared/ErrorBoundary";
 import CollapsibleCard from "../components/shared/CollapsibleCard";
 import RestTimer from "../components/shared/RestTimer";
+import WorkoutFilePanel from "../components/shared/WorkoutFilePanel";
 import KrachtTab from "../components/KrachtTab";
 import EventsTab from "../components/EventsTab";
 import * as api from "../api/client";
@@ -188,5 +189,66 @@ describe("EventsTab", () => {
     // Het id blijft: coachantwoorden en geplande sessies verwijzen ernaar.
     expect(updateEvent.mock.calls[0][0]).toBe("e1");
     expect(updateEvent.mock.calls[0][1].name).toBe("HBO Fietstocht 2026");
+  });
+});
+
+describe("WorkoutFilePanel", () => {
+  const plan = {
+    id: "p1",
+    type: "Fietsen",
+    description: "2x20 min op drempel",
+    status: "gepland",
+    discipline: "cardio",
+    structuur: null,
+  };
+
+  it("toont de blokken en laat ze downloaden als ze er al liggen", async () => {
+    vi.spyOn(api, "downloadWorkoutFile").mockResolvedValue("drempel.zwo");
+    const metStructuur = {
+      ...plan,
+      structuurBron: "coach",
+      structuur: [
+        { soort: "warmup", minuten: 10, pctFtp: 55, pctFtpTot: 75 },
+        { soort: "interval", herhalingen: 2, aanMinuten: 20, uitMinuten: 10, aanPctFtp: 95, uitPctFtp: 55 },
+      ],
+    };
+    render(<WorkoutFilePanel plan={metStructuur} onChanged={vi.fn()} />);
+
+    expect(screen.getByText(/Warm-up 10 min van 55% naar 75% FTP/)).toBeInTheDocument();
+    expect(screen.getByText(/2x 20 min op 95% FTP/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: ".zwo" }));
+    await waitFor(() => expect(api.downloadWorkoutFile).toHaveBeenCalledWith("p1", "zwo"));
+    // De import in ROUVY is handwerk, dus er moet staan waar je het neerzet.
+    expect(await screen.findByText(/importeer hem in ROUVY/)).toBeInTheDocument();
+  });
+
+  it("slaat een omgezet voorstel pas op als je het bevestigt", async () => {
+    vi.spyOn(api, "derivePlannedStructure").mockResolvedValue({
+      blokken: [{ soort: "duur", minuten: 60, pctFtp: 70 }],
+      toelichting: "Eén duurblok van een uur.",
+      samenvatting: { totaalMinuten: 60, regels: [] },
+    });
+    vi.spyOn(api, "savePlannedStructure").mockResolvedValue({});
+    render(<WorkoutFilePanel plan={plan} onChanged={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Maak een trainingsbestand/ }));
+    expect(await screen.findByText(/nog niet opgeslagen/i)).toBeInTheDocument();
+    expect(screen.getByText(/Eén duurblok van een uur/)).toBeInTheDocument();
+    // Niets opgeslagen zolang er niet is bevestigd: een bestand dat iets anders
+    // voorschrijft dan je planning merk je pas halverwege een interval.
+    expect(api.savePlannedStructure).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Kloppen — vastleggen/ }));
+    await waitFor(() => expect(api.savePlannedStructure).toHaveBeenCalled());
+    expect(api.savePlannedStructure.mock.calls[0][1]).toEqual([{ soort: "duur", minuten: 60, pctFtp: 70 }]);
+  });
+
+  it("meldt het als er geen blokken uit te halen zijn", async () => {
+    vi.spyOn(api, "derivePlannedStructure").mockRejectedValue(new Error("Hier is geen blokkenstructuur uit te halen."));
+    render(<WorkoutFilePanel plan={plan} onChanged={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Maak een trainingsbestand/ }));
+    expect(await screen.findByText(/geen blokkenstructuur uit te halen/)).toBeInTheDocument();
   });
 });

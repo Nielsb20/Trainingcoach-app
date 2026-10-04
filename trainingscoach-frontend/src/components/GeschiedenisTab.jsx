@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { TrendingUp, Search, Pencil, Loader2 } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
-import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad } from "../lib/calculations";
+import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad, subTypeLabel } from "../lib/calculations";
 import { timeOfDayLabel } from "../lib/uiHelpers";
 import WorkoutLogEditor from "./WorkoutLogEditor";
 import AnalyseTab from "./AnalyseTab";
@@ -187,7 +187,13 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                       <tr>
                         <td>{formatDateNL(c.date)}</td>
                         <td>{c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : "–"}</td>
-                        <td>{c.type}</td>
+                        {/* Met het fietstype erbij, want dit is de tabel waar je
+                            16,6 km/u naast 25,2 km/u ziet staan en je afvraagt
+                            wat er aan de hand is. */}
+                        <td>
+                          {c.type}
+                          {c.subType && <span className="tc-hint-badge" style={{ marginLeft: 6 }}>{subTypeLabel(c.subType)}</span>}
+                        </td>
                         <td className="tc-mono">
                           {c.duration_min ? `${c.duration_min} min` : "–"}
                           {c.total_duration_min && c.total_duration_min > c.duration_min ? ` (${c.total_duration_min})` : ""}
