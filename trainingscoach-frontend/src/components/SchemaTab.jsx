@@ -45,6 +45,15 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
   const paceZones = schema.profile?.thresholdPaceSecPerKm
     ? computePaceZones(schema.profile.thresholdPaceSecPerKm)
     : null;
+
+  // De server rekent de basislijn uit over de nachten die hij heeft; hier
+  // alleen het verschil met wat er is ingevuld, want dat bepaalt of er iets
+  // te melden valt.
+  const gemetenRust = schema.profile?.restingHrGemeten || null;
+  const rustVerschil =
+    gemetenRust && schema.profile?.restingHr
+      ? Math.abs(gemetenRust.bpm - schema.profile.restingHr)
+      : null;
   // A backup nobody can see is a backup nobody trusts, so the automatic ones
   // are reported here rather than only existing on disk.
   const [autoBackups, setAutoBackups] = useState(null);
@@ -404,7 +413,9 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
       >
         <p className="tc-import-help" style={{ marginTop: 0 }}>
           Met je max. hartslag (en optioneel je rusthartslag, voor een preciezere berekening) kan de
-          coach hartslagwaarden interpreteren als zones in plaats van kale bpm-cijfers.
+          coach hartslagwaarden interpreteren als zones in plaats van kale bpm-cijfers. Meet je je
+          nachten (Garmin), dan staat de gemeten rusthartslag eronder — die loopt mee met je vorm,
+          het ingetikte getal niet.
         </p>
         <div className="tc-form-row">
           <div>
@@ -428,6 +439,48 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
             />
           </div>
         </div>
+        {gemetenRust && (
+          <div className="tc-inline-note" style={{ marginTop: 8 }}>
+            <p style={{ margin: 0 }}>
+              {gemetenRust.bron === "slaap" ? "Gemeten tijdens je slaap" : "Gemeten dagwaarde van je horloge"}:{" "}
+              <strong className="tc-mono">{gemetenRust.bpm} bpm</strong>{" "}
+              (mediaan over {gemetenRust.nachten} {gemetenRust.bron === "slaap" ? "nachten" : "dagen"} in de
+              laatste {gemetenRust.vensterDagen} dagen, laagste {gemetenRust.laagste},
+              hoogste {gemetenRust.hoogste}).
+            </p>
+            {gemetenRust.bron !== "slaap" && (
+              <p style={{ margin: "6px 0 0" }}>
+                Dit is de rusthartslag die je horloge over het hele etmaal bepaalt, en die kan 's avonds
+                nog zakken. Zodra er genoeg nachten met een echte nachthartslag zijn
+                ({gemetenRust.nachtmetingen} tot nu toe) stapt de basislijn daar vanzelf op over.
+              </p>
+            )}
+            {rustVerschil === null ? (
+              <p style={{ margin: "6px 0 0" }}>
+                Je hebt hier nog niets ingevuld. Neem je de meting over, dan rekenen de zones hieronder
+                met je werkelijke hartslagreserve in plaats van alleen met je max.
+              </p>
+            ) : rustVerschil >= 4 ? (
+              <p style={{ margin: "6px 0 0" }}>
+                Dat is {rustVerschil} slagen {gemetenRust.bpm < schema.profile.restingHr ? "lager" : "hoger"} dan
+                wat hier staat. De zones schuiven daardoor ongeveer {Math.round(rustVerschil * 0.3)} bpm op
+                rond zone 3–4; genoeg om een duurrit net in de verkeerde zone te laten vallen.
+              </p>
+            ) : (
+              <p style={{ margin: "6px 0 0" }}>Dat komt overeen met wat je hebt ingevuld — niets te doen.</p>
+            )}
+            {gemetenRust.bpm !== schema.profile?.restingHr && (
+              <button
+                type="button"
+                className="tc-btn tc-btn-ghost tc-btn-sm"
+                style={{ marginTop: 8 }}
+                onClick={() => setSchema({ ...schema, profile: { ...schema.profile, restingHr: gemetenRust.bpm } })}
+              >
+                Meting overnemen ({gemetenRust.bpm} bpm)
+              </button>
+            )}
+          </div>
+        )}
         {schema.profile?.maxHr && (
           <table className="tc-table" style={{ marginTop: 12 }}>
             <thead><tr><th>Zone</th><th>Naam</th><th>Bereik (bpm)</th></tr></thead>

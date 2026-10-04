@@ -89,6 +89,92 @@ export function zoneForHr(hr, zones) {
   return 5;
 }
 
+/**
+ * De gemeten hartslag in rust over de afgelopen weken, als één getal.
+ *
+ * Twee dingen zitten hier in, en het verschil ertussen is de reden dat deze
+ * functie bestaat.
+ *
+ * `sleeping_hr` is de gemiddelde hartslag over het slaapvenster. Die ligt vast
+ * zodra je wakker bent.
+ *
+ * `resting_hr` is wat Garmin rusthartslag noemt, en dat is een DAGwaarde: de
+ * laagste aanhoudende hartslag over het hele etmaal. Kijk je er 's ochtends
+ * naar, dan gaat hij over je nacht. Lig je 's middags een uur stil op de bank
+ * met een lagere hartslag, dan is het 's avonds dát getal geworden. Dezelfde
+ * dag, een ander antwoord — en een basislijn die beweegt om redenen die niets
+ * met herstel te maken hebben.
+ *
+ * Dus: de nachtwaarde gaat voor, en de dagwaarde is alleen de terugval voor
+ * dagen (of apparaten) waar de nacht niet is vastgelegd. De twee worden nooit
+ * door elkaar gemiddeld — een gemiddelde over het slaapvenster ligt structureel
+ * hoger dan een minimum over het etmaal, en die twee optellen levert een getal
+ * op dat niets meet.
+ *
+ * Vandaag telt niet mee. Zolang de dag loopt kan de dagwaarde nog zakken, en
+ * een basislijn die 's avonds anders is dan 's ochtends is geen basislijn.
+ *
+ * Mediaan, niet gemiddelde: één nacht na een biertje of met een opkomende
+ * verkoudheid tilt een gemiddelde omhoog, de mediaan haalt zijn schouders op.
+ *
+ * Vier weken is een afweging: lang genoeg om rustig te staan, kort genoeg om
+ * een echte verbetering binnen een seizoen te volgen.
+ */
+export const RESTING_HR_WINDOW_DAYS = 28;
+export const RESTING_HR_MIN_NIGHTS = 7;
+
+export function computeRestingHrBaseline(wellnessLogs, options = {}) {
+  const windowDays = options.windowDays || RESTING_HR_WINDOW_DAYS;
+  const minNights = options.minNights || RESTING_HR_MIN_NIGHTS;
+  if (!Array.isArray(wellnessLogs) || wellnessLogs.length === 0) return null;
+
+  const today = options.today || todayStr();
+  const cutoff = new Date(today + "T00:00:00");
+  cutoff.setDate(cutoff.getDate() - windowDays);
+  const cutoffStr = toDateStr(cutoff);
+
+  const afgeronde = wellnessLogs.filter((w) => w.date >= cutoffStr && w.date < today);
+  const lees = (w, veld) => {
+    const snake = veld === "slaap" ? "sleeping_hr" : "resting_hr";
+    const camel = veld === "slaap" ? "sleepingHr" : "restingHr";
+    const value = w[snake] !== undefined ? w[snake] : w[camel];
+    return value === null || value === undefined || isNaN(value) ? null : Number(value);
+  };
+
+  const nacht = afgeronde.map((w) => lees(w, "slaap")).filter((v) => v !== null);
+  const dag = afgeronde.map((w) => lees(w, "dag")).filter((v) => v !== null);
+
+  // De nachtwaarde wint zodra er genoeg nachten zijn; anders de dagwaarde,
+  // met erbij wélke van de twee het is geworden.
+  const [values, bron] =
+    nacht.length >= minNights
+      ? [nacht, "slaap"]
+      : dag.length >= minNights
+        ? [dag, "dagwaarde"]
+        : [[], null];
+
+  // Te weinig nachten is geen basislijn maar een losse meting. Dan liever
+  // niets beweren dan een getal dat stevig lijkt.
+  if (!bron) return null;
+
+  const gesorteerd = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(gesorteerd.length / 2);
+  const median =
+    gesorteerd.length % 2 ? gesorteerd[mid] : (gesorteerd[mid - 1] + gesorteerd[mid]) / 2;
+
+  return {
+    bpm: Math.round(median),
+    bron,
+    nachten: gesorteerd.length,
+    laagste: gesorteerd[0],
+    hoogste: gesorteerd[gesorteerd.length - 1],
+    vensterDagen: windowDays,
+    // Hoeveel nachten er een echte nachtmeting hebben, ook als de dagwaarde
+    // het nu nog doet: dat is wat de interface moet kunnen uitleggen.
+    nachtmetingen: nacht.length,
+  };
+}
+
 /* ---------------------------------------------------------------------- */
 /* Power zones (Coggan 7-zone model)                                      */
 /* ---------------------------------------------------------------------- */
@@ -179,6 +265,68 @@ export function zoneForPace(secPerKm, paceZones) {
 export function isRunning(type) {
   if (!type) return false;
   return /hardlo|running|run\b|trail/i.test(String(type));
+}
+
+/* ---------------------------------------------------------------------- */
+/* Ondersoort: welke fiets, welke ondergrond                              */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Binnen "Fietsen" zitten ritten die niet met elkaar te vergelijken zijn.
+ * 25 km/u op de MTB en 25 km/u op de racefiets zijn twee verschillende
+ * inspanningen, en 40 km door het bos kost meer dan 40 km over asfalt.
+ *
+ * Dit is bewust een korte lijst: elk extra hokje is er één die iemand moet
+ * kiezen, en de enige reden dat ze bestaan is dat ze een vergelijking of een
+ * uitspraak van de coach veranderen.
+ */
+export const CARDIO_SUB_TYPES = [
+  { id: "weg", naam: "Racefiets", sport: "Fietsen" },
+  { id: "gravel", naam: "Gravel", sport: "Fietsen" },
+  { id: "mtb", naam: "Mountainbike", sport: "Fietsen" },
+  { id: "indoor", naam: "Indoor trainer", sport: "Fietsen" },
+  { id: "ebike", naam: "E-bike", sport: "Fietsen" },
+  { id: "weg-hardlopen", naam: "Weg", sport: "Hardlopen" },
+  { id: "trail", naam: "Trail", sport: "Hardlopen" },
+  { id: "baan", naam: "Baan", sport: "Hardlopen" },
+  { id: "loopband", naam: "Loopband", sport: "Hardlopen" },
+];
+
+/** Welke sport een type is, los van hoe het precies geschreven staat. */
+export function baseSportOf(type) {
+  const t = String(type || "").toLowerCase();
+  if (isRunning(t)) return "Hardlopen";
+  if (/fiets|ride|cycl|bike|mtb|gravel/.test(t)) return "Fietsen";
+  return null;
+}
+
+/** De keuzes die bij een sport horen; leeg als de sport ze niet onderscheidt. */
+export function subTypesFor(type) {
+  const sport = baseSportOf(type);
+  return sport ? CARDIO_SUB_TYPES.filter((s) => s.sport === sport) : [];
+}
+
+/** "mtb" -> "Mountainbike". Onbekende waarden komen ongewijzigd terug. */
+export function subTypeLabel(id) {
+  if (!id) return null;
+  const hit = CARDIO_SUB_TYPES.find((s) => s.id === id);
+  return hit ? hit.naam : String(id);
+}
+
+/** Een sessie binnen op de trainer: geen wind, geen afdalingen, wél blokken. */
+export function isIndoorTrainer(subType) {
+  return subType === "indoor" || subType === "loopband";
+}
+
+/**
+ * Zijn deze twee sessies op dezelfde ondergrond gereden?
+ *
+ * Onbekend geldt alleen als gelijk aan onbekend. Een rit zonder label kan
+ * alles zijn geweest, dus hem gelijkstellen aan een racefietsrit zou precies
+ * de verwarring terugbrengen die dit veld moet oplossen.
+ */
+export function sameSubType(a, b) {
+  return (a || null) === (b || null);
 }
 
 /* ---------------------------------------------------------------------- */

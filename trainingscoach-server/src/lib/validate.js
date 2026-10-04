@@ -82,6 +82,30 @@ function validateCardioEntry(entry, index = null) {
   if (!entry.duration_min && !entry.distance_km) {
     throw new ValidationError(`Sessie${waar} heeft geen duur en geen afstand.`);
   }
+  validateSubType(entry.sub_type ?? entry.subType, entry.type, waar);
+}
+
+/**
+ * De ondersoort moet uit de lijst komen, en bij de sport passen.
+ *
+ * Leeg is prima — de meeste sessies hebben het niet. Maar "mtb" op een
+ * hardloopsessie is een fout die stil doorsijpelt naar de vergelijkingen, waar
+ * hij niemand meer opvalt.
+ */
+function validateSubType(subType, type, waar = "") {
+  if (subType === null || subType === undefined || subType === "") return;
+  const calc = require("./calculations");
+  const allowed = calc.CARDIO_SUB_TYPES.find((s) => s.id === subType);
+  if (!allowed) {
+    const namen = calc.CARDIO_SUB_TYPES.map((s) => s.id).join(", ");
+    throw new ValidationError(`Onbekende ondersoort ${JSON.stringify(subType)}${waar}. Kies uit: ${namen}.`);
+  }
+  const sport = calc.baseSportOf(type);
+  if (sport && allowed.sport !== sport) {
+    throw new ValidationError(
+      `Ondersoort "${allowed.naam}" hoort bij ${allowed.sport}, niet bij ${type}${waar}.`
+    );
+  }
 }
 
 // Eén import mag groot zijn (een heel Strava-archief), maar niet onbegrensd:
@@ -161,6 +185,7 @@ module.exports = {
   ValidationError,
   validateCardioEntry,
   validateCardioBulk,
+  validateSubType,
   validateWeightEntry,
   validateWorkoutEntry,
   MAX_BULK,

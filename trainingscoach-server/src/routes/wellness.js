@@ -17,7 +17,7 @@ const calc = require("../lib/calculations");
 const router = express.Router();
 
 const FIELDS = [
-  "resting_hr", "hrv_ms", "sleep_minutes", "sleep_score",
+  "resting_hr", "sleeping_hr", "hrv_ms", "sleep_minutes", "sleep_score",
   "body_battery_max", "body_battery_min", "stress_avg", "notes",
 ];
 
@@ -25,6 +25,7 @@ function serialize(row) {
   return {
     date: row.date,
     restingHr: row.resting_hr,
+    sleepingHr: row.sleeping_hr,
     hrvMs: row.hrv_ms,
     sleepMinutes: row.sleep_minutes,
     sleepScore: row.sleep_score,
@@ -40,6 +41,7 @@ function toRow(entry) {
   return {
     date: entry.date,
     resting_hr: entry.restingHr ?? null,
+    sleeping_hr: entry.sleepingHr ?? null,
     hrv_ms: entry.hrvMs ?? null,
     sleep_minutes: entry.sleepMinutes ?? null,
     sleep_score: entry.sleepScore ?? null,

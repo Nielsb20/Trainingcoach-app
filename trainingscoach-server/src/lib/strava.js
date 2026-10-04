@@ -178,6 +178,26 @@ function mapSportType(sportType) {
   return "Anders";
 }
 
+/**
+ * Strava's sport_type -> welke fiets of ondergrond.
+ *
+ * Alleen de types die het zelf expliciet zeggen leveren een label. Een kale
+ * "Ride" komt terug als null, niet als "racefiets": dat is precies het type
+ * dat iedereen laat staan voor elke rit, dus er een bikeype uit concluderen
+ * zou een verzinsel in de geschiedenis zetten. Onbekend blijft onbekend, en in
+ * de sessie zelf kun je het alsnog zetten.
+ */
+function mapSubType(sportType) {
+  const s = String(sportType || "").toLowerCase();
+  if (s.includes("mountainbike")) return "mtb";
+  if (s.includes("gravel")) return "gravel";
+  if (s.includes("ebike") || s.includes("e-bike")) return "ebike";
+  if (s.includes("virtualride")) return "indoor";
+  if (s.includes("trailrun")) return "trail";
+  if (s.includes("virtualrun") || s.includes("treadmill")) return "loopband";
+  return null;
+}
+
 /** True for activity types that aren't cardio and shouldn't be auto-imported. */
 function isStrengthActivity(sportType) {
   const s = String(sportType || "").toLowerCase();
@@ -302,6 +322,7 @@ function stravaToSession(activity, streams) {
     date: (activity.start_date_local || activity.start_date || "").slice(0, 10),
     timeOfDay: timeOfDayFromIso(activity.start_date_local || activity.start_date),
     type: mapSportType(activity.sport_type || activity.type),
+    sub_type: mapSubType(activity.sport_type || activity.type),
     duration_min: movingMin,
     total_duration_min: elapsedMin,
     distance_km: activity.distance ? Math.round((activity.distance / 1000) * 100) / 100 : null,
@@ -414,6 +435,7 @@ module.exports = {
   // conversion
   stravaToSession,
   mapSportType,
+  mapSubType,
   isStrengthActivity,
   buildProfile,
   bucketCountFor,

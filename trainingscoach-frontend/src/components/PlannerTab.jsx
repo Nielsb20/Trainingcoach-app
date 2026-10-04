@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy } from "lucide-react";
 import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
+import WorkoutFilePanel from "./shared/WorkoutFilePanel";
 import { CARDIO_TYPES } from "../lib/constants";
-import { todayStr, formatDateNL, weekdayNameForDate } from "../lib/calculations";
+import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel } from "../lib/calculations";
 
 /**
  * Interactive week planner.
@@ -310,12 +311,20 @@ export default function PlannerTab({ onOpenSession }) {
                           ? <Dumbbell size={12} style={{ marginRight: 5, color: "var(--strength)" }} />
                           : <Activity size={12} style={{ marginRight: 5, color: "var(--cardio)" }} />}
                         {p.type}
+                        {p.subType && <span className="tc-planner-moment">{subTypeLabel(p.subType)}</span>}
                         {p.timeOfDay && <span className="tc-planner-moment">{p.timeOfDay}</span>}
                         {/* Blijft staan waar hij stond, maar is herkenbaar als
                             restant van advies dat je inmiddels hebt vervangen. */}
                         {p.verouderd && <span className="tc-hint-badge tc-badge-warning">ouder advies</span>}
                       </span>
                       <span className="tc-event-notes">{p.description}</span>
+
+                      {/* Alleen voor een training die nog moet gebeuren: een
+                          bestand voor een rit van vorige week maken heeft geen
+                          zin, en kracht gaat niet in een trainer. */}
+                      {p.discipline !== "kracht" && p.status === "gepland" && (
+                        <WorkoutFilePanel plan={p} onChanged={load} />
+                      )}
 
                       {p.verouderd && (
                         <div className="tc-actionbar" style={{ marginTop: 6, gap: 8 }}>

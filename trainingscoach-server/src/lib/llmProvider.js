@@ -39,6 +39,31 @@ const COACH_RESPONSE_SCHEMA = {
           dag: { type: "STRING" },
           type: { type: "STRING" },
           invulling: { type: "STRING" },
+          // Welke fiets of ondergrond, en — voor een sessie op de slimme
+          // trainer — de blokken waar het trainingsbestand van wordt gemaakt.
+          // Zonder deze velden in het schema knipt Gemini ze eruit en krijgt
+          // de planner alleen de vrije tekst terug.
+          ondergrond: { type: "STRING", nullable: true },
+          blokken: {
+            type: "ARRAY",
+            nullable: true,
+            items: {
+              type: "OBJECT",
+              properties: {
+                soort: { type: "STRING" },
+                minuten: { type: "NUMBER", nullable: true },
+                pctFtp: { type: "NUMBER", nullable: true },
+                pctFtpTot: { type: "NUMBER", nullable: true },
+                herhalingen: { type: "NUMBER", nullable: true },
+                aanMinuten: { type: "NUMBER", nullable: true },
+                uitMinuten: { type: "NUMBER", nullable: true },
+                aanPctFtp: { type: "NUMBER", nullable: true },
+                uitPctFtp: { type: "NUMBER", nullable: true },
+                tekst: { type: "STRING", nullable: true },
+              },
+              required: ["soort"],
+            },
+          },
         },
         required: ["dag", "type", "invulling"],
       },

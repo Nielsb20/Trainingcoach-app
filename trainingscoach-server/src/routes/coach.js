@@ -168,8 +168,27 @@ function buildCoachPayload({ question = null } = {}) {
     };
     const recent = wellnessLogs.slice(0, 7);
     const baseline = wellnessLogs.slice(7, 28);
+    const gemetenRust = calc.computeRestingHrBaseline(wellnessLogs);
     herstel = {
+      // Twee verschillende metingen, bewust niet samengevoegd. nachthartslag
+      // is het gemiddelde over het slaapvenster en ligt vast zodra de nacht
+      // voorbij is; rusthartslag is Garmin's dagwaarde en kan gedurende de dag
+      // nog zakken als de cliënt een uur stilzit.
+      rusthartslagGemetenIn: gemetenRust?.bron === "slaap" ? "slaap" : "hele etmaal",
+      gemetenBasislijn: gemetenRust
+        ? {
+            waarde: gemetenRust.bpm,
+            bron: gemetenRust.bron,
+            nachten: gemetenRust.nachten,
+            vensterDagen: gemetenRust.vensterDagen,
+          }
+        : null,
+      // De zones hieronder zijn met dit getal gerekend. Loopt het uit de pas
+      // met de meting, dan rekent de coach met zones die niet meer kloppen —
+      // en dan is dat het eerste dat benoemd moet worden.
+      rusthartslagInProfielVoorZones: schema.profile.restingHr ?? null,
       laatste7Dagen: {
+        gemNachthartslag: avg(recent, "sleeping_hr"),
         gemRusthartslag: avg(recent, "resting_hr"),
         gemHrvMs: avg(recent, "hrv_ms"),
         gemSlaapMinuten: avg(recent, "sleep_minutes"),
@@ -177,6 +196,7 @@ function buildCoachPayload({ question = null } = {}) {
       },
       basislijn8tot28Dagen: baseline.length
         ? {
+            gemNachthartslag: avg(baseline, "sleeping_hr"),
             gemRusthartslag: avg(baseline, "resting_hr"),
             gemHrvMs: avg(baseline, "hrv_ms"),
             gemSlaapMinuten: avg(baseline, "sleep_minutes"),
@@ -184,6 +204,7 @@ function buildCoachPayload({ question = null } = {}) {
         : null,
       recenteDagen: wellnessLogs.slice(0, 7).map((w) => ({
         datum: w.date,
+        nachthartslag: w.sleeping_hr,
         rusthartslag: w.resting_hr,
         hrv_ms: w.hrv_ms,
         slaap_minuten: w.sleep_minutes,
@@ -240,7 +261,8 @@ function buildCoachPayload({ question = null } = {}) {
     recenteCardio: cardioLogs.slice(0, 8).map((c) => {
       const tssResult = calc.computeSessionTSS(c, schema.profile.ftp, hrZones, schema.profile.thresholdPaceSecPerKm);
       return {
-        datum: c.date, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, type: c.type, duur_min: c.duration_min, afstand_km: c.distance_km,
+        datum: c.date, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, type: c.type,
+        ondergrond: calc.subTypeLabel(c.subType), duur_min: c.duration_min, afstand_km: c.distance_km,
         gem_hartslag: c.avg_hr, max_hartslag: c.max_hr, hartslagzone: calc.zoneForHr(c.avg_hr, hrZones), gem_snelheid_kmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),
         gem_vermogen_watt: c.avg_power, max_vermogen_watt: c.max_power, gewogen_gem_vermogen_watt: c.weighted_avg_power,
         watt_per_kg: calc.computeWattsPerKg(c.avg_power, calc.getWeightAtDate(weightLogs, c.date)),

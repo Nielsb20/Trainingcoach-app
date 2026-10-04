@@ -2,12 +2,12 @@
 
 const express = require("express");
 const { db } = require("../db/db");
-const { validateCardioEntry, validateCardioBulk } = require("../lib/validate");
+const { validateCardioEntry, validateCardioBulk, validateSubType } = require("../lib/validate");
 
 const router = express.Router();
 
 const COLUMNS = [
-  "id", "date", "time_of_day", "type", "duration_min", "total_duration_min", "distance_km",
+  "id", "date", "time_of_day", "type", "sub_type", "duration_min", "total_duration_min", "distance_km",
   "avg_hr", "max_hr", "avg_power", "max_power", "weighted_avg_power", "avg_cadence", "max_cadence",
   "elevation_gain_m", "elevation_loss_m", "pace", "calories", "notes", "profile_json", "source",
 ];
@@ -18,6 +18,7 @@ function toRow(entry, source) {
     date: entry.date,
     time_of_day: entry.timeOfDay || null,
     type: entry.type,
+    sub_type: entry.sub_type ?? entry.subType ?? null,
     duration_min: entry.duration_min ?? null,
     total_duration_min: entry.total_duration_min ?? null,
     distance_km: entry.distance_km ?? null,
@@ -44,6 +45,7 @@ function serialize(row) {
     date: row.date,
     timeOfDay: row.time_of_day,
     type: row.type,
+    subType: row.sub_type,
     duration_min: row.duration_min,
     total_duration_min: row.total_duration_min,
     distance_km: row.distance_km,
@@ -118,6 +120,32 @@ router.post("/", (req, res) => {
       details: err.status === 400 ? undefined : err.message,
     });
   }
+});
+
+/**
+ * PATCH /api/cardio-logs/:id/ondersoort — welke fiets het was.
+ *
+ * Bestaat omdat de import het vaak niet weet: Strava's kale "Ride" zegt niets
+ * over de ondergrond, en jaren geschiedenis zijn zo geïmporteerd. Zonder deze
+ * route zou het label alleen op nieuwe ritten zitten en nooit op de ritten
+ * waar je het aan wil kunnen zien.
+ *
+ * Alleen dit ene veld: de rest van een sessie is gemeten, en gemeten waarden
+ * hoor je niet achteraf bij te stellen.
+ */
+router.patch("/:id/ondersoort", (req, res) => {
+  const row = db.prepare("SELECT id, type FROM cardio_logs WHERE id = ?").get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Sessie niet gevonden" });
+
+  const subType = req.body?.subType ?? req.body?.sub_type ?? null;
+  try {
+    validateSubType(subType, row.type);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  db.prepare("UPDATE cardio_logs SET sub_type = ? WHERE id = ?").run(subType || null, row.id);
+  res.json(serialize(db.prepare("SELECT * FROM cardio_logs WHERE id = ?").get(row.id)));
 });
 
 // POST /api/cardio-logs/bulk - array of entries (CSV import or multi-file GPX batch)

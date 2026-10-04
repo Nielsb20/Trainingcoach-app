@@ -79,6 +79,57 @@ def scenario(naam, client, gf):
     print("  ok  tokens weggeschreven en niet leeg")
 
 
+def nachthartslag_tests(gf):
+    """
+    De nachthartslag moet uit de slaapreeks komen, niet uit Garmin's dagveld.
+
+    Waarom dit bestaat: restingHeartRate is een DAGwaarde — de laagste
+    aanhoudende hartslag over het hele etmaal. Lees je hem 's ochtends af, dan
+    gaat hij over de nacht; lig je 's middags een uur stil, dan is het 's
+    avonds dát getal. Hetzelfde veld, dezelfde dag, een ander antwoord. Een
+    herstelbasislijn die daarop steunt beweegt om redenen die niets met
+    herstel te maken hebben.
+    """
+    print("\nnachthartslag")
+
+    # De vorm die garminconnect normaal teruggeeft.
+    reeks = [{"startGMT": i, "value": v} for i, v in enumerate([50] * 30 + [54] * 30)]
+    assert gf.overnight_heart_rate({"sleepHeartRate": reeks}) == 52, "gemiddelde over het slaapvenster"
+
+    # Een andere versie van de bibliotheek levert paren in plaats van dicts.
+    paren = [[i, 48] for i in range(40)]
+    assert gf.overnight_heart_rate({"heartRateValues": paren}) == 48, "paren moeten ook gelezen worden"
+
+    # Gaten en onzinwaarden tussen de metingen tellen niet mee.
+    rommel = [{"value": None}, {"value": 0}, {"value": 400}] + [{"value": 46} for _ in range(25)]
+    assert gf.overnight_heart_rate({"sleepHeartRate": rommel}) == 46, "None en onmogelijke waarden eruit"
+
+    # Een halve nacht is geen nacht: liever niets dan een getal uit vijf metingen.
+    assert gf.overnight_heart_rate({"sleepHeartRate": [{"value": 46}] * 5}) is None
+    assert gf.overnight_heart_rate({}) is None
+    assert gf.overnight_heart_rate(None) is None
+    print("  ok  gemiddelde over het slaapvenster, in beide vormen, met te weinig metingen als None")
+
+    # Terugval op de dagreeks: alleen het stuk binnen de nacht, en alleen als
+    # het slaapvenster bekend is — zonder dat is het de dagwaarde waar we juist
+    # vanaf wilden.
+    venster = (1000, 2000)
+    dagreeks = {"heartRateValues":
+                [[500, 80]] * 30            # overdag, moet buiten blijven
+                + [[1000 + i, 47] for i in range(30)]
+                + [[5000, 75]] * 30}
+    assert gf.overnight_uit_dagreeks(dagreeks, venster) == 47, "alleen de metingen binnen de nacht"
+    assert gf.overnight_uit_dagreeks(dagreeks, None) is None, "zonder slaapvenster geen nachtwaarde"
+    print("  ok  terugval op de dagreeks blijft binnen het slaapvenster")
+
+    slaap = {"dailySleepDTO": {"sleepStartTimestampGMT": 1000, "sleepEndTimestampGMT": 2000}}
+    assert gf.slaapvenster(slaap) == (1000, 2000)
+    assert gf.slaapvenster({"dailySleepDTO": {}}) is None
+    assert gf.slaapvenster({"dailySleepDTO": {"sleepStartTimestampGMT": 2000,
+                                              "sleepEndTimestampGMT": 1000}}) is None
+    print("  ok  een slaapvenster dat niet klopt wordt niet gebruikt")
+
+
 def main():
     gf = load_script()
 
@@ -95,7 +146,9 @@ def main():
              type("Garmin", (), {"__init__": lambda self: setattr(self, "client", TokensZonderDump())})(), gf)
 
     shutil.rmtree(TOKEN_DIR, ignore_errors=True)
-    print("\nAlle Garmin-sessietests geslaagd.")
+
+    nachthartslag_tests(gf)
+    print("\nAlle Garmin-tests geslaagd.")
 
 
 if __name__ == "__main__":
