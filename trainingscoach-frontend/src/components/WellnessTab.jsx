@@ -72,6 +72,7 @@ export default function WellnessTab() {
     () =>
       logs.map((l) => ({
         label: formatDateNL(l.date),
+        nachthartslag: l.sleepingHr,
         rusthartslag: l.restingHr,
         hrv: l.hrvMs,
         slaapUren: l.sleepMinutes ? Math.round((l.sleepMinutes / 60) * 10) / 10 : null,
@@ -81,6 +82,7 @@ export default function WellnessTab() {
 
   const hasHrv = logs.some((l) => l.hrvMs !== null);
   const hasSleep = logs.some((l) => l.sleepMinutes !== null);
+  const hasNacht = logs.some((l) => l.sleepingHr !== null && l.sleepingHr !== undefined);
 
   // A 7-day mean versus the three weeks before it — the same comparison the
   // coach makes, shown here so the number on screen matches the advice.
@@ -94,9 +96,13 @@ export default function WellnessTab() {
     const recent = sorted.slice(0, 7);
     const base = sorted.slice(7, 28);
     if (!base.length) return null;
+    // De nachtwaarde als die er is: die ligt vast zodra je wakker bent,
+    // terwijl de dagwaarde van het horloge gedurende de dag nog kan zakken.
+    const nachtNu = avg(recent, "sleepingHr");
     return {
-      rustNu: avg(recent, "restingHr"),
-      rustBasis: avg(base, "restingHr"),
+      veld: nachtNu !== null ? "nacht" : "dag",
+      rustNu: nachtNu !== null ? nachtNu : avg(recent, "restingHr"),
+      rustBasis: nachtNu !== null ? avg(base, "sleepingHr") : avg(base, "restingHr"),
       hrvNu: avg(recent, "hrvMs"),
       hrvBasis: avg(base, "hrvMs"),
     };
@@ -114,9 +120,18 @@ export default function WellnessTab() {
     <div>
       <h1 className="tc-title">Herstel</h1>
       <p className="tc-sub">
-        Rusthartslag, HRV en slaap. De coach vergelijkt deze waarden met je eigen basislijn — een
-        verhoogde rusthartslag of verlaagde HRV is een signaal om een zware training uit te stellen.
+        Hartslag in rust, HRV en slaap. De coach vergelijkt deze waarden met je eigen basislijn — een
+        verhoogde hartslag of verlaagde HRV is een signaal om een zware training uit te stellen.
       </p>
+      {hasNacht && (
+        <p className="tc-import-help" style={{ marginTop: -6 }}>
+          <strong>Nachthartslag</strong> is het gemiddelde over je slaapvenster: dat getal ligt vast
+          zodra je wakker bent. De <strong>rusthartslag</strong> ernaast is de dagwaarde van je horloge
+          — de laagste aanhoudende hartslag over het hele etmaal — en die kan 's avonds lager uitvallen
+          dan 's ochtends omdat je overdag een uur stil hebt gezeten. Voor het volgen van herstel telt
+          de nachtwaarde; de coach gebruikt die ook.
+        </p>
+      )}
 
       {error && <div className="tc-error"><span>{error}</span></div>}
 
@@ -124,7 +139,7 @@ export default function WellnessTab() {
         <div className="tc-chiprow">
           {trend.rustNu !== null && trend.rustBasis !== null && (
             <span className={"tc-hint-badge " + (trend.rustNu > trend.rustBasis + 5 ? "tc-badge-warning" : "tc-badge-cardio")}>
-              Rusthartslag: {trend.rustNu} nu vs. {trend.rustBasis} basislijn
+              {trend.veld === "nacht" ? "Nachthartslag" : "Rusthartslag (dagwaarde)"}: {trend.rustNu} nu vs. {trend.rustBasis} basislijn
             </span>
           )}
           {trend.hrvNu !== null && trend.hrvBasis !== null && (
@@ -154,7 +169,8 @@ export default function WellnessTab() {
                 {(hasHrv || hasSleep) && <YAxis yAxisId="other" orientation="right" stroke="#4FA8A0" fontSize={12} domain={["auto", "auto"]} />}
                 <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line yAxisId="hr" type="monotone" dataKey="rusthartslag" stroke="#C97A3F" strokeWidth={2} dot={false} name="Rusthartslag (bpm)" connectNulls />
+                {hasNacht && <Line yAxisId="hr" type="monotone" dataKey="nachthartslag" stroke="#C97A3F" strokeWidth={2} dot={false} name="Nachthartslag (bpm)" connectNulls />}
+                <Line yAxisId="hr" type="monotone" dataKey="rusthartslag" stroke="#8B949B" strokeWidth={hasNacht ? 1.5 : 2} strokeDasharray={hasNacht ? "4 3" : undefined} dot={false} name={hasNacht ? "Rusthartslag, dagwaarde (bpm)" : "Rusthartslag (bpm)"} connectNulls />
                 {hasHrv && <Line yAxisId="other" type="monotone" dataKey="hrv" stroke="#4FA8A0" strokeWidth={2} dot={false} name="HRV (ms)" connectNulls />}
                 {hasSleep && <Line yAxisId="other" type="monotone" dataKey="slaapUren" stroke="#8C86C9" strokeWidth={2} dot={false} strokeDasharray="4 3" name="Slaap (uren)" connectNulls />}
               </LineChart>
@@ -162,11 +178,12 @@ export default function WellnessTab() {
           </div>
 
           <table className="tc-table">
-            <thead><tr><th>Datum</th><th>Rust-HR</th><th>HRV</th><th>Slaap</th><th>Score</th><th>Bron</th><th></th></tr></thead>
+            <thead><tr><th>Datum</th>{hasNacht && <th>Nacht-HR</th>}<th>Rust-HR</th><th>HRV</th><th>Slaap</th><th>Score</th><th>Bron</th><th></th></tr></thead>
             <tbody>
               {[...logs].reverse().map((l) => (
                 <tr key={l.date}>
                   <td>{formatDateNL(l.date)}</td>
+                  {hasNacht && <td className="tc-mono">{l.sleepingHr ?? "–"}</td>}
                   <td className="tc-mono">{l.restingHr ?? "–"}</td>
                   <td className="tc-mono">{l.hrvMs ?? "–"}</td>
                   <td className="tc-mono">{l.sleepMinutes ? `${Math.floor(l.sleepMinutes / 60)}u ${l.sleepMinutes % 60}m` : "–"}</td>

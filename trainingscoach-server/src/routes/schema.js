@@ -16,15 +16,21 @@ const router = express.Router();
  */
 function getMeasuredRestingHr() {
   const rows = db
-    .prepare("SELECT date, resting_hr FROM wellness_logs WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 400")
+    .prepare(
+      `SELECT date, resting_hr, sleeping_hr FROM wellness_logs
+       WHERE resting_hr IS NOT NULL OR sleeping_hr IS NOT NULL
+       ORDER BY date DESC LIMIT 400`
+    )
     .all();
   const baseline = calc.computeRestingHrBaseline(rows);
   if (!baseline) return null;
-  // Waar de metingen vandaan komen bepaalt hoe je het getal moet lezen: uit de
-  // slaap is het strikt genomen iets lager dan een rusthartslag die je 's
-  // ochtends zittend meet.
+  // Waar de metingen vandaan komen bepaalt hoe je het getal moet lezen.
   const sources = db
-    .prepare("SELECT DISTINCT source FROM wellness_logs WHERE resting_hr IS NOT NULL ORDER BY date DESC LIMIT 5")
+    .prepare(
+      `SELECT DISTINCT source FROM wellness_logs
+       WHERE resting_hr IS NOT NULL OR sleeping_hr IS NOT NULL
+       ORDER BY date DESC LIMIT 5`
+    )
     .all()
     .map((r) => r.source);
   return { ...baseline, bronnen: sources };

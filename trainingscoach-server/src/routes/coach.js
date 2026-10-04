@@ -170,19 +170,25 @@ function buildCoachPayload({ question = null } = {}) {
     const baseline = wellnessLogs.slice(7, 28);
     const gemetenRust = calc.computeRestingHrBaseline(wellnessLogs);
     herstel = {
-      // De rusthartslag komt uit het slaapvenster, niet uit een meting op de
-      // bank. Dat is het verschil tussen een getal dat elke nacht onder
-      // dezelfde omstandigheden ontstaat en een getal dat afhangt van hoe lang
-      // je net had stilgezeten.
-      rusthartslagGemetenIn: "slaap",
+      // Twee verschillende metingen, bewust niet samengevoegd. nachthartslag
+      // is het gemiddelde over het slaapvenster en ligt vast zodra de nacht
+      // voorbij is; rusthartslag is Garmin's dagwaarde en kan gedurende de dag
+      // nog zakken als de cliënt een uur stilzit.
+      rusthartslagGemetenIn: gemetenRust?.bron === "slaap" ? "slaap" : "hele etmaal",
       gemetenBasislijn: gemetenRust
-        ? { rusthartslag: gemetenRust.bpm, nachten: gemetenRust.nachten, vensterDagen: gemetenRust.vensterDagen }
+        ? {
+            waarde: gemetenRust.bpm,
+            bron: gemetenRust.bron,
+            nachten: gemetenRust.nachten,
+            vensterDagen: gemetenRust.vensterDagen,
+          }
         : null,
       // De zones hieronder zijn met dit getal gerekend. Loopt het uit de pas
       // met de meting, dan rekent de coach met zones die niet meer kloppen —
       // en dan is dat het eerste dat benoemd moet worden.
       rusthartslagInProfielVoorZones: schema.profile.restingHr ?? null,
       laatste7Dagen: {
+        gemNachthartslag: avg(recent, "sleeping_hr"),
         gemRusthartslag: avg(recent, "resting_hr"),
         gemHrvMs: avg(recent, "hrv_ms"),
         gemSlaapMinuten: avg(recent, "sleep_minutes"),
@@ -190,6 +196,7 @@ function buildCoachPayload({ question = null } = {}) {
       },
       basislijn8tot28Dagen: baseline.length
         ? {
+            gemNachthartslag: avg(baseline, "sleeping_hr"),
             gemRusthartslag: avg(baseline, "resting_hr"),
             gemHrvMs: avg(baseline, "hrv_ms"),
             gemSlaapMinuten: avg(baseline, "sleep_minutes"),
@@ -197,6 +204,7 @@ function buildCoachPayload({ question = null } = {}) {
         : null,
       recenteDagen: wellnessLogs.slice(0, 7).map((w) => ({
         datum: w.date,
+        nachthartslag: w.sleeping_hr,
         rusthartslag: w.resting_hr,
         hrv_ms: w.hrv_ms,
         slaap_minuten: w.sleep_minutes,

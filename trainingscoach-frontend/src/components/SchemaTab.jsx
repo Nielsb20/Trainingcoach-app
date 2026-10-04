@@ -442,10 +442,19 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
         {gemetenRust && (
           <div className="tc-inline-note" style={{ marginTop: 8 }}>
             <p style={{ margin: 0 }}>
-              Gemeten tijdens je slaap: <strong className="tc-mono">{gemetenRust.bpm} bpm</strong>{" "}
-              (mediaan over {gemetenRust.nachten} nachten in de laatste {gemetenRust.vensterDagen} dagen,
-              laagste {gemetenRust.laagste}, hoogste {gemetenRust.hoogste}).
+              {gemetenRust.bron === "slaap" ? "Gemeten tijdens je slaap" : "Gemeten dagwaarde van je horloge"}:{" "}
+              <strong className="tc-mono">{gemetenRust.bpm} bpm</strong>{" "}
+              (mediaan over {gemetenRust.nachten} {gemetenRust.bron === "slaap" ? "nachten" : "dagen"} in de
+              laatste {gemetenRust.vensterDagen} dagen, laagste {gemetenRust.laagste},
+              hoogste {gemetenRust.hoogste}).
             </p>
+            {gemetenRust.bron !== "slaap" && (
+              <p style={{ margin: "6px 0 0" }}>
+                Dit is de rusthartslag die je horloge over het hele etmaal bepaalt, en die kan 's avonds
+                nog zakken. Zodra er genoeg nachten met een echte nachthartslag zijn
+                ({gemetenRust.nachtmetingen} tot nu toe) stapt de basislijn daar vanzelf op over.
+              </p>
+            )}
             {rustVerschil === null ? (
               <p style={{ margin: "6px 0 0" }}>
                 Je hebt hier nog niets ingevuld. Neem je de meting over, dan rekenen de zones hieronder

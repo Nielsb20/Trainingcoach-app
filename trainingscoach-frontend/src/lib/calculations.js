@@ -90,16 +90,32 @@ export function zoneForHr(hr, zones) {
 }
 
 /**
- * De gemeten rusthartslag over de afgelopen weken, als één getal.
+ * De gemeten hartslag in rust over de afgelopen weken, als één getal.
  *
- * De rusthartslag in het profiel is een getal dat je één keer intikt en daarna
- * vergeet, terwijl er elke nacht een nieuwe meting bijkomt. Die metingen komen
- * uit de slaap: Garmin leest de rusthartslag uit het slaapvenster, wat de
- * meest gestandaardiseerde omstandigheid is die er is — zelfde houding, geen
- * koffie, geen stress van de dag. Precies wat je wil voor een basislijn.
+ * Twee dingen zitten hier in, en het verschil ertussen is de reden dat deze
+ * functie bestaat.
  *
- * Mediaan, niet gemiddelde. Eén nacht na een biertje of met een opkomende
- * verkoudheid tilt een gemiddelde omhoog; de mediaan haalt zijn schouders op.
+ * `sleeping_hr` is de gemiddelde hartslag over het slaapvenster. Die ligt vast
+ * zodra je wakker bent.
+ *
+ * `resting_hr` is wat Garmin rusthartslag noemt, en dat is een DAGwaarde: de
+ * laagste aanhoudende hartslag over het hele etmaal. Kijk je er 's ochtends
+ * naar, dan gaat hij over je nacht. Lig je 's middags een uur stil op de bank
+ * met een lagere hartslag, dan is het 's avonds dát getal geworden. Dezelfde
+ * dag, een ander antwoord — en een basislijn die beweegt om redenen die niets
+ * met herstel te maken hebben.
+ *
+ * Dus: de nachtwaarde gaat voor, en de dagwaarde is alleen de terugval voor
+ * dagen (of apparaten) waar de nacht niet is vastgelegd. De twee worden nooit
+ * door elkaar gemiddeld — een gemiddelde over het slaapvenster ligt structureel
+ * hoger dan een minimum over het etmaal, en die twee optellen levert een getal
+ * op dat niets meet.
+ *
+ * Vandaag telt niet mee. Zolang de dag loopt kan de dagwaarde nog zakken, en
+ * een basislijn die 's avonds anders is dan 's ochtends is geen basislijn.
+ *
+ * Mediaan, niet gemiddelde: één nacht na een biertje of met een opkomende
+ * verkoudheid tilt een gemiddelde omhoog, de mediaan haalt zijn schouders op.
  *
  * Vier weken is een afweging: lang genoeg om rustig te staan, kort genoeg om
  * een echte verbetering binnen een seizoen te volgen.
@@ -112,30 +128,50 @@ export function computeRestingHrBaseline(wellnessLogs, options = {}) {
   const minNights = options.minNights || RESTING_HR_MIN_NIGHTS;
   if (!Array.isArray(wellnessLogs) || wellnessLogs.length === 0) return null;
 
-  const cutoff = new Date((options.today || todayStr()) + "T00:00:00");
+  const today = options.today || todayStr();
+  const cutoff = new Date(today + "T00:00:00");
   cutoff.setDate(cutoff.getDate() - windowDays);
   const cutoffStr = toDateStr(cutoff);
 
-  const values = wellnessLogs
-    .filter((w) => w.date >= cutoffStr)
-    .map((w) => (w.resting_hr !== undefined ? w.resting_hr : w.restingHr))
-    .filter((v) => v !== null && v !== undefined && !isNaN(v))
-    .map(Number)
-    .sort((a, b) => a - b);
+  const afgeronde = wellnessLogs.filter((w) => w.date >= cutoffStr && w.date < today);
+  const lees = (w, veld) => {
+    const snake = veld === "slaap" ? "sleeping_hr" : "resting_hr";
+    const camel = veld === "slaap" ? "sleepingHr" : "restingHr";
+    const value = w[snake] !== undefined ? w[snake] : w[camel];
+    return value === null || value === undefined || isNaN(value) ? null : Number(value);
+  };
+
+  const nacht = afgeronde.map((w) => lees(w, "slaap")).filter((v) => v !== null);
+  const dag = afgeronde.map((w) => lees(w, "dag")).filter((v) => v !== null);
+
+  // De nachtwaarde wint zodra er genoeg nachten zijn; anders de dagwaarde,
+  // met erbij wélke van de twee het is geworden.
+  const [values, bron] =
+    nacht.length >= minNights
+      ? [nacht, "slaap"]
+      : dag.length >= minNights
+        ? [dag, "dagwaarde"]
+        : [[], null];
 
   // Te weinig nachten is geen basislijn maar een losse meting. Dan liever
   // niets beweren dan een getal dat stevig lijkt.
-  if (values.length < minNights) return null;
+  if (!bron) return null;
 
-  const mid = Math.floor(values.length / 2);
-  const median = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+  const gesorteerd = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(gesorteerd.length / 2);
+  const median =
+    gesorteerd.length % 2 ? gesorteerd[mid] : (gesorteerd[mid - 1] + gesorteerd[mid]) / 2;
 
   return {
     bpm: Math.round(median),
-    nachten: values.length,
-    laagste: values[0],
-    hoogste: values[values.length - 1],
+    bron,
+    nachten: gesorteerd.length,
+    laagste: gesorteerd[0],
+    hoogste: gesorteerd[gesorteerd.length - 1],
     vensterDagen: windowDays,
+    // Hoeveel nachten er een echte nachtmeting hebben, ook als de dagwaarde
+    // het nu nog doet: dat is wat de interface moet kunnen uitleggen.
+    nachtmetingen: nacht.length,
   };
 }
 

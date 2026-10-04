@@ -413,3 +413,18 @@ ALTER TABLE schema_cardio_days ADD COLUMN sub_type TEXT;
 -- beter dan een bestand dat iets anders voorschrijft dan er staat.
 ALTER TABLE planned_sessions ADD COLUMN structure_json TEXT;
 ALTER TABLE planned_sessions ADD COLUMN structure_source TEXT;
+
+-- De hartslag tijdens de nacht, los van Garmin's rusthartslag.
+--
+-- Die twee zijn niet hetzelfde, en het verschil was verwarrend. Garmin's
+-- restingHeartRate is een DAGwaarde: de laagste aanhoudende hartslag over het
+-- hele etmaal. Lees je hem 's ochtends af, dan gaat hij over je nacht; lig je
+-- 's middags een uur stil, dan is het 's avonds dát getal geworden. Dezelfde
+-- dag, een ander antwoord, en dus een basislijn die beweegt om redenen die
+-- niets met herstel te maken hebben.
+--
+-- De nachthartslag wordt berekend over het slaapvenster en ligt vast zodra je
+-- wakker bent. Dat is de maat waartegen je een verhoging wil afzetten. Hij
+-- ligt structureel iets hoger dan Garmin's getal (een gemiddelde tegenover
+-- een minimum), dus ze worden naast elkaar bewaard in plaats van door elkaar.
+ALTER TABLE wellness_logs ADD COLUMN sleeping_hr INTEGER;

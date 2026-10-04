@@ -392,6 +392,98 @@ def ensure_display_name(client):
     return True
 
 
+PLAUSIBELE_NACHTHARTSLAG = (25, 120)
+MINIMAAL_AANTAL_METINGEN = 20
+
+
+def hartslagwaarden(reeks):
+    """
+    Haalt bpm-waarden uit een hartslagreeks, in welke vorm Garmin hem ook geeft.
+
+    De slaapreeks komt soms als [{"startGMT": ..., "value": 48}, ...] en soms
+    als [[tijdstempel, 48], ...]. Welke van de twee hangt af van de versie van
+    de bibliotheek, dus beide worden gelezen. Waarden buiten het menselijke
+    bereik (en de None's die Garmin tussen de metingen zet wanneer de sensor
+    even niets zag) vallen af.
+    """
+    laag, hoog = PLAUSIBELE_NACHTHARTSLAG
+    waarden = []
+    for sample in reeks or []:
+        if isinstance(sample, dict):
+            bpm = sample.get("value")
+        elif isinstance(sample, (list, tuple)) and len(sample) >= 2:
+            bpm = sample[1]
+        else:
+            bpm = sample
+        if isinstance(bpm, (int, float)) and laag <= bpm <= hoog:
+            waarden.append(bpm)
+    return waarden
+
+
+def overnight_heart_rate(sleep):
+    """
+    De gemiddelde hartslag tijdens de nacht zelf.
+
+    Dit is iets anders dan Garmin's restingHeartRate, en dat verschil is de
+    reden dat deze functie bestaat. Die laatste is een DAGwaarde: de laagste
+    aanhoudende hartslag over het hele etmaal. Lees je hem 's ochtends af, dan
+    gaat hij over je nacht; lig je 's middags een uur op de bank met een lagere
+    hartslag, dan is het 's avonds dat getal geworden. Hetzelfde veld, dezelfde
+    dag, een ander antwoord — en dus een basislijn die beweegt om redenen die
+    niets met herstel te maken hebben.
+
+    De nachthartslag ligt vast zodra je wakker bent. Hij wordt uit de
+    slaapreeks berekend, over het slaapvenster en niets anders.
+
+    Het gemiddelde, niet het laagste punt: een minimum is een extreme waarde en
+    springt van nacht tot nacht, terwijl het gemiddelde over een paar honderd
+    metingen een rustige lijn geeft. Een gemiddelde ligt wel structureel hoger
+    dan Garmin's getal — dat is geen fout, het meet iets anders, en daarom
+    staan ze in de app naast elkaar in plaats van door elkaar.
+
+    Geeft None als er te weinig metingen zijn; een halve nacht is geen nacht.
+    """
+    if not isinstance(sleep, dict):
+        return None
+    for sleutel in ("sleepHeartRate", "heartRateValues", "sleepHeartRateValues"):
+        waarden = hartslagwaarden(sleep.get(sleutel))
+        if len(waarden) >= MINIMAAL_AANTAL_METINGEN:
+            return round(sum(waarden) / len(waarden))
+    return None
+
+
+def slaapvenster(sleep):
+    """Begin en eind van de nacht in milliseconden, als Garmin ze meegeeft."""
+    daily = (sleep or {}).get("dailySleepDTO") or {}
+    start = daily.get("sleepStartTimestampGMT")
+    eind = daily.get("sleepEndTimestampGMT")
+    if isinstance(start, (int, float)) and isinstance(eind, (int, float)) and eind > start:
+        return start, eind
+    return None
+
+
+def overnight_uit_dagreeks(dagreeks, venster):
+    """
+    Terugval: de nachthartslag uit de hartslagreeks van de hele dag.
+
+    Nodig omdat niet elke versie van de bibliotheek de slaapreeks meelevert.
+    Werkt alleen met een slaapvenster erbij — zonder dat is het de dagwaarde
+    waar we juist vanaf wilden.
+    """
+    if not venster or not isinstance(dagreeks, dict):
+        return None
+    start, eind = venster
+    binnen = [
+        s for s in dagreeks.get("heartRateValues") or []
+        if isinstance(s, (list, tuple)) and len(s) >= 2
+        and isinstance(s[0], (int, float)) and start <= s[0] <= eind
+    ]
+    waarden = hartslagwaarden(binnen)
+    if len(waarden) < MINIMAAL_AANTAL_METINGEN:
+        return None
+    return round(sum(waarden) / len(waarden))
+
+
 def collect(client, day):
     """
     Gathers one day of wellness data.
@@ -401,7 +493,8 @@ def collect(client, day):
     moves fields around and several endpoints return 403 on personal accounts:
 
       get_stats / get_user_summary / get_rhr_day  -> 403, unusable
-      get_sleep_data   -> sleep duration AND restingHeartRate
+      get_sleep_data   -> sleep duration, restingHeartRate AND the night's
+                          heart-rate series
       get_stress_data  -> avgStressLevel
       get_body_battery -> readings in bodyBatteryValuesArray
       get_hrv_data     -> HRV when the device records it
@@ -422,9 +515,20 @@ def collect(client, day):
             entry["sleepMinutes"] = round(seconds / 60)
 
         # Resting HR sits at the top level of the sleep response, not inside
-        # dailySleepDTO where you'd expect it.
+        # dailySleepDTO where you'd expect it. Let op: dit is Garmin's
+        # DAGwaarde en hij verandert nog gedurende de dag — zie
+        # overnight_heart_rate() voor waarom dat niet de maat is die je wil.
         if sleep.get("restingHeartRate") is not None:
             entry["restingHr"] = sleep["restingHeartRate"]
+
+        nacht = overnight_heart_rate(sleep)
+        if nacht is None:
+            # Geen slaapreeks in dit antwoord; dan de dagreeks, maar alleen het
+            # stuk dat binnen de nacht valt.
+            dagreeks = safe(lambda: client.get_heart_rates(iso), "hartslagreeks")
+            nacht = overnight_uit_dagreeks(dagreeks, slaapvenster(sleep))
+        if nacht is not None:
+            entry["sleepingHr"] = nacht
 
         scores = daily.get("sleepScores") or {}
         overall = scores.get("overall") or {}
@@ -462,7 +566,8 @@ def collect(client, day):
             entry["bodyBatteryMin"] = min(readings)
 
     has_data = any(entry.get(k) is not None for k in
-                   ["restingHr", "hrvMs", "sleepMinutes", "sleepScore", "bodyBatteryMax", "stressAvg"])
+                   ["restingHr", "sleepingHr", "hrvMs", "sleepMinutes", "sleepScore",
+                    "bodyBatteryMax", "stressAvg"])
     return entry if has_data else None
 
 

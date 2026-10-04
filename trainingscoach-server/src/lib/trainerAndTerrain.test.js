@@ -32,18 +32,51 @@ const dag = (terug) => {
   return calc.toDateStr(d);
 };
 
-// Veertien nachten rond 46, met één uitschieter van 61 (biertje, griep, weet
+// Veertien nachten rond 52, met één uitschieter van 67 (biertje, griep, weet
 // je het nog). Een gemiddelde zou daardoor omhoog kruipen.
-const nachten = [46, 45, 47, 46, 44, 61, 46, 47, 45, 46, 48, 45, 46, 47].map((bpm, i) => ({
+const nachtwaarden = [52, 51, 53, 52, 50, 67, 52, 53, 51, 52, 54, 51, 52, 53];
+const nachten = nachtwaarden.map((bpm, i) => ({
   date: dag(i + 1),
-  resting_hr: bpm,
+  sleeping_hr: bpm,
+  // De dagwaarde van het horloge ligt lager: dat is een minimum over het hele
+  // etmaal, de nachtwaarde is een gemiddelde over het slaapvenster.
+  resting_hr: bpm - 6,
 }));
 
 const basislijn = calc.computeRestingHrBaseline(nachten);
-assert.strictEqual(basislijn.bpm, 46, "de mediaan laat zich niet meetrekken door één slechte nacht");
+assert.strictEqual(basislijn.bpm, 52, "de mediaan laat zich niet meetrekken door één slechte nacht");
+assert.strictEqual(basislijn.bron, "slaap", "de nachtwaarde gaat voor op de dagwaarde");
 assert.strictEqual(basislijn.nachten, 14);
-assert.strictEqual(basislijn.hoogste, 61, "de uitschieter wordt wel gemeld, alleen niet meegerekend");
+assert.strictEqual(basislijn.hoogste, 67, "de uitschieter wordt wel gemeld, alleen niet meegerekend");
 console.log(`  ok  mediaan ${basislijn.bpm} bpm over ${basislijn.nachten} nachten (laagste ${basislijn.laagste}, hoogste ${basislijn.hoogste})`);
+
+// Zonder nachtmetingen is de dagwaarde de terugval — maar dan staat erbij dat
+// het de dagwaarde is, want die kan gedurende de dag nog zakken.
+const alleenDag = nachten.map(({ date, resting_hr }) => ({ date, resting_hr }));
+const terugval = calc.computeRestingHrBaseline(alleenDag);
+assert.strictEqual(terugval.bron, "dagwaarde");
+assert.strictEqual(terugval.bpm, 46);
+assert.strictEqual(terugval.nachtmetingen, 0);
+console.log(`  ok  zonder nachtmetingen valt hij terug op de dagwaarde (${terugval.bpm} bpm), met vermelding`);
+
+// En de twee worden nooit door elkaar gemiddeld: een gemiddelde over de nacht
+// en een minimum over het etmaal zijn verschillende grootheden.
+const gemengd = nachten.map((n, i) => (i < 4 ? { date: n.date, resting_hr: n.resting_hr } : n));
+const gemengdeBasislijn = calc.computeRestingHrBaseline(gemengd);
+assert.strictEqual(gemengdeBasislijn.bron, "slaap");
+assert.strictEqual(gemengdeBasislijn.nachten, 10, "alleen de nachten met een nachtmeting tellen mee");
+assert.ok(gemengdeBasislijn.bpm >= 51, "de lagere dagwaarden mogen de nachtbasislijn niet omlaag trekken");
+console.log("  ok  nacht- en dagwaarden worden nooit samen gemiddeld");
+
+// Vandaag telt niet mee: zolang de dag loopt kan de dagwaarde nog zakken, en
+// een basislijn die 's avonds anders is dan 's ochtends is geen basislijn.
+const metVandaag = [{ date: calc.todayStr(), sleeping_hr: 90 }, ...nachten];
+assert.strictEqual(
+  calc.computeRestingHrBaseline(metVandaag).nachten,
+  14,
+  "de lopende dag hoort niet in de basislijn"
+);
+console.log("  ok  de lopende dag blijft buiten de basislijn");
 
 // Te weinig nachten is geen basislijn maar een losse meting.
 assert.strictEqual(
@@ -53,7 +86,7 @@ assert.strictEqual(
 );
 // En nachten van lang geleden tellen niet mee.
 assert.strictEqual(
-  calc.computeRestingHrBaseline([{ date: dag(400), resting_hr: 46 }]),
+  calc.computeRestingHrBaseline([{ date: dag(400), sleeping_hr: 46 }]),
   null,
   "een jaar oude meting valt buiten het venster"
 );
@@ -62,6 +95,13 @@ console.log("  ok  te weinig of te oude nachten leveren liever niets op dan een 
 // De zones schuiven mee, en dat is precies waarom het getal moet kloppen.
 const zonesOud = calc.computeHrZones(185, 58);
 const zonesGemeten = calc.computeHrZones(185, 46);
+// En het maakt uit wélke maat je neemt: nachtwaarde en dagwaarde liggen een
+// paar slagen uit elkaar, dus door elkaar halen verschuift de zones ook.
+assert.notStrictEqual(
+  calc.computeHrZones(185, 52)[3].vanBpm,
+  calc.computeHrZones(185, 46)[3].vanBpm,
+  "nacht- en dagwaarde leveren verschillende zones op"
+);
 assert.ok(
   zonesGemeten[3].vanBpm < zonesOud[3].vanBpm,
   "een lagere rusthartslag verlaagt de ondergrens van zone 4"

@@ -990,30 +990,56 @@ vermogen. Een bulkimport wordt vóór de transactie in zijn geheel gecontroleerd
 slechte rij halverwege niet de helft geïmporteerd achterlaat, en is begrensd op 5000
 sessies per aanroep.
 
-## Rusthartslag uit de slaap
+## Nachthartslag tegenover rusthartslag
 
-De rusthartslag in je profiel voedt de hartslagzones (Karvonen, op basis van je
-hartslagreserve). Dat getal tikte je één keer in, waarna het nooit meer
-veranderde — terwijl er elke nacht een meting bijkomt.
+Dit zijn twee verschillende metingen, en ze door elkaar halen was de bron van
+een hoop verwarring.
 
-De wellness-import leest de rusthartslag uit het slaapvenster van Garmin. Dat
-is de meest gestandaardiseerde meting die er is: dezelfde houding, geen koffie,
-geen stress van de dag. Daar wordt een basislijn uit berekend — de **mediaan**
-over de nachten in de laatste 28 dagen, zodat één nacht met griep of een biertje
-het getal niet meetrekt. Minder dan zeven nachten levert geen basislijn op; dan
-is het een losse meting en geen patroon.
+**Rusthartslag** is wat Garmin onder `restingHeartRate` teruggeeft, en dat is
+een *dagwaarde*: de laagste aanhoudende hartslag over het hele etmaal. Kijk je
+er 's ochtends naar, dan gaat hij over je nacht. Lig je 's middags een uur stil
+op de bank met een lagere hartslag, dan is het 's avonds dát getal geworden.
+Zelfde veld, zelfde dag, ander antwoord — en dus een herstelsignaal dat beweegt
+om redenen die niets met herstel te maken hebben.
 
-Die basislijn staat op het tabblad **Schema** naast het ingetikte getal, met een
-knop om hem over te nemen. Hij wordt nooit automatisch overgenomen: je zones
-verschuiven ermee, en dat is een verandering die je zelf hoort te accepteren.
-Wijken de twee meer dan zo'n vijf slagen af, dan benoemt de coach dat ook —
-rekenen met zones die niet meer kloppen is vervelender dan welk trainingsadvies
-dan ook.
+**Nachthartslag** is het gemiddelde over het slaapvenster. Dat getal ligt vast
+zodra je wakker bent. Het wordt berekend uit de hartslagreeks die bij de
+slaapgegevens zit (`sleepHeartRate`); ontbreekt die, dan uit de dagreeks maar
+alleen het stuk dat binnen het slaapvenster valt. Minder dan twintig metingen
+levert niets op: een halve nacht is geen nacht.
 
-Let op bij het lezen: een slaapwaarde ligt enkele slagen lager dan een
-rusthartslag die je 's ochtends zittend meet. Voor het volgen van je eigen
-trend maakt dat niet uit (het is consequent dezelfde meting), maar plak er geen
-normaalwaarden uit de literatuur op.
+Het gemiddelde en niet het laagste punt, omdat een minimum een extreme waarde
+is die van nacht tot nacht springt. Gevolg: de nachthartslag ligt structureel
+een paar slagen **hoger** dan Garmin's rusthartslag. Dat is geen fout, het meet
+iets anders — daarom staan ze in de app naast elkaar en worden ze nooit door
+elkaar gemiddeld.
+
+### De basislijn
+
+De hartslagzones (Karvonen, op basis van je hartslagreserve) draaien op het
+getal in je profiel. Dat tikte je één keer in, waarna het nooit meer veranderde
+terwijl er elke nacht een meting bijkwam. Daar wordt nu een basislijn naast
+gezet:
+
+- **De nachtwaarde gaat voor.** Alleen als er te weinig nachten zijn valt hij
+  terug op de dagwaarde, en dan staat erbij dat het de dagwaarde is.
+- **Mediaan**, geen gemiddelde: één nacht met griep of een biertje mag het
+  getal niet meetrekken.
+- **28 dagen**, minimaal 7 metingen. Daaronder is het een losse meting en geen
+  patroon, en dan liever niets beweren.
+- **Vandaag telt niet mee.** Zolang de dag loopt kan de dagwaarde nog zakken,
+  en een basislijn die 's avonds anders is dan 's ochtends is geen basislijn.
+
+De basislijn staat op het tabblad **Schema** naast het ingetikte getal, met een
+knop om hem over te nemen. Nooit automatisch: je zones verschuiven ermee, en
+dat is een verandering die je zelf hoort te accepteren. Wijken de twee meer dan
+zo'n vijf slagen af, dan benoemt de coach dat ook — rekenen met zones die niet
+kloppen is vervelender dan welk trainingsadvies dan ook.
+
+Let op bij het lezen: beide liggen lager dan een rusthartslag die je 's
+ochtends zittend meet, waar Karvonen mee gevalideerd is. Voor het volgen van je
+eigen trend maakt dat niet uit (het is steeds dezelfde meting), maar plak er
+geen normaalwaarden uit de literatuur op.
 
 ## Welke fiets, welke ondergrond
 
