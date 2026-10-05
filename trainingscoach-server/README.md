@@ -1089,26 +1089,49 @@ snelheidsgemiddelde over 1 sessie: 21,8 km/u
 
 ### Waar het label vandaan komt
 
-De **fiets** komt uit twee bronnen, in deze volgorde:
+Dat hangt af van **hoe jij je Garmin-profielen gebruikt**, en dat is niet uit
+de gegevens af te leiden. Het is dus een keuze, onder **Cardio loggen →
+Strava-koppeling**:
 
-1. **Strava's sporttype**, als het expliciet is: `MountainBikeRide`,
-   `GravelRide`, `VirtualRide`. Rijd je met een Garmin, dan is dit de
-   betrouwbaarste bron — het activiteitsprofiel dat je vóór vertrek kiest
-   reist via `sport`/`sub_sport` in het FIT-bestand mee naar Strava.
-2. **De fiets die in Strava aan de rit hangt**, als het sporttype alleen
-   `Ride` zegt. Onder **Cardio loggen → Strava-koppeling** zeg je één keer wat
-   voor fiets elke Strava-fiets is; dat wordt meteen op al je eerdere ritten
-   met die fiets toegepast.
+**Stand "op de fiets waar ik op zit"** (standaard). Je kiest in Garmin
+"Mountainbiken" omdat je op de mountainbike zit, ook als je de hele rit op
+asfalt blijft. Dan levert het sporttype de fiets:
 
-Die volgorde is bewust zo. Garmin stuurt zijn eigen materiaal **niet** mee naar
-Strava, dus Strava hangt er zijn standaardfiets aan tenzij je het daar zelf
-aanpast. Zou de koppeling voorgaan, dan overschreef die standaardfiets een
-sporttype dat wél klopte, en kreeg elke mountainbikerit het label van de
-racefiets.
+| Sporttype | Fiets | Ondergrond |
+|---|---|---|
+| `MountainBikeRide` | Mountainbike | — |
+| `GravelRide` | Gravelfiets | — |
+| `VirtualRide` | Indoor trainer | Binnen |
+| `Ride` | uit de koppeling | — |
 
-Controleer dus in Strava of de juiste fiets onder je ritten hangt voordat je op
-de koppeling vertrouwt. Klopt dat niet en kies je in Garmin wél netjes je
-activiteitsprofiel, dan heb je de koppeling helemaal niet nodig.
+De ondergrond blijft leeg: uit "MountainBikeRide" volgt niet dat je in het bos
+zat. Je wegritten en bosritten op dezelfde fiets lopen dus door elkaar.
+
+**Stand "op waar ik rijd".** Je kiest in Garmin het profiel naar het parcours.
+Dan levert het sporttype de ondergrond, en komt de fiets uit de koppeling met
+je Strava-materiaal:
+
+| Sporttype | Fiets | Ondergrond |
+|---|---|---|
+| `MountainBikeRide` | uit de koppeling | Onverhard |
+| `GravelRide` | uit de koppeling | Gemengd |
+| `Ride` | uit de koppeling | Asfalt |
+| `VirtualRide` | uit de koppeling | Binnen |
+
+Hiermee komen beide assen automatisch binnen, en worden je winterse wegritten
+op de mountainbike gescheiden van je bosritten op diezelfde fiets. Voorwaarde
+is wel dat de koppeling klopt: zonder dat weet de app niet welke fiets het was.
+
+Het activiteitsprofiel dat je voor vertrek kiest reist via `sport`/`sub_sport`
+in het FIT-bestand mee naar Strava, dus beide standen werken op data die er al
+is. Je materiaal reist **niet** mee: Garmin stuurt zijn eigen gear niet door,
+dus Strava hangt er zijn standaardfiets aan tenzij je het daar aanpast. Dat is
+ook de reden dat in de eerste stand het sporttype vóór de koppeling gaat — een
+standaardfiets mag een sporttype dat wél klopt niet overschrijven.
+
+Een wijziging geldt vanaf de volgende synchronisatie; wat er al ligt verandert
+niet vanzelf. Werk je historie bij met **Analysedata bijwerken** om het met
+terugwerkende kracht toe te passen.
 
 De naam van de fiets wordt níet uitgelezen om er een type uit te raden.
 "Canyon Grail" is een gravelfiets en "Grail" staat in geen trefwoordenlijst;

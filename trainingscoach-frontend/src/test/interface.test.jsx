@@ -255,6 +255,12 @@ describe("WorkoutFilePanel", () => {
 });
 
 describe("GearMapping", () => {
+  beforeEach(() => {
+    // Het blok leest ook hoe de Garmin-profielen bedoeld zijn; zonder die
+    // mock valt het hele component om op een netwerkfout.
+    vi.spyOn(api, "getStravaSportTypeMeaning").mockResolvedValue({ betekenis: "fiets" });
+  });
+
   it("koppelt een fiets en meldt hoeveel historie is bijgewerkt", async () => {
     vi.spyOn(api, "getStravaGear").mockResolvedValue({
       materiaal: [
@@ -295,5 +301,25 @@ describe("GearMapping", () => {
     render(<GearMapping />);
     expect(await screen.findByText(/per sessie in het detailscherm/)).toBeInTheDocument();
     expect(screen.queryByText(/Analysedata bijwerken/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Betekenis van het Garmin-profiel", () => {
+  it("laat je kiezen of het profiel de fiets of de ondergrond aangeeft", async () => {
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({
+      materiaal: [{ id: "b1", naam: "Santa Cruz", fiets: "mtb", aantalRitten: 5, inStrava: true }],
+      zonderMateriaal: 0, verouderd: 0, vanStravaOpgehaald: 1,
+    });
+    vi.spyOn(api, "getStravaSportTypeMeaning").mockResolvedValue({ betekenis: "fiets" });
+    vi.spyOn(api, "setStravaSportTypeMeaning").mockResolvedValue({ betekenis: "ondergrond" });
+
+    render(<GearMapping />);
+    const opOndergrond = await screen.findByRole("radio", { name: /Op waar ik rijd/ });
+    expect(screen.getByRole("radio", { name: /Op de fiets waar ik op zit/ })).toBeChecked();
+
+    fireEvent.click(opOndergrond);
+    await waitFor(() => expect(api.setStravaSportTypeMeaning).toHaveBeenCalledWith("ondergrond"));
+    // Belangrijk dat dit erbij staat: de keuze verandert niets aan wat er al ligt.
+    expect(await screen.findByText(/Geldt vanaf de volgende synchronisatie/)).toBeInTheDocument();
   });
 });

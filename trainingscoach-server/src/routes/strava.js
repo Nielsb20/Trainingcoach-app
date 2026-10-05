@@ -256,6 +256,29 @@ router.post("/import/:id", async (req, res) => {
 /* -------------------------------- materiaal ----------------------------- */
 
 /**
+ * GET/PUT /api/strava/sporttype-betekenis
+ *
+ * Of het sporttype uit Strava over de fiets gaat of over de ondergrond. Dat
+ * hangt af van hoe de sporter zijn Garmin-profielen gebruikt en is niet uit de
+ * gegevens af te leiden, dus het is een keuze. Een eigen routepaar omdat het
+ * Strava-specifiek is en in het Strava-blok thuishoort, los van het profiel
+ * met hartslag en FTP.
+ */
+router.get("/sporttype-betekenis", (req, res) => {
+  res.json({ betekenis: strava.sportTypeMeaning() });
+});
+
+router.put("/sporttype-betekenis", (req, res) => {
+  const betekenis = req.body?.betekenis;
+  if (!["fiets", "ondergrond"].includes(betekenis)) {
+    return res.status(400).json({ error: 'Kies "fiets" of "ondergrond".' });
+  }
+  db.prepare("UPDATE profile SET strava_sport_type_means = ? WHERE id = 1").run(betekenis);
+  // Geldt vanaf de volgende import; wat er al ligt verandert niet vanzelf.
+  res.json({ betekenis, verouderd: strava.isConnected() ? strava.findOutdatedImports().length : 0 });
+});
+
+/**
  * GET /api/strava/materiaal
  *
  * Je fietsen, met het type dat eraan hangt en hoeveel ritten erop staan.

@@ -178,39 +178,6 @@ function mapSportType(sportType) {
   return "Anders";
 }
 
-/**
- * Strava's sport_type -> welke fiets of ondergrond.
- *
- * Alleen de types die het zelf expliciet zeggen leveren een label. Een kale
- * "Ride" komt terug als null, niet als "racefiets": dat is precies het type
- * dat iedereen laat staan voor elke rit, dus er een bikeype uit concluderen
- * zou een verzinsel in de geschiedenis zetten. Onbekend blijft onbekend, en in
- * de sessie zelf kun je het alsnog zetten.
- */
-function mapSubType(sportType) {
-  const s = String(sportType || "").toLowerCase();
-  if (s.includes("mountainbike")) return "mtb";
-  if (s.includes("gravel")) return "gravel";
-  if (s.includes("ebike") || s.includes("e-bike")) return "ebike";
-  if (s.includes("virtualride")) return "indoor";
-  return null;
-}
-
-/**
- * De ondergrond uit het sporttype — bijna nooit.
- *
- * Alleen een virtuele sessie is zeker: die is binnen. "MountainBikeRide" zegt
- * welke fiets, niet waar: wie zijn mountainbike 's winters op de weg gebruikt
- * logt dat net zo goed als MountainBikeRide. Daar "bos" uit concluderen is
- * precies de gok die dit veld moet vermijden, dus de rest blijft leeg tot de
- * sporter het zelf zegt.
- */
-function mapSurface(sportType) {
-  const s = String(sportType || "").toLowerCase();
-  if (s.includes("virtual") || s.includes("treadmill")) return "binnen";
-  return null;
-}
-
 /* ------------------------------ materiaal ------------------------------ */
 
 /**
@@ -244,7 +211,7 @@ function rememberGear(gearId, gearName) {
   }
 }
 
-/** De ondergrond die de sporter aan deze fiets heeft gehangen, of null. */
+/** De fiets die de sporter aan dit Strava-materiaal heeft gehangen, of null. */
 function subTypeForGear(gearId) {
   if (!gearId) return null;
   try {
@@ -265,6 +232,62 @@ const fetchAthleteGear = async () => {
     primair: !!g.primary,
   }));
 };
+
+/**
+ * Hoe de sporter zijn Garmin-profielen gebruikt.
+ *
+ * Niet af te leiden uit de gegevens, dus het is een instelling. Zie de
+ * toelichting bij de kolom in schema.sql.
+ */
+function sportTypeMeaning() {
+  try {
+    return db.prepare("SELECT strava_sport_type_means AS m FROM profile WHERE id = 1").get()?.m || "fiets";
+  } catch {
+    return "fiets";
+  }
+}
+
+/**
+ * Strava's sport_type -> welke fiets.
+ *
+ * Alleen in de stand 'fiets', waarin het profiel zegt waar je op zat. In de
+ * stand 'ondergrond' zegt het sporttype iets heel anders en komt de fiets uit
+ * de koppeling met je Strava-materiaal.
+ *
+ * Een kale "Ride" levert ook hier niets op: dat is het type dat blijft staan
+ * als je niets kiest.
+ */
+function mapSubType(sportType, meaning = sportTypeMeaning()) {
+  if (meaning !== "fiets") return null;
+  const s = String(sportType || "").toLowerCase();
+  if (s.includes("mountainbike")) return "mtb";
+  if (s.includes("gravel")) return "gravel";
+  if (s.includes("ebike") || s.includes("e-bike")) return "ebike";
+  if (s.includes("virtualride")) return "indoor";
+  return null;
+}
+
+/**
+ * Strava's sport_type -> waar je reed.
+ *
+ * In de stand 'fiets' bijna nooit: alleen een virtuele sessie is met
+ * zekerheid binnen. "MountainBikeRide" zegt dan welke fiets, niet waar — wie
+ * zijn mountainbike 's winters op de weg gebruikt logt dat net zo goed als
+ * MountainBikeRide, en daar "bos" uit concluderen is precies de gok die dit
+ * veld moet vermijden.
+ *
+ * In de stand 'ondergrond' is het omgekeerd: dan heeft de sporter het profiel
+ * juist op het parcours gekozen, en betekent MountainBikeRide wél het bos.
+ */
+function mapSurface(sportType, meaning = sportTypeMeaning()) {
+  const s = String(sportType || "").toLowerCase();
+  if (s.includes("virtual") || s.includes("treadmill")) return "binnen";
+  if (meaning !== "ondergrond") return null;
+  if (s.includes("mountainbike") || s.includes("trail")) return "onverhard";
+  if (s.includes("gravel")) return "gemengd";
+  if (s.includes("ride") || s.includes("run")) return "asfalt";
+  return null;
+}
 
 /** True for activity types that aren't cardio and shouldn't be auto-imported. */
 function isStrengthActivity(sportType) {
@@ -355,6 +378,7 @@ function buildProfile(streams, durationMinutes) {
  */
 function stravaToSession(activity, streams) {
   const gear = gearOf(activity);
+  const meaning = sportTypeMeaning();
   // Ook een fiets zonder koppeling wordt onthouden: alleen zo kan de interface
   // hem aanbieden om er één keer een ondergrond aan te hangen.
   rememberGear(gear.gear_id, gear.gear_name);
@@ -411,8 +435,8 @@ function stravaToSession(activity, streams) {
     //
     // Dus: zegt het sporttype welke fiets het was, dan is dat het antwoord.
     // Zegt het alleen "Ride", dan vult de koppeling de leegte.
-    sub_type: mapSubType(activity.sport_type || activity.type) || subTypeForGear(gear.gear_id),
-    surface: mapSurface(activity.sport_type || activity.type),
+    sub_type: mapSubType(activity.sport_type || activity.type, meaning) || subTypeForGear(gear.gear_id),
+    surface: mapSurface(activity.sport_type || activity.type, meaning),
     gear_id: gear.gear_id,
     gear_name: gear.gear_name,
     duration_min: movingMin,
@@ -530,6 +554,7 @@ module.exports = {
   mapSportType,
   mapSubType,
   mapSurface,
+  sportTypeMeaning,
   gearOf,
   rememberGear,
   subTypeForGear,

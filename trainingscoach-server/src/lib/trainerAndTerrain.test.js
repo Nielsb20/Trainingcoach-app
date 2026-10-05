@@ -112,19 +112,54 @@ console.log(`  ok  drempelzone begint bij ${zonesGemeten[3].vanBpm} in plaats va
 
 console.log("\nfiets en ondergrond zijn twee losse dingen");
 
-// De fiets komt uit het sporttype waar dat het zegt; de ondergrond niet.
-assert.strictEqual(strava.mapSubType("MountainBikeRide"), "mtb");
-assert.strictEqual(strava.mapSubType("GravelRide"), "gravel");
-assert.strictEqual(strava.mapSubType("VirtualRide"), "indoor");
-assert.strictEqual(strava.mapSubType("Ride"), null, "een kale Ride zegt niet welke fiets");
-// Hier zat de fout: "MountainBikeRide" zegt wélke fiets, niet wáár. Wie zijn
-// MTB 's winters op de weg gebruikt logt dat net zo goed als MountainBikeRide.
-assert.strictEqual(strava.mapSurface("MountainBikeRide"), null, "een MTB-rit hoeft niet door het bos te gaan");
-assert.strictEqual(strava.mapSurface("GravelRide"), null);
-assert.strictEqual(strava.mapSurface("Ride"), null);
-assert.strictEqual(strava.mapSurface("VirtualRide"), "binnen", "virtueel is wél met zekerheid binnen");
-assert.strictEqual(strava.mapSurface("VirtualRun"), "binnen");
-console.log("  ok  het sporttype levert de fiets, en alleen bij virtueel ook de ondergrond");
+// Wat het sporttype betekent hangt af van hoe de sporter zijn profielen
+// gebruikt, en dat kan de app niet raden. Dus twee standen.
+//
+// Stand 'fiets': het profiel zegt waar je op zat.
+assert.strictEqual(strava.mapSubType("MountainBikeRide", "fiets"), "mtb");
+assert.strictEqual(strava.mapSubType("GravelRide", "fiets"), "gravel");
+assert.strictEqual(strava.mapSubType("VirtualRide", "fiets"), "indoor");
+assert.strictEqual(strava.mapSubType("Ride", "fiets"), null, "een kale Ride zegt niet welke fiets");
+// Hier zat de fout: in deze stand zegt "MountainBikeRide" wélke fiets, niet
+// wáár. Wie zijn MTB 's winters op de weg gebruikt logt dat net zo goed als
+// MountainBikeRide.
+assert.strictEqual(strava.mapSurface("MountainBikeRide", "fiets"), null, "een MTB-rit hoeft niet door het bos te gaan");
+assert.strictEqual(strava.mapSurface("GravelRide", "fiets"), null);
+assert.strictEqual(strava.mapSurface("Ride", "fiets"), null);
+assert.strictEqual(strava.mapSurface("VirtualRide", "fiets"), "binnen", "virtueel is wél met zekerheid binnen");
+console.log("  ok  stand 'fiets': het profiel levert de fiets, en alleen virtueel ook de ondergrond");
+
+// Stand 'ondergrond': het profiel zegt waar je reed, en de fiets komt uit de
+// koppeling met je Strava-materiaal.
+assert.strictEqual(strava.mapSurface("MountainBikeRide", "ondergrond"), "onverhard");
+assert.strictEqual(strava.mapSurface("GravelRide", "ondergrond"), "gemengd");
+assert.strictEqual(strava.mapSurface("Ride", "ondergrond"), "asfalt", "wegfietsen betekent dan asfalt");
+assert.strictEqual(strava.mapSurface("VirtualRide", "ondergrond"), "binnen");
+assert.strictEqual(strava.mapSurface("TrailRun", "ondergrond"), "onverhard");
+assert.strictEqual(
+  strava.mapSubType("MountainBikeRide", "ondergrond"), null,
+  "in deze stand zegt het profiel niets over de fiets"
+);
+console.log("  ok  stand 'ondergrond': het profiel levert het parcours, niet de fiets");
+
+// En dat is precies het geval waar het om begonnen is: dezelfde mountainbike,
+// 's zomers het bos in en 's winters over de weg.
+db.prepare("INSERT INTO strava_gear (id,name,sub_type) VALUES ('mtb-gear','Santa Cruz','mtb')").run();
+db.prepare("UPDATE profile SET strava_sport_type_means='ondergrond' WHERE id=1").run();
+const maakRit = (sport) => strava.stravaToSession(
+  { id: Math.random(), sport_type: sport, moving_time: 3600, distance: 30000,
+    start_date_local: "2026-01-10T09:00:00Z",
+    gear_id: "mtb-gear", gear: { id: "mtb-gear", name: "Santa Cruz" } },
+  null
+);
+const winterWegrit = maakRit("Ride");
+const zomerBosrit = maakRit("MountainBikeRide");
+assert.strictEqual(winterWegrit.sub_type, "mtb", "allebei op dezelfde fiets");
+assert.strictEqual(zomerBosrit.sub_type, "mtb");
+assert.strictEqual(winterWegrit.surface, "asfalt", "maar niet over dezelfde ondergrond");
+assert.strictEqual(zomerBosrit.surface, "onverhard");
+db.prepare("UPDATE profile SET strava_sport_type_means='fiets' WHERE id=1").run();
+console.log("  ok  dezelfde MTB op de weg en in het bos komt binnen als twee verschillende dingen");
 
 // Een kale "Ride" zegt niets, dus dan vult de gekoppelde fiets de leegte.
 db.prepare("INSERT INTO strava_gear (id, name, sub_type) VALUES ('b999', 'Canyon Grail', 'gravel')").run();

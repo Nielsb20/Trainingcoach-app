@@ -202,7 +202,11 @@ export const disconnectStrava = () => request("/strava/disconnect", { method: "P
 export const getStravaBackfillStatus = () => request("/strava/backfill-status");
 export const backfillStrava = (limit = 25) =>
   request("/strava/backfill", { method: "POST", body: JSON.stringify({ limit }) });
-/** Je fietsen en schoenen, met de ondergrond die eraan hangt. */
+/** Zegt het sporttype uit Strava iets over de fiets of over de ondergrond? */
+export const getStravaSportTypeMeaning = () => request("/strava/sporttype-betekenis");
+export const setStravaSportTypeMeaning = (betekenis) =>
+  request("/strava/sporttype-betekenis", { method: "PUT", body: JSON.stringify({ betekenis }) });
+/** Je fietsen en schoenen, met het type dat eraan hangt. */
 export const getStravaGear = () => request("/strava/materiaal");
 /** Zegt wat voor fiets dit is, standaard ook voor je hele historie. */
 export const setStravaGearSubType = (id, fiets, toepassenOpGeschiedenis = true) =>

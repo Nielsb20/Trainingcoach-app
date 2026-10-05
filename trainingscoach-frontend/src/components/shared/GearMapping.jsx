@@ -17,16 +17,68 @@ import { BIKE_TYPES } from "../../lib/calculations";
  */
 export default function GearMapping() {
   const [data, setData] = useState(null);
+  const [betekenis, setBetekenis] = useState(null);
   const [bezig, setBezig] = useState(null);
   const [melding, setMelding] = useState(null);
   const [fout, setFout] = useState(null);
 
   async function load() {
     try {
-      setData(await api.getStravaGear());
+      const [gear, meaning] = await Promise.all([
+        api.getStravaGear(),
+        api.getStravaSportTypeMeaning(),
+      ]);
+      setData(gear);
+      setBetekenis(meaning.betekenis);
     } catch (err) {
       setFout(err.message);
     }
+  }
+
+  async function kiesBetekenis(nieuwe) {
+    setBezig("betekenis");
+    setFout(null);
+    setMelding(null);
+    try {
+      await api.setStravaSportTypeMeaning(nieuwe);
+      setBetekenis(nieuwe);
+      setMelding("Opgeslagen. Geldt vanaf de volgende synchronisatie; wat er al ligt verandert niet vanzelf.");
+    } catch (err) {
+      setFout(err.message);
+    } finally {
+      setBezig(null);
+    }
+  }
+
+  /**
+   * De keuze die bepaalt hoe het sporttype gelezen wordt.
+   *
+   * Staat boven de fietsenlijst omdat hij bepaalt of die lijst er überhaupt
+   * toe doet: kies je op ondergrond, dan is de koppeling de enige bron voor
+   * welke fiets het was.
+   */
+  function betekenisKeuze() {
+    if (!betekenis) return null;
+    return (
+      <div className="tc-inline-note" style={{ marginTop: 8 }}>
+        <p style={{ margin: "0 0 6px" }}>
+          <strong>Hoe kies je je profiel in Garmin?</strong> Dat bepaalt wat het sporttype dat Strava
+          doorgeeft betekent, en dat kan de app niet raden.
+        </p>
+        <label style={{ display: "block", marginBottom: 4 }}>
+          <input type="radio" name="sporttype-betekenis" value="fiets" checked={betekenis === "fiets"}
+            disabled={bezig === "betekenis"} onChange={() => kiesBetekenis("fiets")} />{" "}
+          <strong>Op de fiets waar ik op zit.</strong> "Mountainbiken" betekent dan: dit was de
+          mountainbike, waar ik ook reed. De ondergrond blijft onbekend.
+        </label>
+        <label style={{ display: "block" }}>
+          <input type="radio" name="sporttype-betekenis" value="ondergrond" checked={betekenis === "ondergrond"}
+            disabled={bezig === "betekenis"} onChange={() => kiesBetekenis("ondergrond")} />{" "}
+          <strong>Op waar ik rijd.</strong> "Mountainbiken" betekent dan het bos en "Wegfietsen"
+          asfalt. Welke fiets eronder zat komt dan uit de lijst hieronder — vul die dus in.
+        </label>
+      </div>
+    );
   }
 
   useEffect(() => {
@@ -67,7 +119,8 @@ export default function GearMapping() {
   if (!data.materiaal.length) {
     return (
       <div style={{ marginTop: 8 }}>
-        <span className="tc-workoutfile-title">
+        {betekenisKeuze()}
+        <span className="tc-workoutfile-title" style={{ marginTop: 10, display: "flex" }}>
           <Bike size={12} /> Wat voor fiets is dit
         </span>
         <p className="tc-import-help" style={{ margin: "4px 0" }}>
@@ -92,7 +145,8 @@ export default function GearMapping() {
 
   return (
     <div style={{ marginTop: 8 }}>
-      <span className="tc-workoutfile-title">
+      {betekenisKeuze()}
+      <span className="tc-workoutfile-title" style={{ marginTop: 10, display: "flex" }}>
         <Bike size={12} /> Wat voor fiets is dit
       </span>
       <p className="tc-import-help" style={{ margin: "4px 0 8px" }}>

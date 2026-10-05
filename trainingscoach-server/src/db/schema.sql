@@ -470,3 +470,21 @@ CREATE TABLE IF NOT EXISTS strava_gear (
 -- met zekerheid "binnen"; de rest zou gissen zijn.
 ALTER TABLE cardio_logs ADD COLUMN surface TEXT;
 ALTER TABLE planned_sessions ADD COLUMN surface TEXT;
+
+-- Wat zegt het sporttype dat uit Strava binnenkomt: de fiets, of de ondergrond?
+--
+-- Dat hangt af van hoe de sporter zijn Garmin-profielen gebruikt, en het is
+-- niet af te leiden uit de gegevens. Twee manieren, allebei verdedigbaar:
+--
+--   'fiets'       Je kiest het profiel op de fiets waar je op zit.
+--                 "Mountainbiken" betekent dan: dit was de mountainbike, waar
+--                 je ook reed. De ondergrond blijft onbekend.
+--
+--   'ondergrond'  Je kiest het profiel op waar je rijdt. "Mountainbiken"
+--                 betekent dan: dit ging het bos in, "Wegfietsen" betekent
+--                 asfalt. Welke fiets eronder zat komt dan uit de koppeling
+--                 met je Strava-materiaal.
+--
+-- Standaard 'fiets', want dat is de gok die het minst kapotmaakt als hij fout
+-- is: je krijgt dan een onbekende ondergrond in plaats van een verkeerde.
+ALTER TABLE profile ADD COLUMN strava_sport_type_means TEXT NOT NULL DEFAULT 'fiets';
