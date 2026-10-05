@@ -310,7 +310,21 @@ router.get("/materiaal", async (req, res) => {
     )
     .get().aantal;
 
-  res.json({ materiaal: lijst, zonderMateriaal });
+  // Waarom de lijst leeg kan zijn, zodat de interface dat kan uitleggen in
+  // plaats van een leeg vak te tonen.
+  //
+  // Twee oorzaken, allebei normaal vlak na een update. Ritten die vóór deze
+  // versie zijn geïmporteerd dragen geen fiets: die moeten eerst bijgewerkt
+  // worden. En Strava geeft de lijst met fietsen alleen vrij met het scope
+  // profile:read_all, dat deze app niet vraagt — we hebben het niet nodig,
+  // want de fiets komt met elke rit mee, maar het betekent wel dat de lijst
+  // zich vult via je ritten en niet in één klap.
+  res.json({
+    materiaal: lijst,
+    zonderMateriaal,
+    verouderd: strava.isConnected() ? strava.findOutdatedImports().length : 0,
+    vanStravaOpgehaald: vanStrava.length,
+  });
 });
 
 /**

@@ -275,10 +275,25 @@ describe("GearMapping", () => {
     expect(await screen.findByText(/3 eerdere sessies meteen bijgewerkt/)).toBeInTheDocument();
   });
 
-  it("toont niets als er geen fietsen bekend zijn", async () => {
-    vi.spyOn(api, "getStravaGear").mockResolvedValue({ materiaal: [], zonderMateriaal: 0 });
-    const { container } = render(<GearMapping />);
-    await waitFor(() => expect(container.querySelector("table")).toBeNull());
-    expect(screen.queryByText(/Welke fiets/)).not.toBeInTheDocument();
+  it("wijst naar het bijwerken als de fietsen nog uit je historie moeten komen", async () => {
+    // Het normale geval vlak na een update: ritten zijn geïmporteerd voordat
+    // de fiets werd bewaard. Een leeg vak zonder uitleg laat je dan gissen of
+    // het stuk is.
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({
+      materiaal: [], zonderMateriaal: 12, verouderd: 493, vanStravaOpgehaald: 0,
+    });
+    render(<GearMapping />);
+    expect(await screen.findByText(/Nog geen fietsen bekend/)).toBeInTheDocument();
+    expect(screen.getByText("493")).toBeInTheDocument();
+    expect(screen.getByText(/Analysedata bijwerken/)).toBeInTheDocument();
+  });
+
+  it("zegt zonder verouderde ritten dat er in Strava geen fiets aan hangt", async () => {
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({
+      materiaal: [], zonderMateriaal: 3, verouderd: 0, vanStravaOpgehaald: 0,
+    });
+    render(<GearMapping />);
+    expect(await screen.findByText(/per sessie in het detailscherm/)).toBeInTheDocument();
+    expect(screen.queryByText(/Analysedata bijwerken/)).not.toBeInTheDocument();
   });
 });

@@ -60,9 +60,35 @@ export default function GearMapping() {
     );
   }
 
-  // Niets te koppelen is niets te tonen. Een leeg kopje met de mededeling dat
-  // er geen fietsen zijn is ruis op een scherm waar al genoeg staat.
-  if (!data.materiaal.length) return null;
+  // Een lege lijst zonder uitleg is de slechtste uitkomst: je ziet niets en
+  // weet niet of het stuk is of gewoon leeg. Vlak na een update is leeg juist
+  // het normale geval, want ritten die eerder zijn geïmporteerd dragen nog
+  // geen fiets — die moet eerst bijgewerkt worden.
+  if (!data.materiaal.length) {
+    return (
+      <div style={{ marginTop: 8 }}>
+        <span className="tc-workoutfile-title">
+          <Bike size={12} /> Welke fiets is welke ondergrond
+        </span>
+        <p className="tc-import-help" style={{ margin: "4px 0" }}>
+          Nog geen fietsen bekend.{" "}
+          {data.verouderd > 0 ? (
+            <>
+              Je ritten zijn geïmporteerd voordat de fiets werd bewaard. Klik hierboven op
+              <strong> Analysedata bijwerken</strong> — er staan er <strong>{data.verouderd}</strong> klaar.
+              Zodra de eerste ritten zijn bijgewerkt verschijnen je fietsen hier vanzelf.
+            </>
+          ) : (
+            <>
+              Ze verschijnen zodra je een rit synchroniseert waar in Strava een fiets aan hangt. Staat er
+              in Strava geen fiets onder je ritten, dan is daar niets uit te halen; zet de ondergrond dan
+              per sessie in het detailscherm.
+            </>
+          )}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginTop: 8 }}>
