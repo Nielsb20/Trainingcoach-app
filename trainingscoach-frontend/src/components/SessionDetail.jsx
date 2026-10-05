@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { X, Loader2, MessageCircle, TrendingDown, Flag, RefreshCw } from "lucide-react";
 import * as api from "../api/client";
-import { formatDateNL, subTypesFor } from "../lib/calculations";
+import { formatDateNL, subTypesFor, surfacesFor } from "../lib/calculations";
 
 const ZONE_COLORS = ["#4FA8A0", "#5B8FBF", "#8C86C9", "#C97A3F", "#B85C5C", "#8C4A4A", "#6B3A3A"];
 
@@ -29,14 +29,16 @@ export default function SessionDetail({ sessionId, onClose }) {
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState(null);
   const [askingFeedback, setAskingFeedback] = useState(false);
+  const [fiets, setFiets] = useState("");
   const [ondergrond, setOndergrond] = useState("");
-  const [ondergrondBusy, setOndergrondBusy] = useState(false);
+  const [labelBusy, setLabelBusy] = useState(false);
 
   async function load() {
     const d = await api.getSessionDetail(sessionId);
     setData(d);
     setFeedback(d.feedback);
-    setOndergrond(d.sessie?.subType || "");
+    setFiets(d.sessie?.subType || "");
+    setOndergrond(d.sessie?.surface || "");
     return d;
   }
 
@@ -99,6 +101,7 @@ export default function SessionDetail({ sessionId, onClose }) {
             <span className="tc-history-detail">
               {formatDateNL(sessie.date)}
               {evenement ? ` · ${sessie.type}` : ""}
+              {vergelijking.fiets ? ` · ${vergelijking.fiets}` : ""}
               {vergelijking.ondergrond ? ` · ${vergelijking.ondergrond}` : ""}
               {sessie.notes && !evenement ? ` · ${sessie.notes}` : ""}
             </span>
@@ -115,37 +118,62 @@ export default function SessionDetail({ sessionId, onClose }) {
           </div>
         )}
 
-        {/* Welke fiets het was. Hier te zetten en niet alleen bij het loggen,
-            omdat de import het meestal niet weet: Strava's kale "Ride" zegt
-            niets over de ondergrond, en zo is de hele geschiedenis binnen-
-            gekomen. Dit is het enige veld van een sessie dat je achteraf mag
-            bijstellen — de rest is gemeten. */}
-        {subTypesFor(sessie.type).length > 0 && (
-          <div className="tc-chiprow" style={{ alignItems: "center", gap: 8 }}>
-            <label className="tc-label" style={{ margin: 0 }}>Fiets / ondergrond</label>
+        {/* Twee losse vragen. Welke fiets verklaart snelheid altijd — een
+            mountainbike is ook op asfalt trager dan een racefiets. Waar je
+            reed verklaart er nog eens bovenop, maar alleen als je er echt het
+            bos mee in bent geweest. Ze in één keuze persen was de fout.
+            Allebei achteraf te zetten, want de import weet het meestal niet. */}
+        {subTypesFor(sessie.type).length > 0 || surfacesFor(sessie.type).length > 0 ? (
+          <div className="tc-chiprow" style={{ alignItems: "center", gap: 10 }}>
+            {subTypesFor(sessie.type).length > 0 && (
+              <>
+                <label className="tc-label" style={{ margin: 0 }}>Fiets</label>
+                <select
+                  className="tc-input"
+                  style={{ width: "auto" }}
+                  value={fiets}
+                  disabled={labelBusy}
+                  onChange={async (e) => {
+                    const nieuwe = e.target.value;
+                    setFiets(nieuwe);
+                    setLabelBusy(true);
+                    try {
+                      await api.setCardioSubType(sessie.id, nieuwe || null);
+                      await load();
+                    } finally {
+                      setLabelBusy(false);
+                    }
+                  }}
+                >
+                  <option value="">Niet opgegeven</option>
+                  {subTypesFor(sessie.type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+                </select>
+              </>
+            )}
+            <label className="tc-label" style={{ margin: 0 }}>Ondergrond</label>
             <select
               className="tc-input"
               style={{ width: "auto" }}
               value={ondergrond}
-              disabled={ondergrondBusy}
+              disabled={labelBusy}
               onChange={async (e) => {
-                const nieuw = e.target.value;
-                setOndergrond(nieuw);
-                setOndergrondBusy(true);
+                const nieuwe = e.target.value;
+                setOndergrond(nieuwe);
+                setLabelBusy(true);
                 try {
-                  await api.setCardioSubType(sessie.id, nieuw || null);
+                  await api.setCardioSurface(sessie.id, nieuwe || null);
                   await load();
                 } finally {
-                  setOndergrondBusy(false);
+                  setLabelBusy(false);
                 }
               }}
             >
               <option value="">Niet opgegeven</option>
-              {subTypesFor(sessie.type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+              {surfacesFor(sessie.type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
             </select>
-            {ondergrondBusy && <Loader2 size={14} className="tc-spin" />}
+            {labelBusy && <Loader2 size={14} className="tc-spin" />}
           </div>
-        )}
+        ) : null}
 
         {/* ------------------------------ key figures ------------------------------ */}
         <div className="tc-detail-stats">
@@ -253,6 +281,9 @@ export default function SessionDetail({ sessionId, onClose }) {
               )}
             </p>
 
+            {vergelijking.fietsWaarschuwing && (
+              <div className="tc-warning-box">{vergelijking.fietsWaarschuwing}</div>
+            )}
             {vergelijking.ondergrondWaarschuwing && (
               <div className="tc-warning-box">{vergelijking.ondergrondWaarschuwing}</div>
             )}
@@ -264,7 +295,7 @@ export default function SessionDetail({ sessionId, onClose }) {
               <table className="tc-table">
                 <thead>
                   <tr>
-                    <th>Datum</th><th>Ondergrond</th><th>Afstand</th><th>↑ hm</th><th>hm/km</th>
+                    <th>Datum</th><th>Fiets</th><th>Ondergrond</th><th>Afstand</th><th>↑ hm</th><th>hm/km</th>
                     <th>Snelheid</th><th>Gem. HR</th><th>Vermogen</th><th>NP</th><th>W/kg</th>
                   </tr>
                 </thead>
@@ -273,12 +304,18 @@ export default function SessionDetail({ sessionId, onClose }) {
                     // Een rit over duidelijk ander terrein blijft staan — hij is
                     // qua vermogen nog steeds bruikbaar — maar is als zodanig
                     // herkenbaar, zodat de snelheid niet als appels met appels leest.
-                    <tr key={s.id} className={s.terreinVergelijkbaar === false || !s.zelfdeOndergrond ? "tc-row-disabled" : ""}>
+                    <tr key={s.id} className={s.terreinVergelijkbaar === false || !s.zelfdeFiets || !s.zelfdeOndergrond ? "tc-row-disabled" : ""}>
                       <td>{formatDateNL(s.datum)}</td>
                       <td>
-                        {s.ondergrond || "–"}
-                        {!s.zelfdeOndergrond && (
+                        {s.fiets || "–"}
+                        {!s.zelfdeFiets && (
                           <span className="tc-hint-badge tc-badge-warning" style={{ marginLeft: 6 }}>andere fiets</span>
+                        )}
+                      </td>
+                      <td>
+                        {s.ondergrond || "–"}
+                        {s.zelfdeFiets && !s.zelfdeOndergrond && (
+                          <span className="tc-hint-badge tc-badge-warning" style={{ marginLeft: 6 }}>andere ondergrond</span>
                         )}
                       </td>
                       <td className="tc-mono">{s.afstandKm} km</td>

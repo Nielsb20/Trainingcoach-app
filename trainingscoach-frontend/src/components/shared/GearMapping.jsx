@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bike, Loader2 } from "lucide-react";
 import * as api from "../../api/client";
-import { CARDIO_SUB_TYPES } from "../../lib/calculations";
+import { BIKE_TYPES } from "../../lib/calculations";
 
 /**
  * Je fietsen uit Strava, elk met de ondergrond die eraan hangt.
@@ -68,7 +68,7 @@ export default function GearMapping() {
     return (
       <div style={{ marginTop: 8 }}>
         <span className="tc-workoutfile-title">
-          <Bike size={12} /> Welke fiets is welke ondergrond
+          <Bike size={12} /> Wat voor fiets is dit
         </span>
         <p className="tc-import-help" style={{ margin: "4px 0" }}>
           Nog geen fietsen bekend.{" "}
@@ -93,17 +93,19 @@ export default function GearMapping() {
   return (
     <div style={{ marginTop: 8 }}>
       <span className="tc-workoutfile-title">
-        <Bike size={12} /> Welke fiets is welke ondergrond
+        <Bike size={12} /> Wat voor fiets is dit
       </span>
       <p className="tc-import-help" style={{ margin: "4px 0 8px" }}>
-        Hang hier één keer een ondergrond aan elke fiets. Dat wordt meteen op al je eerdere ritten met
-        die fiets toegepast, en geldt daarna vanzelf voor nieuwe ritten — betrouwbaarder dan het
-        sporttype, want een kale "Ride" in Strava zegt niets over waar je reed.
+        Zeg hier één keer wat voor fiets elke Strava-fiets is. Dat wordt meteen op al je eerdere ritten
+        met die fiets toegepast en geldt daarna vanzelf voor nieuwe — betrouwbaarder dan het sporttype,
+        want een kale "Ride" in Strava zegt niets. <strong>Niet</strong> waar je reed: dezelfde
+        mountainbike gaat 's zomers het bos in en 's winters over de weg, dus de ondergrond staat per
+        sessie.
       </p>
 
       <table className="tc-table">
         <thead>
-          <tr><th>Fiets</th><th>Ritten</th><th>Ondergrond</th></tr>
+          <tr><th>Strava-fiets</th><th>Ritten</th><th>Wat voor fiets</th></tr>
         </thead>
         <tbody>
           {data.materiaal.map((g) => (
@@ -119,13 +121,13 @@ export default function GearMapping() {
                 <select
                   className="tc-input"
                   style={{ width: "auto" }}
-                  value={g.ondergrond || ""}
+                  value={g.fiets || ""}
                   disabled={bezig === g.id}
                   onChange={(e) => koppel(g.id, e.target.value)}
                 >
                   <option value="">Niet toegewezen</option>
-                  {CARDIO_SUB_TYPES.map((s) => (
-                    <option key={s.id} value={s.id}>{s.naam} ({s.sport})</option>
+                  {BIKE_TYPES.map((s) => (
+                    <option key={s.id} value={s.id}>{s.naam}</option>
                   ))}
                 </select>
                 {bezig === g.id && <Loader2 className="spin" size={13} style={{ marginLeft: 6 }} />}

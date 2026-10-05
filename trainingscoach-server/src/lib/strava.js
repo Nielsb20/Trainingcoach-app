@@ -193,8 +193,21 @@ function mapSubType(sportType) {
   if (s.includes("gravel")) return "gravel";
   if (s.includes("ebike") || s.includes("e-bike")) return "ebike";
   if (s.includes("virtualride")) return "indoor";
-  if (s.includes("trailrun")) return "trail";
-  if (s.includes("virtualrun") || s.includes("treadmill")) return "loopband";
+  return null;
+}
+
+/**
+ * De ondergrond uit het sporttype — bijna nooit.
+ *
+ * Alleen een virtuele sessie is zeker: die is binnen. "MountainBikeRide" zegt
+ * welke fiets, niet waar: wie zijn mountainbike 's winters op de weg gebruikt
+ * logt dat net zo goed als MountainBikeRide. Daar "bos" uit concluderen is
+ * precies de gok die dit veld moet vermijden, dus de rest blijft leeg tot de
+ * sporter het zelf zegt.
+ */
+function mapSurface(sportType) {
+  const s = String(sportType || "").toLowerCase();
+  if (s.includes("virtual") || s.includes("treadmill")) return "binnen";
   return null;
 }
 
@@ -386,6 +399,7 @@ function stravaToSession(activity, streams) {
     // sporttype is in het beste geval een aanwijzing. Dus eerst kijken wat de
     // koppeling zegt, en pas daarna terugvallen op "MountainBikeRide".
     sub_type: subTypeForGear(gear.gear_id) || mapSubType(activity.sport_type || activity.type),
+    surface: mapSurface(activity.sport_type || activity.type),
     gear_id: gear.gear_id,
     gear_name: gear.gear_name,
     duration_min: movingMin,
@@ -502,6 +516,7 @@ module.exports = {
   stravaToSession,
   mapSportType,
   mapSubType,
+  mapSurface,
   gearOf,
   rememberGear,
   subTypeForGear,

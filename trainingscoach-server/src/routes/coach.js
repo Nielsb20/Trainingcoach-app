@@ -262,7 +262,7 @@ function buildCoachPayload({ question = null } = {}) {
       const tssResult = calc.computeSessionTSS(c, schema.profile.ftp, hrZones, schema.profile.thresholdPaceSecPerKm);
       return {
         datum: c.date, moment: c.timeOfDay ? timeOfDayLabel(c.timeOfDay) : null, type: c.type,
-        ondergrond: calc.subTypeLabel(c.subType), duur_min: c.duration_min, afstand_km: c.distance_km,
+        fiets: calc.subTypeLabel(c.subType), ondergrond: calc.surfaceLabel(c.surface), duur_min: c.duration_min, afstand_km: c.distance_km,
         gem_hartslag: c.avg_hr, max_hartslag: c.max_hr, hartslagzone: calc.zoneForHr(c.avg_hr, hrZones), gem_snelheid_kmu: calc.computeAvgSpeedKmh(c.distance_km, c.duration_min),
         gem_vermogen_watt: c.avg_power, max_vermogen_watt: c.max_power, gewogen_gem_vermogen_watt: c.weighted_avg_power,
         watt_per_kg: calc.computeWattsPerKg(c.avg_power, calc.getWeightAtDate(weightLogs, c.date)),

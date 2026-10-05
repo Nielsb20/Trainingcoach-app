@@ -16,13 +16,20 @@ const { normalizeStructure, renderWorkoutFile, describeStructure } = require("..
 
 const router = express.Router();
 
-/** Een ondersoort uit modeluitvoer: alleen als hij bestaat en bij de sport past. */
+/** Een fiets uit modeluitvoer: alleen als hij bestaat en de sport fietsen is. */
 function veiligeOndersoort(waarde, type) {
   if (!waarde) return null;
-  const hit = calc.CARDIO_SUB_TYPES.find((s) => s.id === waarde);
+  if (calc.baseSportOf(type) === "Hardlopen") return null;
+  return calc.BIKE_TYPES.find((s) => s.id === waarde)?.id || null;
+}
+
+/** Idem voor de ondergrond, die bij beide sporten kan horen. */
+function veiligeOndergrond(waarde, type) {
+  if (!waarde) return null;
+  const hit = calc.SURFACES.find((s) => s.id === waarde);
   if (!hit) return null;
   const sport = calc.baseSportOf(type);
-  if (sport && hit.sport !== sport) return null;
+  if (sport && !hit.sporten.includes(sport)) return null;
   return hit.id;
 }
 
@@ -39,6 +46,7 @@ function serialize(row) {
     durationMin: row.duration_min,
     intensity: row.intensity,
     subType: row.sub_type,
+    surface: row.surface,
     // De blokkenstructuur, als die er is. Alleen dan kan er een
     // trainingsbestand voor de indoortrainer van gemaakt worden.
     structuur: row.structure_json ? JSON.parse(row.structure_json) : null,
@@ -458,8 +466,8 @@ function createProposalsFromCoachEntry(coachEntryId) {
   const insert = db.prepare(
     `INSERT INTO planned_sessions
        (id, date, weekday, type, description, source_coach_entry_id, status, replaces_id, discipline,
-        sub_type, structure_json, structure_source)
-     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?, ?, ?, ?)`
+        sub_type, surface, structure_json, structure_source)
+     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?, ?, ?, ?, ?)`
   );
   // Conflicts are per discipline: a strength session and a ride on the same
   // day is a normal double day, not a clash.
@@ -509,11 +517,12 @@ function createProposalsFromCoachEntry(coachEntryId) {
     // wordt weggelaten, en een blokkenstructuur die niet klopt eveneens. Beter
     // geen label en geen bestand dan een verzonnen label en een bestand dat
     // iets anders voorschrijft dan er staat.
-    const subType = veiligeOndersoort(p.ondergrond ?? p.subType, p.label);
+    const subType = veiligeOndersoort(p.fiets ?? p.subType, p.label);
+    const surface = veiligeOndergrond(p.ondergrond ?? p.surface, p.label);
     const structuur = p.discipline === "cardio" ? normalizeStructure(p.blokken) : null;
     insert.run(id, date, p.dag || null, p.label || "Anders", p.invulling || "", coachEntryId,
                existing ? existing.id : null, p.discipline,
-               subType, structuur ? JSON.stringify(structuur) : null, structuur ? "coach" : null);
+               subType, surface, structuur ? JSON.stringify(structuur) : null, structuur ? "coach" : null);
 
     created.push({
       id,
@@ -522,6 +531,7 @@ function createProposalsFromCoachEntry(coachEntryId) {
       discipline: p.discipline,
       description: p.invulling,
       subType,
+      surface,
       structuur,
       soort: existing ? "wijziging" : "nieuw",
       vervangt: existing
@@ -856,15 +866,15 @@ router.patch("/:id/move", (req, res) => {
 
 /** POST /api/planned - add a session yourself, without going via the coach. */
 router.post("/", (req, res) => {
-  const { date, type, description, durationMin, intensity, discipline, subType } = req.body || {};
+  const { date, type, description, durationMin, intensity, discipline, subType, surface } = req.body || {};
   if (!date || !type) return res.status(400).json({ error: "Datum en type zijn verplicht." });
   const id = `plan-manual-${Date.now()}`;
   db.prepare(
-    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status, discipline, sub_type)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland', ?, ?)`
+    `INSERT INTO planned_sessions (id, date, weekday, type, description, duration_min, intensity, status, discipline, sub_type, surface)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'gepland', ?, ?, ?)`
   ).run(id, date, calc.weekdayNameForDate(date), type, description || "", durationMin ?? null,
         intensity ?? null, discipline === "kracht" ? "kracht" : "cardio",
-        veiligeOndersoort(subType, type));
+        veiligeOndersoort(subType, type), veiligeOndergrond(surface, type));
   refreshCompletions();
   res.status(201).json({ id });
 });

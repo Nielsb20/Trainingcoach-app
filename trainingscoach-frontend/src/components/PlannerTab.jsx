@@ -4,7 +4,7 @@ import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import WorkoutFilePanel from "./shared/WorkoutFilePanel";
 import { CARDIO_TYPES } from "../lib/constants";
-import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel } from "../lib/calculations";
+import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel, surfaceLabel } from "../lib/calculations";
 
 /**
  * Interactive week planner.
@@ -312,6 +312,7 @@ export default function PlannerTab({ onOpenSession }) {
                           : <Activity size={12} style={{ marginRight: 5, color: "var(--cardio)" }} />}
                         {p.type}
                         {p.subType && <span className="tc-planner-moment">{subTypeLabel(p.subType)}</span>}
+                        {p.surface && <span className="tc-planner-moment">{surfaceLabel(p.surface)}</span>}
                         {p.timeOfDay && <span className="tc-planner-moment">{p.timeOfDay}</span>}
                         {/* Blijft staan waar hij stond, maar is herkenbaar als
                             restant van advies dat je inmiddels hebt vervangen. */}

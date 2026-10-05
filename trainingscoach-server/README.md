@@ -1041,52 +1041,80 @@ ochtends zittend meet, waar Karvonen mee gevalideerd is. Voor het volgen van je
 eigen trend maakt dat niet uit (het is steeds dezelfde meting), maar plak er
 geen normaalwaarden uit de literatuur op.
 
-## Welke fiets, welke ondergrond
+## Welke fiets, en waar je reed
 
-Alles wat op Strava `Ride`, `MountainBikeRide`, `GravelRide` of `VirtualRide`
-heet werd hier één type: *Fietsen*. Daarmee verdween het verschil tussen 40 km
-over asfalt en 40 km door het bos, en dat is geen detail — op de MTB ligt de
-snelheid lager, is de cadans onrustiger en de hartslag hoger bij hetzelfde
-vermogen.
+Twee losse vragen, en dat onderscheid is het punt.
 
-Sessies hebben nu een ondersoort: `weg`, `gravel`, `mtb`, `indoor`, `ebike`, en
-bij hardlopen `weg-hardlopen`, `trail`, `baan`, `loopband`. Wat dat doet:
+**De fiets** bepaalt wat een watt oplevert. Een mountainbike is bij hetzelfde
+vermogen ook op asfalt trager dan een racefiets: dikke banden, rechtopstaande
+houding, meer gewicht. Dat verschil hangt niet aan het parcours.
 
-- **Vergelijkingen** rangschikken eerst op dezelfde ondergrond, dan pas op
-  vergelijkbaar klimwerk. Een rit op een andere fiets telt niet mee in het
-  snelheidsgemiddelde en is in de tabel als zodanig gemarkeerd.
-- **De coach** ziet de ondergrond en mag snelheid alleen binnen dezelfde
-  ondergrond vergelijken. Vermogen en TSS blijven over alles vergelijkbaar: die
-  zijn gemeten.
+**De ondergrond** bepaalt iets anders: remmen en weer op gang komen, techniek,
+een vermogen dat alle kanten op schiet. Dezelfde mountainbike is in het bos
+weer trager dan op de weg.
+
+Die twee zaten eerst in één veld, waarbij `mtb` stilzwijgend ook "in het bos"
+betekende. Voor wie zijn mountainbike 's winters op de weg gebruikt klopt dat
+niet, en dan vergelijkt de app opnieuw dingen die niet bij elkaar horen.
+
+| As | Waarden | Bron |
+|---|---|---|
+| **Fiets** (`sub_type`) | `racefiets`, `gravel`, `mtb`, `ebike`, `indoor` | de fiets die je in Strava aan de rit hangt |
+| **Ondergrond** (`surface`) | `asfalt`, `onverhard`, `gemengd`, `baan`, `binnen` | zelf, per sessie |
+
+Bij hardlopen vervalt de fiets — welke schoen je aanhad verandert je tempo niet
+zoals een andere fiets je snelheid verandert. Daar is de ondergrond de enige as
+die ertoe doet, met `baan` erbij.
+
+### Wat het doet
+
+- **Vergelijkingen** rangschikken op hoe goed twee sessies te vergelijken zijn:
+  dezelfde fiets weegt zwaarder dan dezelfde ondergrond, want het materiaal
+  verklaart altijd iets en de ondergrond alleen als je er echt het bos mee in
+  bent geweest. Pas als fiets én ondergrond gelijk zijn telt een sessie mee in
+  het snelheidsgemiddelde.
+- **De coach** krijgt beide velden met de instructie ze niet door elkaar te
+  halen: uit een mountainbike volgt geen bosrit, en uit asfalt geen racefiets.
+  Vermogen en TSS blijven over alles vergelijkbaar — die zijn gemeten.
+
+In de praktijk, voor een winterse wegrit op de mountainbike:
+
+```
+2026-01-10  Mountainbike  Asfalt      21,8 km/u   [vergelijkbaar]
+2026-07-12  Mountainbike  Onverhard   15,7 km/u   [zelfde fiets]
+2026-05-10  Racefiets     Asfalt      26,5 km/u   [andere fiets]
+
+snelheidsgemiddelde over 1 sessie: 21,8 km/u
+```
 
 ### Waar het label vandaan komt
 
-Drie bronnen, in deze volgorde:
+De **fiets** komt uit Strava. Onder **Cardio loggen → Strava-koppeling** staat
+een lijstje met je fietsen; zeg daar één keer wat voor fiets elke Strava-fiets
+is. Dat wordt meteen op al je eerdere ritten met die fiets toegepast en geldt
+daarna vanzelf. Is de fiets onbekend, dan valt het terug op Strava's sporttype
+(`MountainBikeRide`, `GravelRide`, `VirtualRide`); een kale `Ride` levert niets
+op, want dat is het type dat de meeste mensen voor elke rit laten staan.
 
-1. **De fiets die je in Strava aan de rit hangt.** Dit is de betrouwbare weg,
-   want het is een registratie en geen gissing. Onder **Cardio loggen →
-   Strava-koppeling** staat een lijstje met je fietsen; hang daar één keer een
-   ondergrond aan elke fiets. Dat wordt meteen op al je eerdere ritten met die
-   fiets toegepast en geldt daarna vanzelf voor nieuwe.
-2. **Strava's sporttype**, als de fiets onbekend is. `MountainBikeRide`,
-   `GravelRide` en `VirtualRide` zeggen genoeg; een kale `Ride` niet — dat is
-   het type dat de meeste mensen voor elke rit laten staan, dus daar een
-   racefiets uit concluderen zou een verzinsel in je geschiedenis zetten.
-3. **Wat je zelf op de sessie zet**, in het detailscherm.
+De naam van de fiets wordt níet uitgelezen om er een type uit te raden.
+"Canyon Grail" is een gravelfiets en "Grail" staat in geen trefwoordenlijst;
+zoiets afleiden levert een label op dat stellig oogt en fout is.
 
-De naam van de fiets wordt níet uitgelezen om er een type uit te raden. "Canyon
-Grail" is een gravelfiets en "Grail" staat in geen enkele trefwoordenlijst;
-zoiets afleiden levert een label op dat stellig oogt en fout is. Eén keer
-aanwijzen kost een halve minuut en klopt daarna altijd.
+De **ondergrond** zet je zelf, per sessie in het detailscherm. Uit Strava is
+alleen een virtuele rit met zekerheid `binnen`. Van `MountainBikeRide` afleiden
+dat het door het bos ging is precies de gok die hier misging, dus de rest
+blijft leeg tot je het zegt. Leeg is prima: onbekend hoort alleen bij onbekend.
 
-Al geïmporteerde ritten hebben nog geen fiets, want die werd niet bewaard. De
+Al geïmporteerde ritten dragen nog geen fiets, want die werd niet bewaard. De
 analyseversie is opgehoogd, dus de knop **Analysedata bijwerken** in het
 Strava-blok haalt hem alsnog op — in blokken van 25 vanwege Strava's limiet.
 
-**Uitdrukkelijk geen belastingsfactor.** Een MTB-rit zwaarder laten meetellen
-met een vermenigvuldiger zou een verzonnen getal in de CTL/ATL-reeks schuiven.
-Meet je vermogen, dan is de TSS al juist; meet je dat niet, dan blijft de
-hartslagschatting de eerlijkste maat die er is.
+### Uitdrukkelijk geen belastingsfactor
+
+Een MTB-rit zwaarder laten meetellen met een vermenigvuldiger zou een verzonnen
+getal in de CTL/ATL-reeks schuiven. Meet je vermogen, dan is de TSS al juist;
+meet je dat niet, dan blijft de hartslagschatting de eerlijkste maat die er is.
+Het probleem was de vergelijking, niet de belasting.
 
 ## Trainingsbestanden voor de indoortrainer
 

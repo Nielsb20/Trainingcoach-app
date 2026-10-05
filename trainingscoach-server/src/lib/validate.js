@@ -83,6 +83,7 @@ function validateCardioEntry(entry, index = null) {
     throw new ValidationError(`Sessie${waar} heeft geen duur en geen afstand.`);
   }
   validateSubType(entry.sub_type ?? entry.subType, entry.type, waar);
+  validateSurface(entry.surface, entry.type, waar);
 }
 
 /**
@@ -95,16 +96,28 @@ function validateCardioEntry(entry, index = null) {
 function validateSubType(subType, type, waar = "") {
   if (subType === null || subType === undefined || subType === "") return;
   const calc = require("./calculations");
-  const allowed = calc.CARDIO_SUB_TYPES.find((s) => s.id === subType);
+  const allowed = calc.BIKE_TYPES.find((s) => s.id === subType);
   if (!allowed) {
-    const namen = calc.CARDIO_SUB_TYPES.map((s) => s.id).join(", ");
-    throw new ValidationError(`Onbekende ondersoort ${JSON.stringify(subType)}${waar}. Kies uit: ${namen}.`);
+    const namen = calc.BIKE_TYPES.map((s) => s.id).join(", ");
+    throw new ValidationError(`Onbekend materiaal ${JSON.stringify(subType)}${waar}. Kies uit: ${namen}.`);
   }
+  if (calc.baseSportOf(type) === "Hardlopen") {
+    throw new ValidationError(`Een fiets hoort niet bij ${type}${waar}; gebruik de ondergrond.`);
+  }
+}
+
+/** De ondergrond: dezelfde behandeling, maar een andere as. */
+function validateSurface(surface, type, waar = "") {
+  if (surface === null || surface === undefined || surface === "") return;
+  const calc = require("./calculations");
   const sport = calc.baseSportOf(type);
-  if (sport && allowed.sport !== sport) {
-    throw new ValidationError(
-      `Ondersoort "${allowed.naam}" hoort bij ${allowed.sport}, niet bij ${type}${waar}.`
-    );
+  const allowed = calc.SURFACES.find((s) => s.id === surface);
+  if (!allowed) {
+    const namen = calc.SURFACES.map((s) => s.id).join(", ");
+    throw new ValidationError(`Onbekende ondergrond ${JSON.stringify(surface)}${waar}. Kies uit: ${namen}.`);
+  }
+  if (sport && !allowed.sporten.includes(sport)) {
+    throw new ValidationError(`Ondergrond "${allowed.naam}" hoort niet bij ${type}${waar}.`);
   }
 }
 
@@ -186,6 +199,7 @@ module.exports = {
   validateCardioEntry,
   validateCardioBulk,
   validateSubType,
+  validateSurface,
   validateWeightEntry,
   validateWorkoutEntry,
   MAX_BULK,

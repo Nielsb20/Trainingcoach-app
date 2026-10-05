@@ -454,3 +454,19 @@ CREATE TABLE IF NOT EXISTS strava_gear (
   sub_type TEXT,                    -- null = nog niet toegewezen
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- De ondergrond, los van het materiaal.
+--
+-- sub_type zegt op welke fiets je zat, en dat verschil is er altijd: een
+-- mountainbike is bij hetzelfde vermogen ook op asfalt trager dan een
+-- racefiets. Waar je reed is een tweede, onafhankelijke vraag — dezelfde
+-- mountainbike is in het bos weer trager dan op de weg.
+--
+-- Die twee zaten eerst in één veld, waarbij "mtb" stilzwijgend ook "in het
+-- bos" betekende. Wie zijn mountainbike 's winters op de weg gebruikt kreeg
+-- daardoor opnieuw een vergelijking die nergens op sloeg.
+--
+-- Blijft meestal leeg, en dat is goed. Uit Strava is alleen een virtuele rit
+-- met zekerheid "binnen"; de rest zou gissen zijn.
+ALTER TABLE cardio_logs ADD COLUMN surface TEXT;
+ALTER TABLE planned_sessions ADD COLUMN surface TEXT;

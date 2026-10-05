@@ -187,9 +187,12 @@ export async function downloadWorkoutFile(id, formaat = "zwo") {
   return naam;
 }
 
-/** Welke fiets of ondergrond het was; corrigeert ook geïmporteerde historie. */
+/** Op welke fiets; corrigeert ook geïmporteerde historie. */
 export const setCardioSubType = (id, subType) =>
   request(`/cardio-logs/${id}/ondersoort`, { method: "PATCH", body: JSON.stringify({ subType }) });
+/** Waar je reed. Losse as: dezelfde MTB gaat het bos in én de weg op. */
+export const setCardioSurface = (id, surface) =>
+  request(`/cardio-logs/${id}/ondersoort`, { method: "PATCH", body: JSON.stringify({ surface }) });
 
 /* --------------------------------- strava ------------------------------ */
 
@@ -201,11 +204,11 @@ export const backfillStrava = (limit = 25) =>
   request("/strava/backfill", { method: "POST", body: JSON.stringify({ limit }) });
 /** Je fietsen en schoenen, met de ondergrond die eraan hangt. */
 export const getStravaGear = () => request("/strava/materiaal");
-/** Koppelt een fiets aan een ondergrond, standaard ook voor je hele historie. */
-export const setStravaGearSubType = (id, ondergrond, toepassenOpGeschiedenis = true) =>
+/** Zegt wat voor fiets dit is, standaard ook voor je hele historie. */
+export const setStravaGearSubType = (id, fiets, toepassenOpGeschiedenis = true) =>
   request(`/strava/materiaal/${encodeURIComponent(id)}`, {
     method: "PUT",
-    body: JSON.stringify({ ondergrond, toepassenOpGeschiedenis }),
+    body: JSON.stringify({ fiets, toepassenOpGeschiedenis }),
   });
 
 /* --------------------------------- health ------------------------------ */

@@ -82,7 +82,13 @@ function findComparableSessions(session, limit = 5) {
       return {
         row: r,
         index, // bewaart de oorspronkelijke volgorde op datum als tiebreak
-        anderOndergrond: calc.sameSubType(r.sub_type, session.subType ?? session.sub_type) ? 0 : 1,
+        // Fiets zwaarder dan ondergrond: het verschil tussen een racefiets en
+        // een mountainbike is er altijd, dat tussen asfalt en bos alleen als
+        // je er ook echt in het bos mee bent geweest.
+        onvergelijkbaar: calc.comparabilityRank(
+          { subType: r.sub_type, surface: r.surface },
+          { subType: session.subType, surface: session.surface }
+        ),
         // Onbekend klimwerk achteraan: liever een rit waarvan we weten dat hij
         // vergelijkbaar is dan een rit waarvan we het maar hopen. Zonder
         // hoogtemeters op deze rit valt er niets te sorteren en telt alleen de
@@ -95,7 +101,7 @@ function findComparableSessions(session, limit = 5) {
     })
     .sort(
       (a, b) =>
-        a.anderOndergrond - b.anderOndergrond ||
+        a.onvergelijkbaar - b.onvergelijkbaar ||
         a.afwijking - b.afwijking ||
         a.index - b.index
     )
@@ -211,31 +217,45 @@ router.get("/:id", (req, res) => {
           hoogtemeters: c.elevation_gain_m ?? null,
           klimPerKm,
           terreinVergelijkbaar: similarTerrain(ownClimb, klimPerKm),
-          ondergrond: calc.subTypeLabel(c.subType),
-          zelfdeOndergrond: calc.sameSubType(c.subType, session.subType),
+          fiets: calc.subTypeLabel(c.subType),
+          ondergrond: calc.surfaceLabel(c.surface),
+          zelfdeFiets: calc.sameSubType(c.subType, session.subType),
+          zelfdeOndergrond: calc.sameSurface(c.surface, session.surface),
         };
       });
 
       // Snelheid alleen naast elkaar leggen als het parcours dat toelaat én de
       // fiets dezelfde was. Een MTB-rit in het gemiddelde trekt dat gemiddelde
       // omlaag en laat elke wegrit er daarna beter uitzien dan hij was.
+      // Snelheid is pas vergelijkbaar als fiets én ondergrond gelijk zijn.
+      // Allebei verklaren ze kilometers per uur die niets met vorm te maken
+      // hebben.
       const bruikbaarVoorSnelheid = sessies.filter(
-        (s) => s.terreinVergelijkbaar !== false && s.zelfdeOndergrond && s.snelheidKmu
+        (s) => s.terreinVergelijkbaar !== false && s.zelfdeFiets && s.zelfdeOndergrond && s.snelheidKmu
       );
       const afwijkendTerrein = sessies.filter((s) => s.terreinVergelijkbaar === false).length;
-      const andereOndergrond = sessies.filter((s) => !s.zelfdeOndergrond).length;
+      const andereFiets = sessies.filter((s) => !s.zelfdeFiets).length;
+      const andereOndergrond = sessies.filter((s) => s.zelfdeFiets && !s.zelfdeOndergrond).length;
       const heeftVermogen = !!session.weighted_avg_power || !!session.avg_power;
 
       return {
         aantalVergelijkbaar: comparable.length,
         klimPerKm: ownClimb,
-        ondergrond: calc.subTypeLabel(session.subType),
+        fiets: calc.subTypeLabel(session.subType),
+        ondergrond: calc.surfaceLabel(session.surface),
+        andereFiets,
         andereOndergrond,
+        fietsWaarschuwing:
+          andereFiets > 0
+            ? `${andereFiets} van de ${sessies.length} sessies ging op een andere fiets` +
+              (session.subType ? ` (deze rit: ${calc.subTypeLabel(session.subType)})` : " — op deze rit staat geen fiets") +
+              ". Een mountainbike is bij hetzelfde vermogen ook op asfalt trager dan een racefiets, dus snelheid is daartussen niet te vergelijken."
+            : null,
         ondergrondWaarschuwing:
           andereOndergrond > 0
-            ? `${andereOndergrond} van de ${sessies.length} sessies ging over een andere ondergrond` +
-              (session.subType ? ` (deze rit: ${calc.subTypeLabel(session.subType)})` : " — op deze rit staat geen fietstype") +
-              ". Snelheid en afstand zijn daartussen niet te vergelijken; die sessies zijn uit het snelheidsgemiddelde gelaten."
+            ? `${andereOndergrond} sessies op dezelfde fiets gingen over een andere ondergrond` +
+              (session.surface ? ` (deze rit: ${calc.surfaceLabel(session.surface)})` : "") +
+              ". Ook die zijn uit het snelheidsgemiddelde gelaten."
             : null,
         // Bewust op de sessies met vergelijkbaar terrein: een gemiddelde over
         // vlakke én heuvelachtige ritten is een getal waar niets uit volgt.

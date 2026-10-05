@@ -258,11 +258,11 @@ describe("GearMapping", () => {
   it("koppelt een fiets en meldt hoeveel historie is bijgewerkt", async () => {
     vi.spyOn(api, "getStravaGear").mockResolvedValue({
       materiaal: [
-        { id: "b999", naam: "Santa Cruz Hightower", ondergrond: null, aantalRitten: 3, inStrava: true },
+        { id: "b999", naam: "Santa Cruz Hightower", fiets: null, aantalRitten: 3, inStrava: true },
       ],
       zonderMateriaal: 0,
     });
-    vi.spyOn(api, "setStravaGearSubType").mockResolvedValue({ id: "b999", ondergrond: "mtb", bijgewerkt: 3 });
+    vi.spyOn(api, "setStravaGearSubType").mockResolvedValue({ id: "b999", fiets: "mtb", bijgewerkt: 3 });
 
     render(<GearMapping />);
     expect(await screen.findByText("Santa Cruz Hightower")).toBeInTheDocument();

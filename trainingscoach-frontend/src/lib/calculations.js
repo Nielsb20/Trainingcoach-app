@@ -268,28 +268,49 @@ export function isRunning(type) {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Ondersoort: welke fiets, welke ondergrond                              */
+/* Materiaal en ondergrond: twee verschillende dingen                     */
 /* ---------------------------------------------------------------------- */
 
 /**
- * Binnen "Fietsen" zitten ritten die niet met elkaar te vergelijken zijn.
- * 25 km/u op de MTB en 25 km/u op de racefiets zijn twee verschillende
- * inspanningen, en 40 km door het bos kost meer dan 40 km over asfalt.
+ * Binnen "Fietsen" zitten ritten die niet met elkaar te vergelijken zijn, en
+ * daar zijn twee onafhankelijke redenen voor. Die apart houden is het hele
+ * punt van deze sectie.
  *
- * Dit is bewust een korte lijst: elk extra hokje is er één die iemand moet
- * kiezen, en de enige reden dat ze bestaan is dat ze een vergelijking of een
- * uitspraak van de coach veranderen.
+ * De FIETS bepaalt wat een watt oplevert. Een mountainbike op asfalt is bij
+ * hetzelfde vermogen trager dan een racefiets op asfalt — dikke banden,
+ * rechtopstaande houding, meer gewicht. Dat verschil hangt niet aan het
+ * parcours maar aan het materiaal, en het is er ook in de winter op de weg.
+ *
+ * De ONDERGROND bepaalt iets anders: remmen en weer op gang komen, techniek,
+ * een vermogen dat alle kanten op schiet. Dezelfde mountainbike is in het bos
+ * trager dan op de weg.
+ *
+ * Eerder zaten die twee in één veld, waarbij "mtb" stilzwijgend ook "in het
+ * bos" betekende. Voor wie zijn mountainbike 's winters op de weg gebruikt
+ * klopt dat niet, en dan vergelijkt de app opnieuw dingen die niet bij elkaar
+ * horen — alleen subtieler dan eerst.
  */
-export const CARDIO_SUB_TYPES = [
-  { id: "weg", naam: "Racefiets", sport: "Fietsen" },
-  { id: "gravel", naam: "Gravel", sport: "Fietsen" },
-  { id: "mtb", naam: "Mountainbike", sport: "Fietsen" },
-  { id: "indoor", naam: "Indoor trainer", sport: "Fietsen" },
-  { id: "ebike", naam: "E-bike", sport: "Fietsen" },
-  { id: "weg-hardlopen", naam: "Weg", sport: "Hardlopen" },
-  { id: "trail", naam: "Trail", sport: "Hardlopen" },
-  { id: "baan", naam: "Baan", sport: "Hardlopen" },
-  { id: "loopband", naam: "Loopband", sport: "Hardlopen" },
+export const BIKE_TYPES = [
+  { id: "racefiets", naam: "Racefiets" },
+  { id: "gravel", naam: "Gravelfiets" },
+  { id: "mtb", naam: "Mountainbike" },
+  { id: "ebike", naam: "E-bike" },
+  { id: "indoor", naam: "Indoor trainer" },
+];
+
+/**
+ * De ondergrond is optioneel en mag leeg blijven.
+ *
+ * Hij is niet uit Strava af te leiden behalve bij een virtuele rit, en een
+ * halfslachtige gok ("MountainBikeRide, dus wel bos") is precies wat hier
+ * misging. Leeg betekent onbekend, en onbekend hoort alleen bij onbekend.
+ */
+export const SURFACES = [
+  { id: "asfalt", naam: "Asfalt", sporten: ["Fietsen", "Hardlopen"] },
+  { id: "onverhard", naam: "Onverhard", sporten: ["Fietsen", "Hardlopen"] },
+  { id: "gemengd", naam: "Gemengd", sporten: ["Fietsen", "Hardlopen"] },
+  { id: "baan", naam: "Baan", sporten: ["Hardlopen"] },
+  { id: "binnen", naam: "Binnen", sporten: ["Fietsen", "Hardlopen"] },
 ];
 
 /** Welke sport een type is, los van hoe het precies geschreven staat. */
@@ -300,26 +321,44 @@ export function baseSportOf(type) {
   return null;
 }
 
-/** De keuzes die bij een sport horen; leeg als de sport ze niet onderscheidt. */
+/**
+ * De materiaalkeuzes die bij een sport horen.
+ *
+ * Leeg bij hardlopen: welke schoen je aanhad verandert je tempo niet zoals een
+ * andere fiets je snelheid verandert, dus daar is de ondergrond de enige as
+ * die ertoe doet.
+ */
 export function subTypesFor(type) {
+  return baseSportOf(type) === "Fietsen" ? BIKE_TYPES : [];
+}
+
+/** De ondergrondkeuzes die bij een sport horen. */
+export function surfacesFor(type) {
   const sport = baseSportOf(type);
-  return sport ? CARDIO_SUB_TYPES.filter((s) => s.sport === sport) : [];
+  return sport ? SURFACES.filter((s) => s.sporten.includes(sport)) : [];
 }
 
 /** "mtb" -> "Mountainbike". Onbekende waarden komen ongewijzigd terug. */
 export function subTypeLabel(id) {
   if (!id) return null;
-  const hit = CARDIO_SUB_TYPES.find((s) => s.id === id);
+  const hit = BIKE_TYPES.find((s) => s.id === id);
   return hit ? hit.naam : String(id);
 }
 
-/** Een sessie binnen op de trainer: geen wind, geen afdalingen, wél blokken. */
-export function isIndoorTrainer(subType) {
-  return subType === "indoor" || subType === "loopband";
+/** "onverhard" -> "Onverhard". */
+export function surfaceLabel(id) {
+  if (!id) return null;
+  const hit = SURFACES.find((s) => s.id === id);
+  return hit ? hit.naam : String(id);
+}
+
+/** Een sessie binnen: geen wind, geen afdalingen, wél blokken. */
+export function isIndoorTrainer(subType, surface = null) {
+  return subType === "indoor" || surface === "binnen";
 }
 
 /**
- * Zijn deze twee sessies op dezelfde ondergrond gereden?
+ * Zijn deze twee sessies op hetzelfde materiaal gereden?
  *
  * Onbekend geldt alleen als gelijk aan onbekend. Een rit zonder label kan
  * alles zijn geweest, dus hem gelijkstellen aan een racefietsrit zou precies
@@ -327,6 +366,22 @@ export function isIndoorTrainer(subType) {
  */
 export function sameSubType(a, b) {
   return (a || null) === (b || null);
+}
+
+/** Idem voor de ondergrond. */
+export function sameSurface(a, b) {
+  return (a || null) === (b || null);
+}
+
+/**
+ * Hoe goed twee sessies te vergelijken zijn: 0 is het best.
+ *
+ * De fiets weegt zwaarder dan de ondergrond, omdat het verschil tussen een
+ * racefiets en een mountainbike er altijd is en het verschil tussen asfalt en
+ * bos alleen als je er ook echt in het bos mee bent geweest.
+ */
+export function comparabilityRank(a, b) {
+  return (sameSubType(a.subType, b.subType) ? 0 : 2) + (sameSurface(a.surface, b.surface) ? 0 : 1);
 }
 
 /* ---------------------------------------------------------------------- */
