@@ -222,6 +222,77 @@ function subTypeForGear(gearId) {
   }
 }
 
+/**
+ * Vult het materiaal aan op sessies die het nog niet hebben.
+ *
+ * Nodig omdat een rit uit het CSV-archief nooit langs de API is geweest en dus
+ * geen fiets draagt — terwijl diezelfde rit in Strava wél een fiets heeft. De
+ * volledige herimport zou dat ook oplossen, maar die kost twee aanroepen per
+ * rit; voor een archief van honderden ritten is dat een dag wachten op
+ * Strava's limiet.
+ *
+ * Dit is de goedkope weg: de activiteitenlijst draagt `gear_id` al mee, 200
+ * per aanroep. Drie aanroepen dekken een heel seizoen.
+ *
+ * Koppelen gebeurt op dezelfde manier als bij een dubbele import: zelfde dag,
+ * zelfde sport, afstand en duur binnen 5%. Wat niet eenduidig te matchen is
+ * blijft leeg — een fiets onder de verkeerde rit hangen is erger dan geen
+ * fiets.
+ *
+ * `haalActiviteiten` is injecteerbaar zodat dit te testen is zonder Strava:
+ * binnen de module verwijst een directe aanroep niet naar `module.exports`,
+ * dus een stub daarop zou stilletjes genegeerd worden.
+ *
+ * @returns {{bekeken:number, gekoppeld:number, zonderMatch:number, paginas:number}}
+ */
+async function backfillGear({ maxPaginas = 3, perPagina = 200, haalActiviteiten = fetchRecentActivities } = {}) {
+  const namen = new Map(db.prepare("SELECT id, name FROM strava_gear").all().map((g) => [g.id, g.name]));
+  const zetGear = db.prepare("UPDATE cardio_logs SET gear_id = ?, gear_name = ? WHERE id = ?");
+
+  let bekeken = 0;
+  let gekoppeld = 0;
+  let zonderMatch = 0;
+  let paginas = 0;
+
+  for (let pagina = 1; pagina <= maxPaginas; pagina += 1) {
+    const activiteiten = await haalActiviteiten(perPagina, pagina);
+    paginas += 1;
+    if (!Array.isArray(activiteiten) || activiteiten.length === 0) break;
+
+    for (const a of activiteiten) {
+      if (!a.gear_id) continue;
+      bekeken += 1;
+      const kandidaat = {
+        date: (a.start_date_local || a.start_date || "").slice(0, 10),
+        type: mapSportType(a.sport_type || a.type),
+        distance_km: a.distance ? Math.round((a.distance / 1000) * 100) / 100 : null,
+        duration_min: a.moving_time ? Math.round((a.moving_time / 60) * 10) / 10 : null,
+      };
+      // Alleen sessies die nog niets hebben: een al ingevulde fiets is of
+      // gemeten of met de hand gezet, en die overschrijven we niet.
+      const rij = db
+        .prepare("SELECT * FROM cardio_logs WHERE date = ? AND type = ? AND gear_id IS NULL")
+        .all(kandidaat.date, kandidaat.type)
+        .find(
+          (r) =>
+            withinTolerance(r.distance_km, kandidaat.distance_km, 0.05) &&
+            withinTolerance(r.duration_min, kandidaat.duration_min, 0.05)
+        );
+      if (!rij) {
+        zonderMatch += 1;
+        continue;
+      }
+      rememberGear(a.gear_id, namen.get(a.gear_id) || null);
+      zetGear.run(a.gear_id, namen.get(a.gear_id) || null, rij.id);
+      gekoppeld += 1;
+    }
+
+    if (activiteiten.length < perPagina) break; // einde van de lijst
+  }
+
+  return { bekeken, gekoppeld, zonderMatch, paginas };
+}
+
 /** Alle bekende fietsen en schoenen van de atleet, rechtstreeks van Strava. */
 const fetchAthleteGear = async () => {
   const me = await stravaGet("/athlete");
@@ -559,6 +630,7 @@ module.exports = {
   rememberGear,
   subTypeForGear,
   fetchAthleteGear,
+  backfillGear,
   isStrengthActivity,
   buildProfile,
   bucketCountFor,

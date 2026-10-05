@@ -315,24 +315,30 @@ describe("GearMapping", () => {
     expect(screen.getAllByRole("combobox")).toHaveLength(1);
   });
 
-  it("zegt per bron waarom ritten geen materiaal hebben", async () => {
-    // Zonder dit onderscheid blijft iemand klikken op "Analysedata bijwerken"
-    // voor ritten die uit een CSV komen, waar nooit materiaal in heeft gezeten.
+  it("biedt aan het materiaal op te halen voor ritten die het missen", async () => {
+    // "Geen fiets hier" is iets anders dan "geen fiets in Strava". Dat
+    // verschil was de verwarring: in Strava hangt er wel een fiets onder, hij
+    // is alleen nooit deze kant op gekomen omdat de rit uit een CSV kwam.
     vi.spyOn(api, "getStravaGear").mockResolvedValue({
       materiaal: [{ id: "b1", naam: "Cube Agree pro 2026", fiets: "racefiets", aantalRitten: 23, sport: "Fietsen", inStrava: false }],
       zonderMateriaal: 294,
-      zonderMateriaalPerBron: [
-        { source: "csv_import", aantal: 280 },
-        { source: "strava_sync", aantal: 14 },
-      ],
+      zonderMateriaalPerBron: [{ source: "csv_import", aantal: 294 }],
       verouderd: 0, vanStravaOpgehaald: 0,
+    });
+    vi.spyOn(api, "backfillStravaGear").mockResolvedValue({
+      bekeken: 300, gekoppeld: 287, zonderMatch: 13, paginas: 2, gelabeld: 287,
     });
     render(<GearMapping />);
 
-    expect(await screen.findByText(/294 fietssessies hebben geen materiaal/)).toBeInTheDocument();
-    expect(screen.getByText(/14 via Strava binnen/)).toBeInTheDocument();
-    expect(screen.getByText(/csv_import: 280/)).toBeInTheDocument();
-    expect(screen.getByText(/In een CSV-export of een.*GPX-bestand staat geen materiaal/s)).toBeInTheDocument();
+    expect(await screen.findByText(/294 fietssessies hebben hier nog geen fiets/)).toBeInTheDocument();
+    expect(screen.getByText(/csv_import: 294/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Materiaal ophalen uit Strava/ }));
+    await waitFor(() => expect(api.backfillStravaGear).toHaveBeenCalled());
+    expect(await screen.findByText(/287 sessies hebben nu hun materiaal/)).toBeInTheDocument();
+    // Wat niet te matchen was hoort erbij: anders klopt het aantal niet en
+    // vraag je je af waar de rest bleef.
+    expect(screen.getByText(/13 activiteiten uit Strava hoorden bij geen enkele sessie/)).toBeInTheDocument();
   });
 
   it("wijst naar het bijwerken als de fietsen nog uit je historie moeten komen", async () => {
