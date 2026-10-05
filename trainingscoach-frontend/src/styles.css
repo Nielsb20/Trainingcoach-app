@@ -409,3 +409,11 @@ html, body, #root {
 .tc-workoutfile-blocks { margin: 6px 0 8px; padding-left: 18px; font-size:12.5px; line-height:1.6; color: var(--text); }
 .tc-spin { animation: tc-spin 1s linear infinite; }
 @keyframes tc-spin { to { transform: rotate(360deg); } }
+
+/* Een brede tabel mag schuiven in plaats van rechts afgeknipt te worden.
+   De actieknoppen staan in de laatste kolom, dus afknippen betekent dat je
+   niet meer bij de analyse kunt. */
+.tc-table-scroll { overflow-x: auto; }
+/* Fiets en ondergrond onder de sport, niet ernaast: naast elkaar duwen ze de
+   tabel breder dan de pagina. */
+.tc-table-sublabel { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family:'JetBrains Mono', monospace; }
