@@ -19,10 +19,14 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     // Try to surface the server's own error message rather than a bare status code
+    // Beide velden, niet één: de server zet de korte reden in `error` en de
+    // werkelijke oorzaak in `details`. Alleen de eerste tonen leverde
+    // "Omzetten mislukt" op zonder dat iemand kon zien waaróm.
     let detail = "";
     try {
       const body = await res.json();
-      detail = body.error || body.details || "";
+      detail = [body.error, body.details].filter(Boolean).join(" — ");
+      if (body.hint) detail += ` ${body.hint}`;
     } catch {
       /* response wasn't JSON — fall through to the generic message */
     }
@@ -158,34 +162,16 @@ export const savePlannedStructure = (id, blokken, bron = "handmatig") =>
   request(`/planned/${id}/structuur`, { method: "PUT", body: JSON.stringify({ blokken, bron }) });
 
 /**
- * Downloadt het trainingsbestand. Gaat buiten `request` om: dit is geen JSON
- * maar een bestand, en de browser moet het als download aanbieden.
+ * Het adres van het trainingsbestand, om rechtstreeks naar te linken.
+ *
+ * Een gewone link in plaats van ophalen-en-blob-maken. Dat laatste werkt op
+ * een desktopbrowser prima maar laat het op iOS en iPadOS regelmatig afweten,
+ * en juist daar zit je: je kiest de training op de tablet die naast de trainer
+ * staat. Met een echte link doet de browser het zelf, en biedt iOS meteen
+ * "openen in ROUVY" aan.
  */
-export async function downloadWorkoutFile(id, formaat = "zwo") {
-  const res = await fetch(`${BASE}/planned/${id}/trainingsbestand?formaat=${formaat}`);
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body.error || "";
-    } catch {
-      /* geen JSON — dan blijft het bij de status */
-    }
-    throw new Error(detail || `Kon het bestand niet maken (${res.status})`);
-  }
-  const blob = await res.blob();
-  const naam = (res.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/)?.[1]
-    || `training.${formaat}`;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = naam;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  return naam;
-}
+export const workoutFileUrl = (id, formaat = "zwo") =>
+  `${BASE}/planned/${id}/trainingsbestand?formaat=${formaat}`;
 
 /** Op welke fiets; corrigeert ook geïmporteerde historie. */
 export const setCardioSubType = (id, subType) =>

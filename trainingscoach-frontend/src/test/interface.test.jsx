@@ -203,8 +203,7 @@ describe("WorkoutFilePanel", () => {
     structuur: null,
   };
 
-  it("toont de blokken en laat ze downloaden als ze er al liggen", async () => {
-    vi.spyOn(api, "downloadWorkoutFile").mockResolvedValue("drempel.zwo");
+  it("toont de blokken met echte downloadlinks als ze er al liggen", async () => {
     const metStructuur = {
       ...plan,
       structuurBron: "coach",
@@ -218,10 +217,14 @@ describe("WorkoutFilePanel", () => {
     expect(screen.getByText(/Warm-up 10 min van 55% naar 75% FTP/)).toBeInTheDocument();
     expect(screen.getByText(/2x 20 min op 95% FTP/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: ".zwo" }));
-    await waitFor(() => expect(api.downloadWorkoutFile).toHaveBeenCalledWith("p1", "zwo"));
+    // Echte links, geen knoppen met ophaalcode: op een tablet naast de trainer
+    // laat een blob-download het nogal eens afweten.
+    const zwo = screen.getByRole("link", { name: /Download .zwo/ });
+    expect(zwo).toHaveAttribute("href", expect.stringContaining("/planned/p1/trainingsbestand?formaat=zwo"));
+    expect(zwo).toHaveAttribute("download");
+    expect(screen.getByRole("link", { name: ".erg" })).toBeInTheDocument();
     // De import in ROUVY is handwerk, dus er moet staan waar je het neerzet.
-    expect(await screen.findByText(/importeer hem in ROUVY/)).toBeInTheDocument();
+    expect(screen.getByText(/Workouts → Add your own workout/)).toBeInTheDocument();
   });
 
   it("slaat een omgezet voorstel pas op als je het bevestigt", async () => {
@@ -240,7 +243,7 @@ describe("WorkoutFilePanel", () => {
     // voorschrijft dan je planning merk je pas halverwege een interval.
     expect(api.savePlannedStructure).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Kloppen — vastleggen/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Alleen vastleggen/ }));
     await waitFor(() => expect(api.savePlannedStructure).toHaveBeenCalled());
     expect(api.savePlannedStructure.mock.calls[0][1]).toEqual([{ soort: "duur", minuten: 60, pctFtp: 70 }]);
   });
@@ -251,6 +254,18 @@ describe("WorkoutFilePanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Maak een trainingsbestand/ }));
     expect(await screen.findByText(/geen blokkenstructuur uit te halen/)).toBeInTheDocument();
+  });
+
+  it("laat de werkelijke reden zien als het omzetten mislukt", async () => {
+    // "Omzetten mislukt" zonder meer liet niemand zien of de API-sleutel
+    // ontbrak of dat het model iets onbruikbaars terugstuurde.
+    vi.spyOn(api, "derivePlannedStructure").mockRejectedValue(
+      new Error("Omzetten mislukt — GEMINI_API_KEY ontbreekt in .env. Dit is een instelling op de server, geen fout in de training.")
+    );
+    render(<WorkoutFilePanel plan={plan} onChanged={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Maak een trainingsbestand/ }));
+    expect(await screen.findByText(/GEMINI_API_KEY ontbreekt/)).toBeInTheDocument();
   });
 });
 

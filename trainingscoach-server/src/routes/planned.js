@@ -1031,7 +1031,21 @@ router.post("/:id/structuur", async (req, res) => {
       nogNietOpgeslagen: true,
     });
   } catch (err) {
-    res.status(502).json({ error: "Omzetten mislukt", details: err.message });
+    // De reden hoort zichtbaar te zijn. "Omzetten mislukt" zonder meer liet
+    // niemand zien of de API-sleutel ontbrak, de daglimiet op was, of het
+    // model iets onbruikbaars terugstuurde.
+    const reden = err.message || "onbekende fout";
+    const configuratie = /API[_-]?sleutel|API_KEY|ontbreekt|LLM_PROVIDER/i.test(reden);
+    const limiet = /limiet|te snel|wacht|budget/i.test(reden);
+    res.status(configuratie || limiet ? 400 : 502).json({
+      error: "Omzetten mislukt",
+      details: reden,
+      hint: configuratie
+        ? "Dit is een instelling op de server, geen fout in de training."
+        : limiet
+          ? "Probeer het zo nog eens."
+          : "Je kunt de blokken ook zelf invullen, of het bij de omschrijving laten.",
+    });
   }
 });
 

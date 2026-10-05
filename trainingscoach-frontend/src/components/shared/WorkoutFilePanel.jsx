@@ -36,14 +36,25 @@ export default function WorkoutFilePanel({ plan, onChanged }) {
     }
   }
 
-  async function bevestigen() {
+  /**
+   * Vastleggen, en meteen het bestand ophalen.
+   *
+   * Eén handeling in plaats van twee: je staat met je tablet naast de trainer
+   * en wil rijden, niet eerst bevestigen en dan nog een knop zoeken.
+   */
+  async function bevestigen({ download = false } = {}) {
     setBusy(true);
     setFout(null);
     try {
       await api.savePlannedStructure(plan.id, voorstel.blokken, "coach-omzetting");
       setVoorstel(null);
-      setMelding("Blokken vastgelegd.");
       if (onChanged) await onChanged();
+      if (download) {
+        window.location.href = api.workoutFileUrl(plan.id, "zwo");
+        setMelding("Vastgelegd en gedownload — importeer in ROUVY via Workouts → Add your own workout.");
+      } else {
+        setMelding("Blokken vastgelegd.");
+      }
     } catch (err) {
       setFout(err.message);
     } finally {
@@ -65,17 +76,6 @@ export default function WorkoutFilePanel({ plan, onChanged }) {
     }
   }
 
-  async function download(formaat) {
-    setFout(null);
-    setMelding(null);
-    try {
-      const naam = await api.downloadWorkoutFile(plan.id, formaat);
-      setMelding(`${naam} gedownload — importeer hem in ROUVY via Workouts → Add your own workout.`);
-    } catch (err) {
-      setFout(err.message);
-    }
-  }
-
   return (
     <div className="tc-workoutfile">
       {blokken ? (
@@ -89,20 +89,25 @@ export default function WorkoutFilePanel({ plan, onChanged }) {
               <li key={i}>{beschrijfBlok(b)}</li>
             ))}
           </ol>
+          {/* Echte links, geen knoppen met ophaalcode erachter. Op een tablet
+              of telefoon laat die laatste het nogal eens afweten, en juist daar
+              gebruik je dit — naast de trainer. Nu doet de browser het zelf en
+              biedt iOS meteen "openen in ROUVY" aan. */}
           <div className="tc-actionbar" style={{ gap: 6 }}>
-            <button className="tc-btn tc-btn-cardio tc-btn-sm" onClick={() => download("zwo")}>
-              <Download size={13} /> .zwo
-            </button>
-            <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => download("erg")} title="In watt — gebruikt je FTP">
-              .erg
-            </button>
-            <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => download("mrc")} title="In procenten van je FTP">
-              .mrc
-            </button>
+            <a className="tc-btn tc-btn-cardio tc-btn-sm" href={api.workoutFileUrl(plan.id, "zwo")} download>
+              <Download size={13} /> Download .zwo
+            </a>
+            <a className="tc-btn tc-btn-ghost tc-btn-sm" href={api.workoutFileUrl(plan.id, "erg")} download
+              title="In watt — gebruikt je FTP">.erg</a>
+            <a className="tc-btn tc-btn-ghost tc-btn-sm" href={api.workoutFileUrl(plan.id, "mrc")} download
+              title="In procenten van je FTP">.mrc</a>
             <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy} onClick={wissen}>
               Blokken wissen
             </button>
           </div>
+          <p className="tc-import-help" style={{ margin: "6px 0 0" }}>
+            Importeren in ROUVY: Workouts → Add your own workout → Import from file.
+          </p>
         </>
       ) : voorstel ? (
         <>
@@ -119,8 +124,12 @@ export default function WorkoutFilePanel({ plan, onChanged }) {
             Totaal {voorstel.samenvatting?.totaalMinuten ?? "?"} minuten. Klopt dit met je planning?
           </p>
           <div className="tc-actionbar" style={{ gap: 6 }}>
-            <button className="tc-btn tc-btn-cardio tc-btn-sm" disabled={busy} onClick={bevestigen}>
-              Kloppen — vastleggen
+            <button className="tc-btn tc-btn-cardio tc-btn-sm" disabled={busy}
+              onClick={() => bevestigen({ download: true })}>
+              <Download size={13} /> Kloppen — vastleggen en downloaden
+            </button>
+            <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy} onClick={() => bevestigen()}>
+              Alleen vastleggen
             </button>
             <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy} onClick={() => setVoorstel(null)}>
               Weggooien
