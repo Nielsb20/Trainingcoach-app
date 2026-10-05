@@ -295,6 +295,15 @@ router.get("/materiaal", async (req, res) => {
        FROM cardio_logs WHERE gear_id IS NOT NULL GROUP BY gear_id`
     )
     .all();
+  // Waar dit materiaal onder hangt. Schoenen en fietsen zitten in dezelfde
+  // lijst van Strava, en een paar ASICS een fietstype laten kiezen is onzin
+  // die bovendien niets doet — de koppeling raakt alleen fietssessies.
+  const sportPerGear = new Map(
+    db
+      .prepare("SELECT DISTINCT gear_id, type FROM cardio_logs WHERE gear_id IS NOT NULL")
+      .all()
+      .map((r) => [r.gear_id, calc.baseSportOf(r.type)])
+  );
   const bekend = new Map(db.prepare("SELECT * FROM strava_gear").all().map((g) => [g.id, g]));
 
   // Strava erbij halen mag mislukken — dan tonen we wat we zelf al weten in
@@ -321,6 +330,11 @@ router.get("/materiaal", async (req, res) => {
       laatsteRit: gebruik?.laatst || null,
       afstandKm: strava_?.afstandKm ?? null,
       inStrava: !!strava_,
+      // Afgeleid uit de sessies waar het onder hangt, niet uit Strava's
+      // id-prefix: dat laatste is een conventie, dit is wat er echt mee gedaan
+      // is. Onbekend materiaal (nog geen sessies) telt als fiets, want daar
+      // gaat deze koppeling over.
+      sport: sportPerGear.get(id) || "Fietsen",
     };
   });
   lijst.sort((a, b) => b.aantalRitten - a.aantalRitten || a.naam.localeCompare(b.naam));
@@ -334,6 +348,19 @@ router.get("/materiaal", async (req, res) => {
     )
     .get().aantal;
 
+  // Waar die ritten vandaan kwamen bepaalt of er nog iets aan te doen is.
+  // Een rit uit de Strava-API kan opnieuw opgehaald worden en krijgt dan
+  // alsnog zijn fiets; een rit uit een CSV-archief of een GPX-bestand niet,
+  // want in die bestanden staat geen materiaal. Dat verschil is het antwoord
+  // op "waarom pakt hij zo vaak geen fiets", dus het hoort erbij.
+  const zonderMateriaalPerBron = db
+    .prepare(
+      `SELECT source, COUNT(*) AS aantal FROM cardio_logs
+       WHERE gear_id IS NULL AND LOWER(type) LIKE 'fiets%'
+       GROUP BY source ORDER BY aantal DESC`
+    )
+    .all();
+
   // Waarom de lijst leeg kan zijn, zodat de interface dat kan uitleggen in
   // plaats van een leeg vak te tonen.
   //
@@ -346,10 +373,45 @@ router.get("/materiaal", async (req, res) => {
   res.json({
     materiaal: lijst,
     zonderMateriaal,
+    zonderMateriaalPerBron,
     verouderd: strava.isConnected() ? strava.findOutdatedImports().length : 0,
     vanStravaOpgehaald: vanStrava.length,
   });
 });
+
+/**
+ * Legt vast wat voor fiets dit Strava-materiaal is, en past dat desgewenst
+ * meteen toe op alles wat er al mee gereden is.
+ *
+ * Los van de route omdat dit de schrijfactie is die ertoe doet, en een
+ * hernoeming hem eerder stilletjes kapotmaakte: de route zat nergens onder
+ * test, dus een niet-bestaande variabele kwam pas bij gebruik aan het licht.
+ *
+ * @returns {number} hoeveel sessies zijn bijgewerkt
+ */
+function koppelMateriaal(gearId, fiets, { naam = null, toepassen = true } = {}) {
+  let bijgewerkt = 0;
+  const schrijf = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO strava_gear (id, name, sub_type) VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET sub_type = excluded.sub_type, updated_at = datetime('now')`
+    ).run(gearId, naam, fiets);
+
+    if (!toepassen) return;
+    // Alleen fietssessies: dezelfde schoenen onder een wandeling maken daar
+    // geen racefietsrit van.
+    const update = db.prepare("UPDATE cardio_logs SET sub_type = ? WHERE id = ?");
+    db.prepare("SELECT id, type FROM cardio_logs WHERE gear_id = ?")
+      .all(gearId)
+      .forEach((rij) => {
+        if (calc.baseSportOf(rij.type) !== "Fietsen") return;
+        update.run(fiets, rij.id);
+        bijgewerkt += 1;
+      });
+  });
+  schrijf();
+  return bijgewerkt;
+}
 
 /**
  * PUT /api/strava/materiaal/:id  { fiets, toepassenOpGeschiedenis }
@@ -370,31 +432,10 @@ router.put("/materiaal/:id", (req, res) => {
     });
   }
 
-  const toepassen = req.body?.toepassenOpGeschiedenis !== false;
-  let bijgewerkt = 0;
-
-  const schrijf = db.transaction(() => {
-    db.prepare(
-      `INSERT INTO strava_gear (id, name, sub_type) VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET sub_type = excluded.sub_type, updated_at = datetime('now')`
-    ).run(req.params.id, req.body?.naam || null, ondergrond);
-
-    if (toepassen) {
-      // Alleen sessies van de sport waar deze ondergrond bij hoort: dezelfde
-      // schoenen onder een wandeling maken daar geen trailrun van.
-      const sport = ondergrond ? calc.CARDIO_SUB_TYPES.find((s) => s.id === ondergrond).sport : null;
-      const update = db.prepare("UPDATE cardio_logs SET sub_type = ? WHERE id = ?");
-      db.prepare("SELECT id, type FROM cardio_logs WHERE gear_id = ?")
-        .all(req.params.id)
-        .forEach((rij) => {
-          if (ondergrond && calc.baseSportOf(rij.type) !== sport) return;
-          update.run(ondergrond, rij.id);
-          bijgewerkt += 1;
-        });
-    }
+  const bijgewerkt = koppelMateriaal(req.params.id, fiets, {
+    naam: req.body?.naam || null,
+    toepassen: req.body?.toepassenOpGeschiedenis !== false,
   });
-  schrijf();
-
   res.json({ id: req.params.id, fiets, bijgewerkt });
 });
 
@@ -472,4 +513,4 @@ router.post("/backfill", async (req, res) => {
   });
 });
 
-module.exports = { router, importActivity };
+module.exports = { router, importActivity, koppelMateriaal };

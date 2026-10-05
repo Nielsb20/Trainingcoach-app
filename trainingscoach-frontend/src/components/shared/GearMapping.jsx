@@ -159,47 +159,83 @@ export default function GearMapping() {
 
       <table className="tc-table">
         <thead>
-          <tr><th>Strava-fiets</th><th>Ritten</th><th>Wat voor fiets</th></tr>
+          <tr><th>Materiaal in Strava</th><th>Sessies</th><th>Wat voor fiets</th></tr>
         </thead>
         <tbody>
           {data.materiaal.map((g) => (
             <tr key={g.id}>
-              <td>
-                {g.naam}
-                {!g.inStrava && (
-                  <span className="tc-hint-badge" style={{ marginLeft: 6 }}>niet meer in Strava</span>
-                )}
-              </td>
+              <td>{g.naam}</td>
               <td className="tc-mono">{g.aantalRitten || "–"}</td>
               <td>
-                <select
-                  className="tc-input"
-                  style={{ width: "auto" }}
-                  value={g.fiets || ""}
-                  disabled={bezig === g.id}
-                  onChange={(e) => koppel(g.id, e.target.value)}
-                >
-                  <option value="">Niet toegewezen</option>
-                  {BIKE_TYPES.map((s) => (
-                    <option key={s.id} value={s.id}>{s.naam}</option>
-                  ))}
-                </select>
-                {bezig === g.id && <Loader2 className="spin" size={13} style={{ marginLeft: 6 }} />}
+                {/* Schoenen staan in dezelfde Strava-lijst als fietsen. Een
+                    paar hardloopschoenen een fietstype laten kiezen is onzin
+                    die bovendien niets doet, want de koppeling raakt alleen
+                    fietssessies. Dus hier geen keuzelijst. */}
+                {g.sport === "Hardlopen" ? (
+                  <span className="tc-import-help">hardloopschoenen — geen fietstype</span>
+                ) : (
+                  <>
+                    <select
+                      className="tc-input"
+                      style={{ width: "auto" }}
+                      value={g.fiets || ""}
+                      disabled={bezig === g.id}
+                      onChange={(e) => koppel(g.id, e.target.value)}
+                    >
+                      <option value="">Niet toegewezen</option>
+                      {BIKE_TYPES.map((s) => (
+                        <option key={s.id} value={s.id}>{s.naam}</option>
+                      ))}
+                    </select>
+                    {bezig === g.id && <Loader2 className="spin" size={13} style={{ marginLeft: 6 }} />}
+                  </>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {data.zonderMateriaal > 0 && (
-        <p className="tc-import-help" style={{ marginTop: 6 }}>
-          {data.zonderMateriaal} fietssessies hebben geen fiets in Strava. Die blijven op "niet
-          opgegeven" staan tenzij je ze per sessie instelt — of je hangt er in Strava alsnog een fiets
-          aan en werkt je historie bij.
-        </p>
-      )}
+      {data.zonderMateriaal > 0 && <ZonderMateriaal data={data} />}
       {melding && <p className="tc-import-help" style={{ color: "var(--cardio)" }}>{melding}</p>}
       {fout && <p className="tc-warning-box">{fout}</p>}
     </div>
+  );
+}
+
+/**
+ * De ritten waar geen materiaal onder hangt, met de reden erbij.
+ *
+ * Of er iets aan te doen is hangt af van waar ze vandaan komen. Een rit die
+ * via de Strava-API binnenkwam kan opnieuw opgehaald worden en krijgt dan
+ * alsnog zijn fiets. Een rit uit een CSV-archief of een GPX-bestand niet: in
+ * die bestanden staat geen materiaal, punt. Dat verschil onbenoemd laten
+ * levert iemand op die blijft klikken op een knop die niets kan doen.
+ */
+function ZonderMateriaal({ data }) {
+  const perBron = data.zonderMateriaalPerBron || [];
+  const uitStrava = perBron
+    .filter((b) => String(b.source || "").startsWith("strava"))
+    .reduce((n, b) => n + b.aantal, 0);
+  const anders = perBron.filter((b) => !String(b.source || "").startsWith("strava"));
+
+  return (
+    <p className="tc-import-help" style={{ marginTop: 6 }}>
+      <strong>{data.zonderMateriaal} fietssessies hebben geen materiaal uit Strava.</strong>{" "}
+      {uitStrava > 0 && (
+        <>
+          Daarvan kwamen er {uitStrava} via Strava binnen; die kun je opnieuw laten ophalen met
+          "Analysedata bijwerken" hierboven, mits er in Strava wél een fiets onder hangt.{" "}
+        </>
+      )}
+      {anders.length > 0 && (
+        <>
+          De overige {anders.reduce((n, b) => n + b.aantal, 0)} komen uit een import
+          ({anders.map((b) => `${b.source}: ${b.aantal}`).join(", ")}). In een CSV-export of een
+          GPX-bestand staat geen materiaal, dus daar valt langs deze weg niets te halen — die stel je
+          per sessie in, of je laat ze leeg.
+        </>
+      )}
+    </p>
   );
 }
