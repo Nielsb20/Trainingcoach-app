@@ -43,6 +43,7 @@ const COACH_RESPONSE_SCHEMA = {
           // trainer — de blokken waar het trainingsbestand van wordt gemaakt.
           // Zonder deze velden in het schema knipt Gemini ze eruit en krijgt
           // de planner alleen de vrije tekst terug.
+          fiets: { type: "STRING", nullable: true },
           ondergrond: { type: "STRING", nullable: true },
           blokken: {
             type: "ARRAY",

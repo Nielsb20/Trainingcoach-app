@@ -2,12 +2,12 @@
 
 const express = require("express");
 const { db } = require("../db/db");
-const { validateCardioEntry, validateCardioBulk, validateSubType } = require("../lib/validate");
+const { validateCardioEntry, validateCardioBulk, validateSubType, validateSurface } = require("../lib/validate");
 
 const router = express.Router();
 
 const COLUMNS = [
-  "id", "date", "time_of_day", "type", "sub_type", "duration_min", "total_duration_min", "distance_km",
+  "id", "date", "time_of_day", "type", "sub_type", "surface", "duration_min", "total_duration_min", "distance_km",
   "avg_hr", "max_hr", "avg_power", "max_power", "weighted_avg_power", "avg_cadence", "max_cadence",
   "elevation_gain_m", "elevation_loss_m", "pace", "calories", "notes", "profile_json", "source",
 ];
@@ -19,6 +19,7 @@ function toRow(entry, source) {
     time_of_day: entry.timeOfDay || null,
     type: entry.type,
     sub_type: entry.sub_type ?? entry.subType ?? null,
+    surface: entry.surface ?? null,
     duration_min: entry.duration_min ?? null,
     total_duration_min: entry.total_duration_min ?? null,
     distance_km: entry.distance_km ?? null,
@@ -46,6 +47,7 @@ function serialize(row) {
     timeOfDay: row.time_of_day,
     type: row.type,
     subType: row.sub_type,
+    surface: row.surface,
     duration_min: row.duration_min,
     total_duration_min: row.total_duration_min,
     distance_km: row.distance_km,
@@ -137,14 +139,23 @@ router.patch("/:id/ondersoort", (req, res) => {
   const row = db.prepare("SELECT id, type FROM cardio_logs WHERE id = ?").get(req.params.id);
   if (!row) return res.status(404).json({ error: "Sessie niet gevonden" });
 
+  // Twee onafhankelijke velden, allebei optioneel. Wat niet in het verzoek
+  // staat blijft wat het was: een rit waarvan je alleen de ondergrond
+  // bijstelt hoort zijn fiets te houden.
+  const heeftFiets = "subType" in (req.body || {}) || "sub_type" in (req.body || {});
+  const heeftOndergrond = "surface" in (req.body || {});
   const subType = req.body?.subType ?? req.body?.sub_type ?? null;
+  const surface = req.body?.surface ?? null;
+
   try {
-    validateSubType(subType, row.type);
+    if (heeftFiets) validateSubType(subType, row.type);
+    if (heeftOndergrond) validateSurface(surface, row.type);
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
 
-  db.prepare("UPDATE cardio_logs SET sub_type = ? WHERE id = ?").run(subType || null, row.id);
+  if (heeftFiets) db.prepare("UPDATE cardio_logs SET sub_type = ? WHERE id = ?").run(subType || null, row.id);
+  if (heeftOndergrond) db.prepare("UPDATE cardio_logs SET surface = ? WHERE id = ?").run(surface || null, row.id);
   res.json(serialize(db.prepare("SELECT * FROM cardio_logs WHERE id = ?").get(row.id)));
 });
 

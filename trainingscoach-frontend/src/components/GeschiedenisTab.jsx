@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { TrendingUp, Search, Pencil, Loader2 } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
-import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad, subTypeLabel } from "../lib/calculations";
+import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSeries, getWeightAtDate, computeSessionRpe, computeWeeklyStrengthLoad, subTypeLabel, surfaceLabel } from "../lib/calculations";
 import { timeOfDayLabel } from "../lib/uiHelpers";
 import WorkoutLogEditor from "./WorkoutLogEditor";
 import AnalyseTab from "./AnalyseTab";
@@ -193,6 +193,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                         <td>
                           {c.type}
                           {c.subType && <span className="tc-hint-badge" style={{ marginLeft: 6 }}>{subTypeLabel(c.subType)}</span>}
+                          {c.surface && <span className="tc-hint-badge" style={{ marginLeft: 4 }}>{surfaceLabel(c.surface)}</span>}
                         </td>
                         <td className="tc-mono">
                           {c.duration_min ? `${c.duration_min} min` : "–"}

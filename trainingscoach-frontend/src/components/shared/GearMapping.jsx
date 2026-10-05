@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bike, Loader2 } from "lucide-react";
 import * as api from "../../api/client";
-import { CARDIO_SUB_TYPES } from "../../lib/calculations";
+import { BIKE_TYPES } from "../../lib/calculations";
 
 /**
  * Je fietsen uit Strava, elk met de ondergrond die eraan hangt.
@@ -17,16 +17,68 @@ import { CARDIO_SUB_TYPES } from "../../lib/calculations";
  */
 export default function GearMapping() {
   const [data, setData] = useState(null);
+  const [betekenis, setBetekenis] = useState(null);
   const [bezig, setBezig] = useState(null);
   const [melding, setMelding] = useState(null);
   const [fout, setFout] = useState(null);
 
   async function load() {
     try {
-      setData(await api.getStravaGear());
+      const [gear, meaning] = await Promise.all([
+        api.getStravaGear(),
+        api.getStravaSportTypeMeaning(),
+      ]);
+      setData(gear);
+      setBetekenis(meaning.betekenis);
     } catch (err) {
       setFout(err.message);
     }
+  }
+
+  async function kiesBetekenis(nieuwe) {
+    setBezig("betekenis");
+    setFout(null);
+    setMelding(null);
+    try {
+      await api.setStravaSportTypeMeaning(nieuwe);
+      setBetekenis(nieuwe);
+      setMelding("Opgeslagen. Geldt vanaf de volgende synchronisatie; wat er al ligt verandert niet vanzelf.");
+    } catch (err) {
+      setFout(err.message);
+    } finally {
+      setBezig(null);
+    }
+  }
+
+  /**
+   * De keuze die bepaalt hoe het sporttype gelezen wordt.
+   *
+   * Staat boven de fietsenlijst omdat hij bepaalt of die lijst er überhaupt
+   * toe doet: kies je op ondergrond, dan is de koppeling de enige bron voor
+   * welke fiets het was.
+   */
+  function betekenisKeuze() {
+    if (!betekenis) return null;
+    return (
+      <div className="tc-inline-note" style={{ marginTop: 8 }}>
+        <p style={{ margin: "0 0 6px" }}>
+          <strong>Hoe kies je je profiel in Garmin?</strong> Dat bepaalt wat het sporttype dat Strava
+          doorgeeft betekent, en dat kan de app niet raden.
+        </p>
+        <label style={{ display: "block", marginBottom: 4 }}>
+          <input type="radio" name="sporttype-betekenis" value="fiets" checked={betekenis === "fiets"}
+            disabled={bezig === "betekenis"} onChange={() => kiesBetekenis("fiets")} />{" "}
+          <strong>Op de fiets waar ik op zit.</strong> "Mountainbiken" betekent dan: dit was de
+          mountainbike, waar ik ook reed. De ondergrond blijft onbekend.
+        </label>
+        <label style={{ display: "block" }}>
+          <input type="radio" name="sporttype-betekenis" value="ondergrond" checked={betekenis === "ondergrond"}
+            disabled={bezig === "betekenis"} onChange={() => kiesBetekenis("ondergrond")} />{" "}
+          <strong>Op waar ik rijd.</strong> "Mountainbiken" betekent dan het bos en "Wegfietsen"
+          asfalt. Welke fiets eronder zat komt dan uit de lijst hieronder — vul die dus in.
+        </label>
+      </div>
+    );
   }
 
   useEffect(() => {
@@ -67,8 +119,9 @@ export default function GearMapping() {
   if (!data.materiaal.length) {
     return (
       <div style={{ marginTop: 8 }}>
-        <span className="tc-workoutfile-title">
-          <Bike size={12} /> Welke fiets is welke ondergrond
+        {betekenisKeuze()}
+        <span className="tc-workoutfile-title" style={{ marginTop: 10, display: "flex" }}>
+          <Bike size={12} /> Wat voor fiets is dit
         </span>
         <p className="tc-import-help" style={{ margin: "4px 0" }}>
           Nog geen fietsen bekend.{" "}
@@ -92,18 +145,21 @@ export default function GearMapping() {
 
   return (
     <div style={{ marginTop: 8 }}>
-      <span className="tc-workoutfile-title">
-        <Bike size={12} /> Welke fiets is welke ondergrond
+      {betekenisKeuze()}
+      <span className="tc-workoutfile-title" style={{ marginTop: 10, display: "flex" }}>
+        <Bike size={12} /> Wat voor fiets is dit
       </span>
       <p className="tc-import-help" style={{ margin: "4px 0 8px" }}>
-        Hang hier één keer een ondergrond aan elke fiets. Dat wordt meteen op al je eerdere ritten met
-        die fiets toegepast, en geldt daarna vanzelf voor nieuwe ritten — betrouwbaarder dan het
-        sporttype, want een kale "Ride" in Strava zegt niets over waar je reed.
+        Zeg hier één keer wat voor fiets elke Strava-fiets is. Dat wordt meteen op al je eerdere ritten
+        met die fiets toegepast en geldt daarna vanzelf voor nieuwe — betrouwbaarder dan het sporttype,
+        want een kale "Ride" in Strava zegt niets. <strong>Niet</strong> waar je reed: dezelfde
+        mountainbike gaat 's zomers het bos in en 's winters over de weg, dus de ondergrond staat per
+        sessie.
       </p>
 
       <table className="tc-table">
         <thead>
-          <tr><th>Fiets</th><th>Ritten</th><th>Ondergrond</th></tr>
+          <tr><th>Strava-fiets</th><th>Ritten</th><th>Wat voor fiets</th></tr>
         </thead>
         <tbody>
           {data.materiaal.map((g) => (
@@ -119,13 +175,13 @@ export default function GearMapping() {
                 <select
                   className="tc-input"
                   style={{ width: "auto" }}
-                  value={g.ondergrond || ""}
+                  value={g.fiets || ""}
                   disabled={bezig === g.id}
                   onChange={(e) => koppel(g.id, e.target.value)}
                 >
                   <option value="">Niet toegewezen</option>
-                  {CARDIO_SUB_TYPES.map((s) => (
-                    <option key={s.id} value={s.id}>{s.naam} ({s.sport})</option>
+                  {BIKE_TYPES.map((s) => (
+                    <option key={s.id} value={s.id}>{s.naam}</option>
                   ))}
                 </select>
                 {bezig === g.id && <Loader2 className="spin" size={13} style={{ marginLeft: 6 }} />}

@@ -75,7 +75,7 @@ router.post("/disconnect", (req, res) => {
 /* ------------------------------ import core ----------------------------- */
 
 const CARDIO_COLUMNS = [
-  "id", "date", "time_of_day", "type", "sub_type", "duration_min", "total_duration_min", "distance_km",
+  "id", "date", "time_of_day", "type", "sub_type", "surface", "duration_min", "total_duration_min", "distance_km",
   "avg_hr", "max_hr", "avg_power", "max_power", "weighted_avg_power", "avg_cadence", "max_cadence",
   "elevation_gain_m", "elevation_loss_m", "pace", "calories", "notes", "profile_json", "source",
   "hr_histogram_json", "power_histogram_json", "power_curve_json", "gear_id", "gear_name",
@@ -88,6 +88,7 @@ function insertSession(session, source) {
     time_of_day: session.timeOfDay || null,
     type: session.type,
     sub_type: session.sub_type ?? null,
+    surface: session.surface ?? null,
     gear_id: session.gear_id ?? null,
     gear_name: session.gear_name ?? null,
     duration_min: session.duration_min ?? null,
@@ -255,9 +256,32 @@ router.post("/import/:id", async (req, res) => {
 /* -------------------------------- materiaal ----------------------------- */
 
 /**
+ * GET/PUT /api/strava/sporttype-betekenis
+ *
+ * Of het sporttype uit Strava over de fiets gaat of over de ondergrond. Dat
+ * hangt af van hoe de sporter zijn Garmin-profielen gebruikt en is niet uit de
+ * gegevens af te leiden, dus het is een keuze. Een eigen routepaar omdat het
+ * Strava-specifiek is en in het Strava-blok thuishoort, los van het profiel
+ * met hartslag en FTP.
+ */
+router.get("/sporttype-betekenis", (req, res) => {
+  res.json({ betekenis: strava.sportTypeMeaning() });
+});
+
+router.put("/sporttype-betekenis", (req, res) => {
+  const betekenis = req.body?.betekenis;
+  if (!["fiets", "ondergrond"].includes(betekenis)) {
+    return res.status(400).json({ error: 'Kies "fiets" of "ondergrond".' });
+  }
+  db.prepare("UPDATE profile SET strava_sport_type_means = ? WHERE id = 1").run(betekenis);
+  // Geldt vanaf de volgende import; wat er al ligt verandert niet vanzelf.
+  res.json({ betekenis, verouderd: strava.isConnected() ? strava.findOutdatedImports().length : 0 });
+});
+
+/**
  * GET /api/strava/materiaal
  *
- * Je fietsen, met de ondergrond die eraan hangt en hoeveel ritten erop staan.
+ * Je fietsen, met het type dat eraan hangt en hoeveel ritten erop staan.
  *
  * Twee bronnen door elkaar: wat Strava kent (ook een fiets waar je dit seizoen
  * nog niet op zat) en wat er in de geïmporteerde ritten voorkomt (ook een
@@ -292,7 +316,7 @@ router.get("/materiaal", async (req, res) => {
     return {
       id,
       naam: strava_?.name || bekend.get(id)?.name || gebruik?.gear_name || id,
-      ondergrond: bekend.get(id)?.sub_type || null,
+      fiets: bekend.get(id)?.sub_type || null,
       aantalRitten: gebruik?.aantal || 0,
       laatsteRit: gebruik?.laatst || null,
       afstandKm: strava_?.afstandKm ?? null,
@@ -328,22 +352,22 @@ router.get("/materiaal", async (req, res) => {
 });
 
 /**
- * PUT /api/strava/materiaal/:id  { ondergrond, toepassenOpGeschiedenis }
+ * PUT /api/strava/materiaal/:id  { fiets, toepassenOpGeschiedenis }
  *
- * Koppelt een fiets aan een ondergrond. Standaard geldt dat alleen voor wat er
- * nog binnenkomt; met toepassenOpGeschiedenis wordt elke rit op deze fiets
- * meteen bijgewerkt. Dat laatste is waarom dit de moeite waard is — anders
- * zou je jaren ritten één voor één moeten aanwijzen.
+ * Zegt wát voor fiets dit is. Nadrukkelijk niet waar je ermee reed: dezelfde
+ * mountainbike gaat 's zomers het bos in en 's winters over de weg, en die
+ * twee in één keuze persen levert precies de verwarring op die dit veld moet
+ * oplossen. De ondergrond staat per sessie.
+ *
+ * Standaard geldt de keuze ook voor wat er al ligt; dat is waarom dit de
+ * moeite waard is, anders zou je jaren ritten één voor één moeten aanwijzen.
  */
 router.put("/materiaal/:id", (req, res) => {
-  const ondergrond = req.body?.ondergrond || null;
-  if (ondergrond !== null) {
-    const bestaat = calc.CARDIO_SUB_TYPES.find((s) => s.id === ondergrond);
-    if (!bestaat) {
-      return res.status(400).json({
-        error: `Onbekende ondergrond "${ondergrond}". Kies uit: ${calc.CARDIO_SUB_TYPES.map((s) => s.id).join(", ")}.`,
-      });
-    }
+  const fiets = req.body?.fiets ?? req.body?.ondergrond ?? null;
+  if (fiets !== null && !calc.BIKE_TYPES.find((s) => s.id === fiets)) {
+    return res.status(400).json({
+      error: `Onbekende fiets "${fiets}". Kies uit: ${calc.BIKE_TYPES.map((s) => s.id).join(", ")}.`,
+    });
   }
 
   const toepassen = req.body?.toepassenOpGeschiedenis !== false;
@@ -371,7 +395,7 @@ router.put("/materiaal/:id", (req, res) => {
   });
   schrijf();
 
-  res.json({ id: req.params.id, ondergrond, bijgewerkt });
+  res.json({ id: req.params.id, fiets, bijgewerkt });
 });
 
 /**

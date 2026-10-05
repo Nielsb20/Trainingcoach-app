@@ -20,7 +20,7 @@ initSchema();
 const calc = require("./calculations");
 const wf = require("./workoutFile");
 const strava = require("./strava");
-const { validateCardioEntry, validateSubType } = require("./validate");
+const { validateCardioEntry, validateSubType, validateSurface } = require("./validate");
 
 /* ------------------ rusthartslag uit de gemeten nachten ----------------- */
 
@@ -110,31 +110,84 @@ console.log(`  ok  drempelzone begint bij ${zonesGemeten[3].vanBpm} in plaats va
 
 /* ------------------------ welke fiets, welke ondergrond ----------------- */
 
-console.log("\neen MTB-rit wordt niet meer met een wegrit vergeleken");
+console.log("\nfiets en ondergrond zijn twee losse dingen");
 
-assert.strictEqual(strava.mapSubType("MountainBikeRide"), "mtb");
-assert.strictEqual(strava.mapSubType("GravelRide"), "gravel");
-assert.strictEqual(strava.mapSubType("VirtualRide"), "indoor");
-assert.strictEqual(strava.mapSubType("TrailRun"), "trail");
-// De kale "Ride" is het type dat iedereen laat staan voor elke rit. Daar een
-// racefiets uit concluderen zou een verzinsel in de geschiedenis zetten.
-assert.strictEqual(strava.mapSubType("Ride"), null, "onbekend blijft onbekend");
-assert.strictEqual(strava.mapSubType("Run"), null);
-console.log("  ok  Strava's eigen labels worden overgenomen, de kale Ride niet geraden");
+// Wat het sporttype betekent hangt af van hoe de sporter zijn profielen
+// gebruikt, en dat kan de app niet raden. Dus twee standen.
+//
+// Stand 'fiets': het profiel zegt waar je op zat.
+assert.strictEqual(strava.mapSubType("MountainBikeRide", "fiets"), "mtb");
+assert.strictEqual(strava.mapSubType("GravelRide", "fiets"), "gravel");
+assert.strictEqual(strava.mapSubType("VirtualRide", "fiets"), "indoor");
+assert.strictEqual(strava.mapSubType("Ride", "fiets"), null, "een kale Ride zegt niet welke fiets");
+// Hier zat de fout: in deze stand zegt "MountainBikeRide" wélke fiets, niet
+// wáár. Wie zijn MTB 's winters op de weg gebruikt logt dat net zo goed als
+// MountainBikeRide.
+assert.strictEqual(strava.mapSurface("MountainBikeRide", "fiets"), null, "een MTB-rit hoeft niet door het bos te gaan");
+assert.strictEqual(strava.mapSurface("GravelRide", "fiets"), null);
+assert.strictEqual(strava.mapSurface("Ride", "fiets"), null);
+assert.strictEqual(strava.mapSurface("VirtualRide", "fiets"), "binnen", "virtueel is wél met zekerheid binnen");
+console.log("  ok  stand 'fiets': het profiel levert de fiets, en alleen virtueel ook de ondergrond");
 
-// De fiets die je in Strava aan een rit hangt is een registratie en wint van
-// het sporttype, dat in het beste geval een aanwijzing is.
+// Stand 'ondergrond': het profiel zegt waar je reed, en de fiets komt uit de
+// koppeling met je Strava-materiaal.
+assert.strictEqual(strava.mapSurface("MountainBikeRide", "ondergrond"), "onverhard");
+assert.strictEqual(strava.mapSurface("GravelRide", "ondergrond"), "gemengd");
+assert.strictEqual(strava.mapSurface("Ride", "ondergrond"), "asfalt", "wegfietsen betekent dan asfalt");
+assert.strictEqual(strava.mapSurface("VirtualRide", "ondergrond"), "binnen");
+assert.strictEqual(strava.mapSurface("TrailRun", "ondergrond"), "onverhard");
+assert.strictEqual(
+  strava.mapSubType("MountainBikeRide", "ondergrond"), null,
+  "in deze stand zegt het profiel niets over de fiets"
+);
+console.log("  ok  stand 'ondergrond': het profiel levert het parcours, niet de fiets");
+
+// En dat is precies het geval waar het om begonnen is: dezelfde mountainbike,
+// 's zomers het bos in en 's winters over de weg.
+db.prepare("INSERT INTO strava_gear (id,name,sub_type) VALUES ('mtb-gear','Santa Cruz','mtb')").run();
+db.prepare("UPDATE profile SET strava_sport_type_means='ondergrond' WHERE id=1").run();
+const maakRit = (sport) => strava.stravaToSession(
+  { id: Math.random(), sport_type: sport, moving_time: 3600, distance: 30000,
+    start_date_local: "2026-01-10T09:00:00Z",
+    gear_id: "mtb-gear", gear: { id: "mtb-gear", name: "Santa Cruz" } },
+  null
+);
+const winterWegrit = maakRit("Ride");
+const zomerBosrit = maakRit("MountainBikeRide");
+assert.strictEqual(winterWegrit.sub_type, "mtb", "allebei op dezelfde fiets");
+assert.strictEqual(zomerBosrit.sub_type, "mtb");
+assert.strictEqual(winterWegrit.surface, "asfalt", "maar niet over dezelfde ondergrond");
+assert.strictEqual(zomerBosrit.surface, "onverhard");
+db.prepare("UPDATE profile SET strava_sport_type_means='fiets' WHERE id=1").run();
+console.log("  ok  dezelfde MTB op de weg en in het bos komt binnen als twee verschillende dingen");
+
+// Een kale "Ride" zegt niets, dus dan vult de gekoppelde fiets de leegte.
 db.prepare("INSERT INTO strava_gear (id, name, sub_type) VALUES ('b999', 'Canyon Grail', 'gravel')").run();
 const metFiets = strava.stravaToSession(
   { id: 1, sport_type: "Ride", moving_time: 3600, distance: 40000,
     start_date_local: "2026-10-01T09:00:00Z", gear_id: "b999", gear: { id: "b999", name: "Canyon Grail" } },
   null
 );
-assert.strictEqual(metFiets.sub_type, "gravel", "de gekoppelde fiets bepaalt de ondergrond");
+assert.strictEqual(metFiets.sub_type, "gravel", "bij een kale Ride vult de koppeling aan");
+assert.strictEqual(metFiets.surface, null, "en zegt niets over waar je reed");
 assert.strictEqual(metFiets.gear_name, "Canyon Grail");
 
-// Een fiets zonder koppeling valt terug op het sporttype, en wordt wel
-// onthouden zodat de interface hem kan aanbieden.
+// Maar een expliciet sporttype gaat vóór de koppeling, en dat is de
+// belangrijke kant. Wie met een Garmin rijdt kiest het profiel vóór vertrek
+// en dat reist mee naar Strava; de fiets in Strava staat veel vaker nog op de
+// standaardfiets, omdat Garmin zijn eigen materiaal niet meestuurt. Zou de
+// koppeling winnen, dan kreeg elke mountainbikerit het label van de racefiets.
+db.prepare("INSERT INTO strava_gear (id, name, sub_type) VALUES ('b555', 'Standaardfiets', 'racefiets')").run();
+const garminMtb = strava.stravaToSession(
+  { id: 4, sport_type: "MountainBikeRide", moving_time: 3600, distance: 30000,
+    start_date_local: "2026-10-01T09:00:00Z", gear_id: "b555", gear: { id: "b555", name: "Standaardfiets" } },
+  null
+);
+assert.strictEqual(
+  garminMtb.sub_type, "mtb",
+  "een standaardfiets in Strava mag een expliciet sporttype niet overschrijven"
+);
+
 const ongekoppeld = strava.stravaToSession(
   { id: 2, sport_type: "MountainBikeRide", moving_time: 3600, distance: 30000,
     start_date_local: "2026-10-01T09:00:00Z", gear_id: "b777", gear: { id: "b777", nickname: "Hightower" } },
@@ -146,37 +199,47 @@ assert.strictEqual(
   "Hightower",
   "een onbekende fiets wordt onthouden om later te koppelen"
 );
+console.log("  ok  een expliciet sporttype wint; de koppeling vult alleen een kale Ride aan");
 
-// Een rit zonder fiets mag niet omvallen.
-const zonderFiets = strava.stravaToSession(
-  { id: 3, sport_type: "Ride", moving_time: 3600, distance: 40000, start_date_local: "2026-10-01T09:00:00Z" },
-  null
-);
-assert.strictEqual(zonderFiets.gear_id, null);
-assert.strictEqual(zonderFiets.sub_type, null, "een kale Ride zonder fiets blijft onbekend");
-console.log("  ok  de fiets uit Strava wint van het sporttype, en onbekend blijft onbekend");
-
+// De twee assen apart: materiaal bij fietsen, ondergrond bij allebei.
+assert.deepStrictEqual(calc.subTypesFor("Fietsen").map((s) => s.id), ["racefiets", "gravel", "mtb", "ebike", "indoor"]);
+assert.strictEqual(calc.subTypesFor("Hardlopen").length, 0, "welke schoen je aanhad verandert je tempo niet");
+assert.deepStrictEqual(calc.surfacesFor("Fietsen").map((s) => s.id), ["asfalt", "onverhard", "gemengd", "binnen"]);
+assert.ok(calc.surfacesFor("Hardlopen").some((s) => s.id === "baan"), "een baan bestaat alleen bij hardlopen");
 assert.strictEqual(calc.subTypeLabel("mtb"), "Mountainbike");
-assert.deepStrictEqual(calc.subTypesFor("Fietsen").map((s) => s.id), ["weg", "gravel", "mtb", "indoor", "ebike"]);
-assert.strictEqual(calc.subTypesFor("Zwemmen").length, 0, "zwemmen kent deze keuze niet");
-assert.strictEqual(calc.isIndoorTrainer("indoor"), true);
-assert.strictEqual(calc.isIndoorTrainer("mtb"), false);
-console.log("  ok  per sport de juiste keuzes, met leesbare namen");
+assert.strictEqual(calc.surfaceLabel("onverhard"), "Onverhard");
+assert.strictEqual(calc.isIndoorTrainer("mtb", "binnen"), true, "een MTB op de rollen is ook binnen");
+assert.strictEqual(calc.isIndoorTrainer("mtb", "onverhard"), false);
+console.log("  ok  per sport de juiste assen, met leesbare namen");
 
-// Onbekend is alleen gelijk aan onbekend: een rit zonder label kan alles zijn
-// geweest, dus hem gelijkstellen aan een wegrit brengt de verwarring terug.
+// Waar het allemaal om begonnen is: dezelfde mountainbike, twee ondergronden.
+const winterWeg = { subType: "mtb", surface: "asfalt" };
+const zomerBos = { subType: "mtb", surface: "onverhard" };
+const racefiets = { subType: "racefiets", surface: "asfalt" };
+assert.strictEqual(calc.comparabilityRank(winterWeg, winterWeg), 0, "gelijk op beide assen is perfect");
+assert.strictEqual(calc.comparabilityRank(winterWeg, zomerBos), 1, "zelfde fiets, ander terrein");
+assert.strictEqual(calc.comparabilityRank(winterWeg, racefiets), 2, "andere fiets weegt zwaarder");
+assert.ok(
+  calc.comparabilityRank(winterWeg, zomerBos) < calc.comparabilityRank(winterWeg, racefiets),
+  "een bosrit op je eigen MTB is beter vergelijkbaar dan een racefietsrit op asfalt"
+);
+console.log("  ok  dezelfde MTB op de weg en in het bos blijft beter vergelijkbaar dan een andere fiets");
+
+// Onbekend hoort alleen bij onbekend, op allebei de assen.
 assert.strictEqual(calc.sameSubType("mtb", "mtb"), true);
-assert.strictEqual(calc.sameSubType("mtb", "weg"), false);
-assert.strictEqual(calc.sameSubType(null, null), true);
-assert.strictEqual(calc.sameSubType(null, "weg"), false);
-console.log("  ok  onbekend telt niet als 'dezelfde fiets'");
+assert.strictEqual(calc.sameSubType(null, "racefiets"), false);
+assert.strictEqual(calc.sameSurface(null, null), true);
+assert.strictEqual(calc.sameSurface(null, "asfalt"), false);
+console.log("  ok  onbekend telt niet als 'hetzelfde'");
 
-// Een ondersoort die niet bestaat, of niet bij de sport past, komt er niet in.
+// Een waarde die niet bestaat of niet bij de sport past komt er niet in.
 const rit = { id: "r1", date: "2026-10-01", type: "Fietsen", duration_min: 90, distance_km: 40 };
-validateCardioEntry({ ...rit, sub_type: "mtb" }); // mag niet gooien
-assert.throws(() => validateCardioEntry({ ...rit, sub_type: "bakfiets" }), /Onbekende ondersoort/);
-assert.throws(() => validateSubType("mtb", "Hardlopen"), /hoort bij Fietsen/);
-console.log("  ok  een onzinnige of misplaatste ondersoort wordt geweigerd");
+validateCardioEntry({ ...rit, sub_type: "mtb", surface: "asfalt" }); // mag niet gooien
+assert.throws(() => validateCardioEntry({ ...rit, sub_type: "bakfiets" }), /Onbekend materiaal/);
+assert.throws(() => validateCardioEntry({ ...rit, surface: "maanstof" }), /Onbekende ondergrond/);
+assert.throws(() => validateSubType("mtb", "Hardlopen"), /hoort niet bij Hardlopen/);
+assert.throws(() => validateSurface("baan", "Fietsen"), /hoort niet bij Fietsen/);
+console.log("  ok  een onzinnige of misplaatste waarde wordt geweigerd");
 
 // En wat de coach voorstelt gaat door dezelfde poort.
 const { createProposalsFromCoachEntry } = require("../routes/planned");
@@ -189,7 +252,8 @@ db.prepare(
     {
       dag: calc.weekdayNameForDate(dag(-2)),
       type: "Fietsen",
-      ondergrond: "indoor",
+      fiets: "indoor",
+      ondergrond: "binnen",
       invulling: "2x20 min op drempel",
       blokken: [
         { soort: "warmup", minuten: 10, pctFtp: 55, pctFtpTot: 75 },
@@ -200,7 +264,8 @@ db.prepare(
     {
       dag: calc.weekdayNameForDate(dag(-3)),
       type: "Fietsen",
-      ondergrond: "ligfiets",
+      fiets: "ligfiets",
+      ondergrond: "maanstof",
       invulling: "duurrit",
       blokken: "geen lijst",
     },
@@ -209,10 +274,12 @@ db.prepare(
 
 const resultaat = createProposalsFromCoachEntry("coach-t1");
 const metStructuur = resultaat.created.find((c) => c.subType === "indoor");
-assert.ok(metStructuur, "de indoorsessie moet zijn ondersoort houden");
+assert.ok(metStructuur, "de indoorsessie moet zijn fiets houden");
+assert.strictEqual(metStructuur.surface, "binnen");
 assert.strictEqual(metStructuur.structuur.length, 3);
 const verzonnen = resultaat.created.find((c) => c.description === "duurrit");
-assert.strictEqual(verzonnen.subType, null, "een ondersoort die niet bestaat wordt weggelaten");
+assert.strictEqual(verzonnen.subType, null, "een fiets die niet bestaat wordt weggelaten");
+assert.strictEqual(verzonnen.surface, null, "en een ondergrond die niet bestaat ook");
 assert.strictEqual(verzonnen.structuur, null, "blokken die geen lijst zijn leveren geen structuur op");
 console.log("  ok  modeluitvoer die niet klopt wordt weggelaten, niet gerepareerd");
 

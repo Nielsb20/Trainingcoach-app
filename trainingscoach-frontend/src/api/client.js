@@ -19,10 +19,14 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     // Try to surface the server's own error message rather than a bare status code
+    // Beide velden, niet één: de server zet de korte reden in `error` en de
+    // werkelijke oorzaak in `details`. Alleen de eerste tonen leverde
+    // "Omzetten mislukt" op zonder dat iemand kon zien waaróm.
     let detail = "";
     try {
       const body = await res.json();
-      detail = body.error || body.details || "";
+      detail = [body.error, body.details].filter(Boolean).join(" — ");
+      if (body.hint) detail += ` ${body.hint}`;
     } catch {
       /* response wasn't JSON — fall through to the generic message */
     }
@@ -158,38 +162,23 @@ export const savePlannedStructure = (id, blokken, bron = "handmatig") =>
   request(`/planned/${id}/structuur`, { method: "PUT", body: JSON.stringify({ blokken, bron }) });
 
 /**
- * Downloadt het trainingsbestand. Gaat buiten `request` om: dit is geen JSON
- * maar een bestand, en de browser moet het als download aanbieden.
+ * Het adres van het trainingsbestand, om rechtstreeks naar te linken.
+ *
+ * Een gewone link in plaats van ophalen-en-blob-maken. Dat laatste werkt op
+ * een desktopbrowser prima maar laat het op iOS en iPadOS regelmatig afweten,
+ * en juist daar zit je: je kiest de training op de tablet die naast de trainer
+ * staat. Met een echte link doet de browser het zelf, en biedt iOS meteen
+ * "openen in ROUVY" aan.
  */
-export async function downloadWorkoutFile(id, formaat = "zwo") {
-  const res = await fetch(`${BASE}/planned/${id}/trainingsbestand?formaat=${formaat}`);
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body.error || "";
-    } catch {
-      /* geen JSON — dan blijft het bij de status */
-    }
-    throw new Error(detail || `Kon het bestand niet maken (${res.status})`);
-  }
-  const blob = await res.blob();
-  const naam = (res.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/)?.[1]
-    || `training.${formaat}`;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = naam;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  return naam;
-}
+export const workoutFileUrl = (id, formaat = "zwo") =>
+  `${BASE}/planned/${id}/trainingsbestand?formaat=${formaat}`;
 
-/** Welke fiets of ondergrond het was; corrigeert ook geïmporteerde historie. */
+/** Op welke fiets; corrigeert ook geïmporteerde historie. */
 export const setCardioSubType = (id, subType) =>
   request(`/cardio-logs/${id}/ondersoort`, { method: "PATCH", body: JSON.stringify({ subType }) });
+/** Waar je reed. Losse as: dezelfde MTB gaat het bos in én de weg op. */
+export const setCardioSurface = (id, surface) =>
+  request(`/cardio-logs/${id}/ondersoort`, { method: "PATCH", body: JSON.stringify({ surface }) });
 
 /* --------------------------------- strava ------------------------------ */
 
@@ -199,13 +188,17 @@ export const disconnectStrava = () => request("/strava/disconnect", { method: "P
 export const getStravaBackfillStatus = () => request("/strava/backfill-status");
 export const backfillStrava = (limit = 25) =>
   request("/strava/backfill", { method: "POST", body: JSON.stringify({ limit }) });
-/** Je fietsen en schoenen, met de ondergrond die eraan hangt. */
+/** Zegt het sporttype uit Strava iets over de fiets of over de ondergrond? */
+export const getStravaSportTypeMeaning = () => request("/strava/sporttype-betekenis");
+export const setStravaSportTypeMeaning = (betekenis) =>
+  request("/strava/sporttype-betekenis", { method: "PUT", body: JSON.stringify({ betekenis }) });
+/** Je fietsen en schoenen, met het type dat eraan hangt. */
 export const getStravaGear = () => request("/strava/materiaal");
-/** Koppelt een fiets aan een ondergrond, standaard ook voor je hele historie. */
-export const setStravaGearSubType = (id, ondergrond, toepassenOpGeschiedenis = true) =>
+/** Zegt wat voor fiets dit is, standaard ook voor je hele historie. */
+export const setStravaGearSubType = (id, fiets, toepassenOpGeschiedenis = true) =>
   request(`/strava/materiaal/${encodeURIComponent(id)}`, {
     method: "PUT",
-    body: JSON.stringify({ ondergrond, toepassenOpGeschiedenis }),
+    body: JSON.stringify({ fiets, toepassenOpGeschiedenis }),
   });
 
 /* --------------------------------- health ------------------------------ */

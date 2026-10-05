@@ -6,7 +6,7 @@ import TimeOfDayPicker from "./shared/TimeOfDayPicker";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import StravaPanel from "./StravaPanel";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
-import { todayStr, formatDateNL, getWeightAtDate, subTypesFor } from "../lib/calculations";
+import { todayStr, formatDateNL, getWeightAtDate, subTypesFor, surfacesFor } from "../lib/calculations";
 import { uid, defaultTimeOfDay, timeOfDayLabel } from "../lib/uiHelpers";
 import { mapActivitiesCsv, guessCardioType } from "../lib/csvImport";
 import { parseGpxToSession, readGpxFileAsText } from "../lib/gpxParser";
@@ -15,6 +15,7 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
   const [date, setDate] = useState(todayStr());
   const [type, setType] = useState(CARDIO_TYPES[0]);
   const [subType, setSubType] = useState("");
+  const [surface, setSurface] = useState("");
   const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay());
   const [duration, setDuration] = useState("");
   const [distance, setDistance] = useState("");
@@ -153,6 +154,7 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
     const entry = {
       id: uid(), date, timeOfDay, type,
       sub_type: subType || null,
+      surface: surface || null,
       duration_min: duration ? Number(duration) : null,
       distance_km: distance ? Number(distance) : null,
       avg_hr: avgHr ? Number(avgHr) : null,
@@ -352,13 +354,22 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
         {/* Alleen bij sporten waar het uitmaakt: 25 km/u op de MTB en 25 km/u
             op de racefiets zijn twee verschillende inspanningen, en zonder dit
             veld worden ze in de vergelijkingen op één hoop gegooid. */}
-        {subTypesFor(type).length > 0 && (
+        {(subTypesFor(type).length > 0 || surfacesFor(type).length > 0) && (
           <div className="tc-form-row">
+            {subTypesFor(type).length > 0 && (
+              <div>
+                <label className="tc-label">Fiets (optioneel)</label>
+                <select className="tc-input" value={subType} onChange={(e) => setSubType(e.target.value)}>
+                  <option value="">Niet opgegeven</option>
+                  {subTypesFor(type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+                </select>
+              </div>
+            )}
             <div>
-              <label className="tc-label">Fiets / ondergrond (optioneel)</label>
-              <select className="tc-input" value={subType} onChange={(e) => setSubType(e.target.value)}>
+              <label className="tc-label">Ondergrond (optioneel)</label>
+              <select className="tc-input" value={surface} onChange={(e) => setSurface(e.target.value)}>
                 <option value="">Niet opgegeven</option>
-                {subTypesFor(type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+                {surfacesFor(type).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
               </select>
             </div>
           </div>

@@ -63,6 +63,7 @@ function getFullSchema() {
       restingHr: profileRow.resting_hr,
       ftp: profileRow.ftp,
       thresholdPaceSecPerKm: profileRow.threshold_pace_sec_per_km,
+      stravaSportTypeMeans: profileRow.strava_sport_type_means || "fiets",
       restingHrGemeten: getMeasuredRestingHr(),
     },
   };
