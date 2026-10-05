@@ -395,4 +395,54 @@ assert.throws(() => wf.renderWorkoutFile(blokken, { format: "fit", naam: "x" }),
 assert.throws(() => wf.renderWorkoutFile(null, { format: "zwo", naam: "x" }), /blokkenstructuur/);
 console.log("  ok  zonder structuur of met een onbekend formaat volgt een melding, geen bestand");
 
-console.log("\nAlle tests voor rusthartslag, ondergrond en trainingsbestanden geslaagd.");
+/* ------------------------------------------------------------------ */
+// Als laatste, want deze test is asynchroon en een testbestand in CommonJS
+// kent geen top-level await.
+(async () => {
+  /* -------------------- materiaal ophalen voor oude ritten ---------------- */
+
+  console.log("\nmateriaal is op te halen voor ritten die uit een archief komen");
+
+  // Een CSV-archief draagt geen materiaal, terwijl dezelfde rit in Strava wél
+  // een fiets heeft. De volledige herimport kan die ritten niet eens zien: ze
+  // staan niet in strava_imported_activities. Dit is de weg die dat wel kan.
+  db.prepare(
+    "INSERT INTO cardio_logs (id,date,type,duration_min,distance_km,source) VALUES ('oud-1','2026-05-01','Fietsen',120,45,'csv_import')"
+  ).run();
+  db.prepare(
+    "INSERT INTO cardio_logs (id,date,type,duration_min,distance_km,source) VALUES ('oud-2','2026-05-02','Fietsen',60,20,'csv_import')"
+  ).run();
+  // Deze heeft al een fiets; die mag niet overschreven worden.
+  db.prepare(
+    "INSERT INTO cardio_logs (id,date,type,duration_min,distance_km,source,gear_id) VALUES ('al-goed','2026-05-03','Fietsen',90,35,'strava_sync','bulls')"
+  ).run();
+
+  const nepActiviteiten = async () => [
+    // Komt exact overeen met oud-1.
+    { id: 1, gear_id: "cube", sport_type: "Ride", start_date_local: "2026-05-01T08:00:00Z", distance: 45000, moving_time: 7200 },
+    // Zelfde dag als oud-2 maar een heel andere rit: mag niet matchen.
+    { id: 2, gear_id: "cube", sport_type: "Ride", start_date_local: "2026-05-02T08:00:00Z", distance: 120000, moving_time: 14400 },
+    // Al voorzien van een fiets; blijft zoals hij is.
+    { id: 3, gear_id: "cube", sport_type: "Ride", start_date_local: "2026-05-03T08:00:00Z", distance: 35000, moving_time: 5400 },
+    // Zonder materiaal in Strava valt er niets te halen.
+    { id: 4, sport_type: "Ride", start_date_local: "2026-05-04T08:00:00Z", distance: 10000, moving_time: 1800 },
+  ];
+
+  const opgehaald = await strava.backfillGear({
+    maxPaginas: 1, perPagina: 200, haalActiviteiten: nepActiviteiten,
+  });
+
+  assert.strictEqual(opgehaald.gekoppeld, 1, "alleen de rit die eenduidig te matchen is");
+  assert.strictEqual(db.prepare("SELECT gear_id FROM cardio_logs WHERE id='oud-1'").get().gear_id, "cube");
+  assert.strictEqual(
+    db.prepare("SELECT gear_id FROM cardio_logs WHERE id='oud-2'").get().gear_id, null,
+    "een rit die qua afstand niet klopt krijgt geen fiets aangemeten"
+  );
+  assert.strictEqual(
+    db.prepare("SELECT gear_id FROM cardio_logs WHERE id='al-goed'").get().gear_id, "bulls",
+    "een al ingevulde fiets wordt niet overschreven"
+  );
+  console.log(`  ok  ${opgehaald.gekoppeld} gekoppeld, ${opgehaald.zonderMatch} zonder match, niets overschreven`);
+
+  console.log("\nAlle tests voor rusthartslag, ondergrond en trainingsbestanden geslaagd.");
+})();

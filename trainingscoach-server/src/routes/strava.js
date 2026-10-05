@@ -380,6 +380,42 @@ router.get("/materiaal", async (req, res) => {
 });
 
 /**
+ * POST /api/strava/materiaal/ophalen  { paginas?: number }
+ *
+ * Haalt het materiaal op voor sessies die het nog niet hebben.
+ *
+ * Bestaat naast "Analysedata bijwerken" omdat dat alleen ritten kan die ooit
+ * via de API zijn binnengekomen. Een archief dat met een CSV is geïmporteerd
+ * staat daar niet in, terwijl diezelfde ritten in Strava wél een fiets hebben.
+ * Deze route loopt de activiteitenlijst langs — 200 per aanroep in plaats van
+ * twee aanroepen per rit — en koppelt op dag, sport, afstand en duur.
+ *
+ * Na het ophalen wordt de koppeling fiets -> type opnieuw toegepast, zodat de
+ * labels er in dezelfde beweging op komen.
+ */
+router.post("/materiaal/ophalen", async (req, res) => {
+  if (!strava.isConnected()) {
+    return res.status(400).json({ error: "Strava is nog niet gekoppeld." });
+  }
+  const paginas = Math.min(Math.max(Number(req.body?.paginas) || 3, 1), 10);
+  try {
+    const resultaat = await strava.backfillGear({ maxPaginas: paginas });
+
+    // De al gelegde koppelingen alsnog toepassen op wat er net is bijgekomen.
+    let gelabeld = 0;
+    db.prepare("SELECT id, sub_type FROM strava_gear WHERE sub_type IS NOT NULL")
+      .all()
+      .forEach((g) => {
+        gelabeld += koppelMateriaal(g.id, g.sub_type, { toepassen: true });
+      });
+
+    res.json({ ...resultaat, gelabeld });
+  } catch (err) {
+    res.status(502).json({ error: "Materiaal ophalen mislukt", details: err.message });
+  }
+});
+
+/**
  * Legt vast wat voor fiets dit Strava-materiaal is, en past dat desgewenst
  * meteen toe op alles wat er al mee gereden is.
  *

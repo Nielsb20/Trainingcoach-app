@@ -85,6 +85,26 @@ export default function GearMapping() {
     load();
   }, []);
 
+  async function materiaalOphalen() {
+    setBezig("ophalen");
+    setFout(null);
+    setMelding(null);
+    try {
+      const r = await api.backfillStravaGear(3);
+      setMelding(
+        r.gekoppeld > 0
+          ? `${r.gekoppeld} sessies hebben nu hun materiaal${r.gelabeld ? `, waarvan ${r.gelabeld} meteen een label kregen` : ""}.` +
+            (r.zonderMatch ? ` ${r.zonderMatch} activiteiten uit Strava hoorden bij geen enkele sessie hier.` : "")
+          : "Niets gevonden om aan te vullen. Staat er in Strava wel een fiets onder die ritten?"
+      );
+      await load();
+    } catch (err) {
+      setFout(err.message);
+    } finally {
+      setBezig(null);
+    }
+  }
+
   async function koppel(id, ondergrond) {
     setBezig(id);
     setFout(null);
@@ -196,7 +216,17 @@ export default function GearMapping() {
         </tbody>
       </table>
 
-      {data.zonderMateriaal > 0 && <ZonderMateriaal data={data} />}
+      {data.zonderMateriaal > 0 && (
+        <>
+          <ZonderMateriaal data={data} />
+          <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={bezig === "ophalen"}
+            onClick={materiaalOphalen}
+            title="Loopt je Strava-activiteiten langs en koppelt het materiaal aan sessies die het nog missen">
+            {bezig === "ophalen" ? <Loader2 className="spin" size={13} /> : <Bike size={13} />}
+            {bezig === "ophalen" ? "Bezig met ophalen…" : "Materiaal ophalen uit Strava"}
+          </button>
+        </>
+      )}
       {melding && <p className="tc-import-help" style={{ color: "var(--cardio)" }}>{melding}</p>}
       {fout && <p className="tc-warning-box">{fout}</p>}
     </div>
@@ -206,36 +236,31 @@ export default function GearMapping() {
 /**
  * De ritten waar geen materiaal onder hangt, met de reden erbij.
  *
- * Of er iets aan te doen is hangt af van waar ze vandaan komen. Een rit die
- * via de Strava-API binnenkwam kan opnieuw opgehaald worden en krijgt dan
- * alsnog zijn fiets. Een rit uit een CSV-archief of een GPX-bestand niet: in
- * die bestanden staat geen materiaal, punt. Dat verschil onbenoemd laten
- * levert iemand op die blijft klikken op een knop die niets kan doen.
+ * "Geen materiaal hier" is iets anders dan "geen materiaal in Strava", en dat
+ * verschil was de bron van de verwarring. In Strava hangt er vrijwel altijd
+ * wel een fiets onder; alleen is die nooit deze kant op gekomen, omdat de rit
+ * met een CSV-archief is geïmporteerd en dus nooit langs de API ging.
+ *
+ * Daarom staat hier een knop en geen verontschuldiging: het is op te halen.
  */
 function ZonderMateriaal({ data }) {
   const perBron = data.zonderMateriaalPerBron || [];
-  const uitStrava = perBron
-    .filter((b) => String(b.source || "").startsWith("strava"))
-    .reduce((n, b) => n + b.aantal, 0);
-  const anders = perBron.filter((b) => !String(b.source || "").startsWith("strava"));
+  const uitImport = perBron.filter((b) => !String(b.source || "").startsWith("strava"));
+  const aantalImport = uitImport.reduce((n, b) => n + b.aantal, 0);
 
   return (
     <p className="tc-import-help" style={{ marginTop: 6 }}>
-      <strong>{data.zonderMateriaal} fietssessies hebben geen materiaal uit Strava.</strong>{" "}
-      {uitStrava > 0 && (
+      <strong>{data.zonderMateriaal} fietssessies hebben hier nog geen fiets.</strong>{" "}
+      {aantalImport > 0 && (
         <>
-          Daarvan kwamen er {uitStrava} via Strava binnen; die kun je opnieuw laten ophalen met
-          "Analysedata bijwerken" hierboven, mits er in Strava wél een fiets onder hangt.{" "}
+          Daarvan komen er {aantalImport} uit een import
+          ({uitImport.map((b) => `${b.source}: ${b.aantal}`).join(", ")}); in zo'n bestand staat geen
+          materiaal, dus die zijn nooit met een fiets binnengekomen.{" "}
         </>
       )}
-      {anders.length > 0 && (
-        <>
-          De overige {anders.reduce((n, b) => n + b.aantal, 0)} komen uit een import
-          ({anders.map((b) => `${b.source}: ${b.aantal}`).join(", ")}). In een CSV-export of een
-          GPX-bestand staat geen materiaal, dus daar valt langs deze weg niets te halen — die stel je
-          per sessie in, of je laat ze leeg.
-        </>
-      )}
+      Staat er in Strava wél een fiets onder, dan is hij alsnog op te halen — dat loopt je
+      activiteitenlijst langs en koppelt op dag, afstand en duur. Veel goedkoper dan een volledige
+      herimport, maar het kan even duren.
     </p>
   );
 }

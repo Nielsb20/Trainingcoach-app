@@ -194,6 +194,9 @@ export const setStravaSportTypeMeaning = (betekenis) =>
   request("/strava/sporttype-betekenis", { method: "PUT", body: JSON.stringify({ betekenis }) });
 /** Je fietsen en schoenen, met het type dat eraan hangt. */
 export const getStravaGear = () => request("/strava/materiaal");
+/** Haalt het materiaal op voor sessies die het nog niet hebben. */
+export const backfillStravaGear = (paginas = 3) =>
+  request("/strava/materiaal/ophalen", { method: "POST", body: JSON.stringify({ paginas }) });
 /** Zegt wat voor fiets dit is, standaard ook voor je hele historie. */
 export const setStravaGearSubType = (id, fiets, toepassenOpGeschiedenis = true) =>
   request(`/strava/materiaal/${encodeURIComponent(id)}`, {
