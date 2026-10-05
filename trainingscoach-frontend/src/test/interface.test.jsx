@@ -296,6 +296,45 @@ describe("GearMapping", () => {
     expect(await screen.findByText(/3 eerdere sessies meteen bijgewerkt/)).toBeInTheDocument();
   });
 
+  it("laat schoenen met rust en geeft ze geen fietstype", async () => {
+    // Schoenen en fietsen zitten in dezelfde Strava-lijst. Een paar ASICS een
+    // fietstype laten kiezen is onzin die bovendien niets doet, want de
+    // koppeling raakt alleen fietssessies.
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({
+      materiaal: [
+        { id: "b1", naam: "Cube Agree pro 2026", fiets: null, aantalRitten: 23, sport: "Fietsen", inStrava: false },
+        { id: "g1", naam: "ASICS GP 2000", fiets: null, aantalRitten: 5, sport: "Hardlopen", inStrava: false },
+      ],
+      zonderMateriaal: 0, zonderMateriaalPerBron: [], verouderd: 0, vanStravaOpgehaald: 0,
+    });
+    render(<GearMapping />);
+
+    expect(await screen.findByText("ASICS GP 2000")).toBeInTheDocument();
+    expect(screen.getByText(/hardloopschoenen — geen fietstype/)).toBeInTheDocument();
+    // Alleen de fiets krijgt een keuzelijst, niet de schoenen.
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  });
+
+  it("zegt per bron waarom ritten geen materiaal hebben", async () => {
+    // Zonder dit onderscheid blijft iemand klikken op "Analysedata bijwerken"
+    // voor ritten die uit een CSV komen, waar nooit materiaal in heeft gezeten.
+    vi.spyOn(api, "getStravaGear").mockResolvedValue({
+      materiaal: [{ id: "b1", naam: "Cube Agree pro 2026", fiets: "racefiets", aantalRitten: 23, sport: "Fietsen", inStrava: false }],
+      zonderMateriaal: 294,
+      zonderMateriaalPerBron: [
+        { source: "csv_import", aantal: 280 },
+        { source: "strava_sync", aantal: 14 },
+      ],
+      verouderd: 0, vanStravaOpgehaald: 0,
+    });
+    render(<GearMapping />);
+
+    expect(await screen.findByText(/294 fietssessies hebben geen materiaal/)).toBeInTheDocument();
+    expect(screen.getByText(/14 via Strava binnen/)).toBeInTheDocument();
+    expect(screen.getByText(/csv_import: 280/)).toBeInTheDocument();
+    expect(screen.getByText(/In een CSV-export of een.*GPX-bestand staat geen materiaal/s)).toBeInTheDocument();
+  });
+
   it("wijst naar het bijwerken als de fietsen nog uit je historie moeten komen", async () => {
     // Het normale geval vlak na een update: ritten zijn geïmporteerd voordat
     // de fiets werd bewaard. Een leeg vak zonder uitleg laat je dan gissen of

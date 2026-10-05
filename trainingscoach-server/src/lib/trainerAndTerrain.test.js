@@ -283,6 +283,54 @@ assert.strictEqual(verzonnen.surface, null, "en een ondergrond die niet bestaat 
 assert.strictEqual(verzonnen.structuur, null, "blokken die geen lijst zijn leveren geen structuur op");
 console.log("  ok  modeluitvoer die niet klopt wordt weggelaten, niet gerepareerd");
 
+/* ---------------------- koppelen van Strava-materiaal ------------------- */
+
+console.log("\nje fiets koppelen werkt met terugwerkende kracht");
+
+const { koppelMateriaal } = require("../routes/strava");
+
+// Zoals het er in de praktijk uitziet: een racefiets met jaren ritten, een
+// mountainbike met één, en een paar hardloopschoenen in dezelfde Strava-lijst.
+for (let i = 0; i < 3; i += 1) {
+  db.prepare(
+    "INSERT INTO cardio_logs (id,date,type,duration_min,distance_km,source,gear_id,gear_name) VALUES (?,?,'Fietsen',90,40,'strava_sync','cube','Cube Agree')"
+  ).run(`cube-${i}`, `2026-09-0${i + 1}`);
+}
+db.prepare(
+  "INSERT INTO cardio_logs (id,date,type,duration_min,distance_km,source,gear_id,gear_name) VALUES ('bulls','2026-10-04','Fietsen',95,37,'strava_sync','bulls','Bulls Sharptail')"
+).run();
+db.prepare(
+  "INSERT INTO cardio_logs (id,date,type,duration_min,distance_km,source,gear_id,gear_name) VALUES ('asics','2026-06-01','Hardlopen',40,8,'strava_sync','asics','ASICS GP 2000')"
+).run();
+
+assert.strictEqual(koppelMateriaal("cube", "racefiets"), 3, "alle ritten op die fiets in één keer");
+assert.strictEqual(koppelMateriaal("bulls", "mtb"), 1);
+// Schoenen raken geen enkele fietssessie, ook niet als je er per ongeluk een
+// fietstype aan hangt.
+assert.strictEqual(koppelMateriaal("asics", "racefiets"), 0, "schoenen laten hardloopsessies met rust");
+
+const gelabeld = db.prepare("SELECT id, sub_type FROM cardio_logs WHERE gear_id IN ('cube','bulls','asics')").all();
+assert.strictEqual(gelabeld.filter((r) => r.sub_type === "racefiets").length, 3);
+assert.strictEqual(gelabeld.find((r) => r.id === "bulls").sub_type, "mtb");
+assert.strictEqual(gelabeld.find((r) => r.id === "asics").sub_type, null);
+console.log("  ok  3 ritten op de racefiets, 1 op de mtb, de hardloopschoenen onaangeroerd");
+
+// Loskoppelen moet ook kunnen: dan gaan de labels er weer af.
+assert.strictEqual(koppelMateriaal("cube", null), 3);
+assert.strictEqual(
+  db.prepare("SELECT COUNT(*) AS n FROM cardio_logs WHERE gear_id='cube' AND sub_type IS NOT NULL").get().n,
+  0,
+  "een koppeling weghalen maakt de labels ook weer leeg"
+);
+// En zonder toepassen blijft de geschiedenis staan zoals hij was.
+assert.strictEqual(koppelMateriaal("cube", "gravel", { toepassen: false }), 0);
+assert.strictEqual(
+  db.prepare("SELECT COUNT(*) AS n FROM cardio_logs WHERE gear_id='cube' AND sub_type IS NOT NULL").get().n,
+  0,
+  "zonder toepassen verandert er niets aan wat er al ligt"
+);
+console.log("  ok  loskoppelen wist de labels, en zonder toepassen blijft de historie ongemoeid");
+
 /* ------------------------- het trainingsbestand ------------------------- */
 
 console.log("\neen geplande training wordt een bestand voor de trainer");
