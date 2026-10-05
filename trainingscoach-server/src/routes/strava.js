@@ -18,6 +18,7 @@
 const express = require("express");
 const { db } = require("../db/db");
 const strava = require("../lib/strava");
+const calc = require("../lib/calculations");
 
 const router = express.Router();
 
@@ -74,10 +75,10 @@ router.post("/disconnect", (req, res) => {
 /* ------------------------------ import core ----------------------------- */
 
 const CARDIO_COLUMNS = [
-  "id", "date", "time_of_day", "type", "duration_min", "total_duration_min", "distance_km",
+  "id", "date", "time_of_day", "type", "sub_type", "duration_min", "total_duration_min", "distance_km",
   "avg_hr", "max_hr", "avg_power", "max_power", "weighted_avg_power", "avg_cadence", "max_cadence",
   "elevation_gain_m", "elevation_loss_m", "pace", "calories", "notes", "profile_json", "source",
-  "hr_histogram_json", "power_histogram_json", "power_curve_json",
+  "hr_histogram_json", "power_histogram_json", "power_curve_json", "gear_id", "gear_name",
 ];
 
 function insertSession(session, source) {
@@ -86,6 +87,9 @@ function insertSession(session, source) {
     date: session.date,
     time_of_day: session.timeOfDay || null,
     type: session.type,
+    sub_type: session.sub_type ?? null,
+    gear_id: session.gear_id ?? null,
+    gear_name: session.gear_name ?? null,
     duration_min: session.duration_min ?? null,
     total_duration_min: session.total_duration_min ?? null,
     distance_km: session.distance_km ?? null,
@@ -246,6 +250,128 @@ router.post("/import/:id", async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
+});
+
+/* -------------------------------- materiaal ----------------------------- */
+
+/**
+ * GET /api/strava/materiaal
+ *
+ * Je fietsen, met de ondergrond die eraan hangt en hoeveel ritten erop staan.
+ *
+ * Twee bronnen door elkaar: wat Strava kent (ook een fiets waar je dit seizoen
+ * nog niet op zat) en wat er in de geïmporteerde ritten voorkomt (ook een
+ * fiets die je in Strava hebt verwijderd). Beide horen in de lijst, anders kun
+ * je nét de fiets niet koppelen die je zoekt.
+ */
+router.get("/materiaal", async (req, res) => {
+  const telling = db
+    .prepare(
+      `SELECT gear_id, gear_name, COUNT(*) AS aantal, MAX(date) AS laatst
+       FROM cardio_logs WHERE gear_id IS NOT NULL GROUP BY gear_id`
+    )
+    .all();
+  const bekend = new Map(db.prepare("SELECT * FROM strava_gear").all().map((g) => [g.id, g]));
+
+  // Strava erbij halen mag mislukken — dan tonen we wat we zelf al weten in
+  // plaats van een leeg scherm met een foutmelding.
+  let vanStrava = [];
+  if (strava.isConnected()) {
+    try {
+      vanStrava = await strava.fetchAthleteGear();
+      vanStrava.forEach((g) => strava.rememberGear(g.id, g.name));
+    } catch (err) {
+      console.warn(`[strava] materiaal niet opgehaald: ${err.message}`);
+    }
+  }
+
+  const ids = new Set([...bekend.keys(), ...telling.map((t) => t.gear_id), ...vanStrava.map((g) => g.id)]);
+  const lijst = [...ids].map((id) => {
+    const gebruik = telling.find((t) => t.gear_id === id);
+    const strava_ = vanStrava.find((g) => g.id === id);
+    return {
+      id,
+      naam: strava_?.name || bekend.get(id)?.name || gebruik?.gear_name || id,
+      ondergrond: bekend.get(id)?.sub_type || null,
+      aantalRitten: gebruik?.aantal || 0,
+      laatsteRit: gebruik?.laatst || null,
+      afstandKm: strava_?.afstandKm ?? null,
+      inStrava: !!strava_,
+    };
+  });
+  lijst.sort((a, b) => b.aantalRitten - a.aantalRitten || a.naam.localeCompare(b.naam));
+
+  // Ritten zonder fiets kunnen niet via deze weg gelabeld worden; dat is iets
+  // om te melden, niet om stilletjes weg te laten.
+  const zonderMateriaal = db
+    .prepare(
+      `SELECT COUNT(*) AS aantal FROM cardio_logs
+       WHERE gear_id IS NULL AND LOWER(type) LIKE 'fiets%'`
+    )
+    .get().aantal;
+
+  // Waarom de lijst leeg kan zijn, zodat de interface dat kan uitleggen in
+  // plaats van een leeg vak te tonen.
+  //
+  // Twee oorzaken, allebei normaal vlak na een update. Ritten die vóór deze
+  // versie zijn geïmporteerd dragen geen fiets: die moeten eerst bijgewerkt
+  // worden. En Strava geeft de lijst met fietsen alleen vrij met het scope
+  // profile:read_all, dat deze app niet vraagt — we hebben het niet nodig,
+  // want de fiets komt met elke rit mee, maar het betekent wel dat de lijst
+  // zich vult via je ritten en niet in één klap.
+  res.json({
+    materiaal: lijst,
+    zonderMateriaal,
+    verouderd: strava.isConnected() ? strava.findOutdatedImports().length : 0,
+    vanStravaOpgehaald: vanStrava.length,
+  });
+});
+
+/**
+ * PUT /api/strava/materiaal/:id  { ondergrond, toepassenOpGeschiedenis }
+ *
+ * Koppelt een fiets aan een ondergrond. Standaard geldt dat alleen voor wat er
+ * nog binnenkomt; met toepassenOpGeschiedenis wordt elke rit op deze fiets
+ * meteen bijgewerkt. Dat laatste is waarom dit de moeite waard is — anders
+ * zou je jaren ritten één voor één moeten aanwijzen.
+ */
+router.put("/materiaal/:id", (req, res) => {
+  const ondergrond = req.body?.ondergrond || null;
+  if (ondergrond !== null) {
+    const bestaat = calc.CARDIO_SUB_TYPES.find((s) => s.id === ondergrond);
+    if (!bestaat) {
+      return res.status(400).json({
+        error: `Onbekende ondergrond "${ondergrond}". Kies uit: ${calc.CARDIO_SUB_TYPES.map((s) => s.id).join(", ")}.`,
+      });
+    }
+  }
+
+  const toepassen = req.body?.toepassenOpGeschiedenis !== false;
+  let bijgewerkt = 0;
+
+  const schrijf = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO strava_gear (id, name, sub_type) VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET sub_type = excluded.sub_type, updated_at = datetime('now')`
+    ).run(req.params.id, req.body?.naam || null, ondergrond);
+
+    if (toepassen) {
+      // Alleen sessies van de sport waar deze ondergrond bij hoort: dezelfde
+      // schoenen onder een wandeling maken daar geen trailrun van.
+      const sport = ondergrond ? calc.CARDIO_SUB_TYPES.find((s) => s.id === ondergrond).sport : null;
+      const update = db.prepare("UPDATE cardio_logs SET sub_type = ? WHERE id = ?");
+      db.prepare("SELECT id, type FROM cardio_logs WHERE gear_id = ?")
+        .all(req.params.id)
+        .forEach((rij) => {
+          if (ondergrond && calc.baseSportOf(rij.type) !== sport) return;
+          update.run(ondergrond, rij.id);
+          bijgewerkt += 1;
+        });
+    }
+  });
+  schrijf();
+
+  res.json({ id: req.params.id, ondergrond, bijgewerkt });
 });
 
 /**

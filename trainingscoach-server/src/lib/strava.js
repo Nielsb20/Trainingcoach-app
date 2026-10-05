@@ -198,6 +198,61 @@ function mapSubType(sportType) {
   return null;
 }
 
+/* ------------------------------ materiaal ------------------------------ */
+
+/**
+ * De fiets (of schoen) die aan deze activiteit hangt.
+ *
+ * De gedetailleerde activiteit draagt een `gear`-object met de naam; de
+ * samenvatting uit de lijst alleen een `gear_id`. Allebei worden gelezen, want
+ * de sync haalt de details wel op maar een toekomstige snellere route
+ * misschien niet.
+ */
+function gearOf(activity) {
+  const id = activity?.gear_id || activity?.gear?.id || null;
+  if (!id) return { gear_id: null, gear_name: null };
+  const name = activity?.gear?.nickname || activity?.gear?.name || null;
+  return { gear_id: id, gear_name: name };
+}
+
+/** Onthoudt dat deze fiets bestaat, zonder een al gelegde koppeling te wissen. */
+function rememberGear(gearId, gearName) {
+  if (!gearId) return;
+  try {
+    db.prepare(
+      `INSERT INTO strava_gear (id, name) VALUES (?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = COALESCE(excluded.name, strava_gear.name),
+         updated_at = datetime('now')`
+    ).run(gearId, gearName || null);
+  } catch {
+    // Een ontbrekende tabel (oude database, test zonder schema) mag een import
+    // niet laten mislukken: zonder koppeling valt alles terug op het sporttype.
+  }
+}
+
+/** De ondergrond die de sporter aan deze fiets heeft gehangen, of null. */
+function subTypeForGear(gearId) {
+  if (!gearId) return null;
+  try {
+    const row = db.prepare("SELECT sub_type FROM strava_gear WHERE id = ?").get(gearId);
+    return row?.sub_type || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Alle bekende fietsen en schoenen van de atleet, rechtstreeks van Strava. */
+const fetchAthleteGear = async () => {
+  const me = await stravaGet("/athlete");
+  return [...(me?.bikes || []), ...(me?.shoes || [])].map((g) => ({
+    id: g.id,
+    name: g.nickname || g.name || g.id,
+    afstandKm: g.distance ? Math.round(g.distance / 1000) : null,
+    primair: !!g.primary,
+  }));
+};
+
 /** True for activity types that aren't cardio and shouldn't be auto-imported. */
 function isStrengthActivity(sportType) {
   const s = String(sportType || "").toLowerCase();
@@ -286,6 +341,11 @@ function buildProfile(streams, durationMinutes) {
  * recomputed, so the numbers match what the athlete sees in the Strava app.
  */
 function stravaToSession(activity, streams) {
+  const gear = gearOf(activity);
+  // Ook een fiets zonder koppeling wordt onthouden: alleen zo kan de interface
+  // hem aanbieden om er één keer een ondergrond aan te hangen.
+  rememberGear(gear.gear_id, gear.gear_name);
+
   const movingMin = activity.moving_time ? Math.round((activity.moving_time / 60) * 10) / 10 : null;
   const elapsedMin = activity.elapsed_time ? Math.round((activity.elapsed_time / 60) * 10) / 10 : null;
 
@@ -322,7 +382,12 @@ function stravaToSession(activity, streams) {
     date: (activity.start_date_local || activity.start_date || "").slice(0, 10),
     timeOfDay: timeOfDayFromIso(activity.start_date_local || activity.start_date),
     type: mapSportType(activity.sport_type || activity.type),
-    sub_type: mapSubType(activity.sport_type || activity.type),
+    // De fiets die je in Strava aan de rit hangt is een registratie; het
+    // sporttype is in het beste geval een aanwijzing. Dus eerst kijken wat de
+    // koppeling zegt, en pas daarna terugvallen op "MountainBikeRide".
+    sub_type: subTypeForGear(gear.gear_id) || mapSubType(activity.sport_type || activity.type),
+    gear_id: gear.gear_id,
+    gear_name: gear.gear_name,
     duration_min: movingMin,
     total_duration_min: elapsedMin,
     distance_km: activity.distance ? Math.round((activity.distance / 1000) * 100) / 100 : null,
@@ -353,8 +418,9 @@ function stravaToSession(activity, streams) {
  * rather than skipped, so the new analysis is backfilled automatically.
  *
  *   1 — heart-rate/power histograms and the mean-maximal-power curve
+ *   2 — welke fiets eronder zat (gear_id/gear_name), en daarmee de ondergrond
  */
-const ANALYSIS_VERSION = 1;
+const ANALYSIS_VERSION = 2;
 
 /**
  * True when this activity is already stored AND was processed by the current
@@ -436,6 +502,10 @@ module.exports = {
   stravaToSession,
   mapSportType,
   mapSubType,
+  gearOf,
+  rememberGear,
+  subTypeForGear,
+  fetchAthleteGear,
   isStrengthActivity,
   buildProfile,
   bucketCountFor,

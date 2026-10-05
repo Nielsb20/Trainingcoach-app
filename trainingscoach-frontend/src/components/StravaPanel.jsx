@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { RefreshCw, Check, X, Loader2 } from "lucide-react";
 import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
+import GearMapping from "./shared/GearMapping";
 
 /**
  * Strava connection panel. Lives in the Cardio tab, next to the other ways of
@@ -145,10 +146,10 @@ export default function StravaPanel({ onImported }) {
           </p>
           {backfill?.verouderd > 0 && (
             <div className="tc-warning-box">
-              <strong>{backfill.verouderd} activiteiten missen analysedata.</strong> Ze zijn geïmporteerd
-              voordat de zoneverdeling en vermogenscurve bestonden, dus die tabbladen blijven leeg voor
-              je geschiedenis. Werk ze bij om ze mee te laten tellen — dit gebeurt in blokken van 25
-              vanwege Strava's limiet, dus bij een lange historie klik je een paar keer.
+              <strong>{backfill.verouderd} activiteiten missen gegevens.</strong> Ze zijn geïmporteerd voordat
+              de zoneverdeling, de vermogenscurve en het fietstype bestonden. Werk ze bij om ze mee te
+              laten tellen én om te zien welke fiets eronder zat — dit gebeurt in blokken van 25 vanwege
+              Strava's limiet, dus bij een lange historie klik je een paar keer.
               <div className="tc-actionbar">
                 <button className="tc-btn tc-btn-cardio" onClick={handleBackfill} disabled={backfilling}>
                   {backfilling ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
@@ -202,6 +203,11 @@ export default function StravaPanel({ onImported }) {
           )}
         </>
       )}
+
+      {/* Buiten de verbonden-tak: de fietsen komen uit je geïmporteerde ritten,
+          dus die koppeling hoor je ook te kunnen leggen als de koppeling met
+          Strava even verbroken is. Zonder bekende fietsen toont dit niets. */}
+      <GearMapping />
     </CollapsibleCard>
   );
 }

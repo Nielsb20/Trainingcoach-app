@@ -199,6 +199,14 @@ export const disconnectStrava = () => request("/strava/disconnect", { method: "P
 export const getStravaBackfillStatus = () => request("/strava/backfill-status");
 export const backfillStrava = (limit = 25) =>
   request("/strava/backfill", { method: "POST", body: JSON.stringify({ limit }) });
+/** Je fietsen en schoenen, met de ondergrond die eraan hangt. */
+export const getStravaGear = () => request("/strava/materiaal");
+/** Koppelt een fiets aan een ondergrond, standaard ook voor je hele historie. */
+export const setStravaGearSubType = (id, ondergrond, toepassenOpGeschiedenis = true) =>
+  request(`/strava/materiaal/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify({ ondergrond, toepassenOpGeschiedenis }),
+  });
 
 /* --------------------------------- health ------------------------------ */
 

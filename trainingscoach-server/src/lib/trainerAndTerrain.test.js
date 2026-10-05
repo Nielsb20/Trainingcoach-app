@@ -122,6 +122,40 @@ assert.strictEqual(strava.mapSubType("Ride"), null, "onbekend blijft onbekend");
 assert.strictEqual(strava.mapSubType("Run"), null);
 console.log("  ok  Strava's eigen labels worden overgenomen, de kale Ride niet geraden");
 
+// De fiets die je in Strava aan een rit hangt is een registratie en wint van
+// het sporttype, dat in het beste geval een aanwijzing is.
+db.prepare("INSERT INTO strava_gear (id, name, sub_type) VALUES ('b999', 'Canyon Grail', 'gravel')").run();
+const metFiets = strava.stravaToSession(
+  { id: 1, sport_type: "Ride", moving_time: 3600, distance: 40000,
+    start_date_local: "2026-10-01T09:00:00Z", gear_id: "b999", gear: { id: "b999", name: "Canyon Grail" } },
+  null
+);
+assert.strictEqual(metFiets.sub_type, "gravel", "de gekoppelde fiets bepaalt de ondergrond");
+assert.strictEqual(metFiets.gear_name, "Canyon Grail");
+
+// Een fiets zonder koppeling valt terug op het sporttype, en wordt wel
+// onthouden zodat de interface hem kan aanbieden.
+const ongekoppeld = strava.stravaToSession(
+  { id: 2, sport_type: "MountainBikeRide", moving_time: 3600, distance: 30000,
+    start_date_local: "2026-10-01T09:00:00Z", gear_id: "b777", gear: { id: "b777", nickname: "Hightower" } },
+  null
+);
+assert.strictEqual(ongekoppeld.sub_type, "mtb", "zonder koppeling telt het sporttype");
+assert.strictEqual(
+  db.prepare("SELECT name FROM strava_gear WHERE id='b777'").get().name,
+  "Hightower",
+  "een onbekende fiets wordt onthouden om later te koppelen"
+);
+
+// Een rit zonder fiets mag niet omvallen.
+const zonderFiets = strava.stravaToSession(
+  { id: 3, sport_type: "Ride", moving_time: 3600, distance: 40000, start_date_local: "2026-10-01T09:00:00Z" },
+  null
+);
+assert.strictEqual(zonderFiets.gear_id, null);
+assert.strictEqual(zonderFiets.sub_type, null, "een kale Ride zonder fiets blijft onbekend");
+console.log("  ok  de fiets uit Strava wint van het sporttype, en onbekend blijft onbekend");
+
 assert.strictEqual(calc.subTypeLabel("mtb"), "Mountainbike");
 assert.deepStrictEqual(calc.subTypesFor("Fietsen").map((s) => s.id), ["weg", "gravel", "mtb", "indoor", "ebike"]);
 assert.strictEqual(calc.subTypesFor("Zwemmen").length, 0, "zwemmen kent deze keuze niet");
