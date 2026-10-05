@@ -126,17 +126,32 @@ assert.strictEqual(strava.mapSurface("VirtualRide"), "binnen", "virtueel is wél
 assert.strictEqual(strava.mapSurface("VirtualRun"), "binnen");
 console.log("  ok  het sporttype levert de fiets, en alleen bij virtueel ook de ondergrond");
 
-// De fiets die je in Strava aan een rit hangt is een registratie en wint van
-// het sporttype, dat in het beste geval een aanwijzing is.
+// Een kale "Ride" zegt niets, dus dan vult de gekoppelde fiets de leegte.
 db.prepare("INSERT INTO strava_gear (id, name, sub_type) VALUES ('b999', 'Canyon Grail', 'gravel')").run();
 const metFiets = strava.stravaToSession(
   { id: 1, sport_type: "Ride", moving_time: 3600, distance: 40000,
     start_date_local: "2026-10-01T09:00:00Z", gear_id: "b999", gear: { id: "b999", name: "Canyon Grail" } },
   null
 );
-assert.strictEqual(metFiets.sub_type, "gravel", "de gekoppelde fiets bepaalt het materiaal");
+assert.strictEqual(metFiets.sub_type, "gravel", "bij een kale Ride vult de koppeling aan");
 assert.strictEqual(metFiets.surface, null, "en zegt niets over waar je reed");
 assert.strictEqual(metFiets.gear_name, "Canyon Grail");
+
+// Maar een expliciet sporttype gaat vóór de koppeling, en dat is de
+// belangrijke kant. Wie met een Garmin rijdt kiest het profiel vóór vertrek
+// en dat reist mee naar Strava; de fiets in Strava staat veel vaker nog op de
+// standaardfiets, omdat Garmin zijn eigen materiaal niet meestuurt. Zou de
+// koppeling winnen, dan kreeg elke mountainbikerit het label van de racefiets.
+db.prepare("INSERT INTO strava_gear (id, name, sub_type) VALUES ('b555', 'Standaardfiets', 'racefiets')").run();
+const garminMtb = strava.stravaToSession(
+  { id: 4, sport_type: "MountainBikeRide", moving_time: 3600, distance: 30000,
+    start_date_local: "2026-10-01T09:00:00Z", gear_id: "b555", gear: { id: "b555", name: "Standaardfiets" } },
+  null
+);
+assert.strictEqual(
+  garminMtb.sub_type, "mtb",
+  "een standaardfiets in Strava mag een expliciet sporttype niet overschrijven"
+);
 
 const ongekoppeld = strava.stravaToSession(
   { id: 2, sport_type: "MountainBikeRide", moving_time: 3600, distance: 30000,
@@ -149,7 +164,7 @@ assert.strictEqual(
   "Hightower",
   "een onbekende fiets wordt onthouden om later te koppelen"
 );
-console.log("  ok  de fiets uit Strava wint van het sporttype, en onbekend blijft onbekend");
+console.log("  ok  een expliciet sporttype wint; de koppeling vult alleen een kale Ride aan");
 
 // De twee assen apart: materiaal bij fietsen, ondergrond bij allebei.
 assert.deepStrictEqual(calc.subTypesFor("Fietsen").map((s) => s.id), ["racefiets", "gravel", "mtb", "ebike", "indoor"]);

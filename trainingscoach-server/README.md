@@ -1089,12 +1089,26 @@ snelheidsgemiddelde over 1 sessie: 21,8 km/u
 
 ### Waar het label vandaan komt
 
-De **fiets** komt uit Strava. Onder **Cardio loggen → Strava-koppeling** staat
-een lijstje met je fietsen; zeg daar één keer wat voor fiets elke Strava-fiets
-is. Dat wordt meteen op al je eerdere ritten met die fiets toegepast en geldt
-daarna vanzelf. Is de fiets onbekend, dan valt het terug op Strava's sporttype
-(`MountainBikeRide`, `GravelRide`, `VirtualRide`); een kale `Ride` levert niets
-op, want dat is het type dat de meeste mensen voor elke rit laten staan.
+De **fiets** komt uit twee bronnen, in deze volgorde:
+
+1. **Strava's sporttype**, als het expliciet is: `MountainBikeRide`,
+   `GravelRide`, `VirtualRide`. Rijd je met een Garmin, dan is dit de
+   betrouwbaarste bron — het activiteitsprofiel dat je vóór vertrek kiest
+   reist via `sport`/`sub_sport` in het FIT-bestand mee naar Strava.
+2. **De fiets die in Strava aan de rit hangt**, als het sporttype alleen
+   `Ride` zegt. Onder **Cardio loggen → Strava-koppeling** zeg je één keer wat
+   voor fiets elke Strava-fiets is; dat wordt meteen op al je eerdere ritten
+   met die fiets toegepast.
+
+Die volgorde is bewust zo. Garmin stuurt zijn eigen materiaal **niet** mee naar
+Strava, dus Strava hangt er zijn standaardfiets aan tenzij je het daar zelf
+aanpast. Zou de koppeling voorgaan, dan overschreef die standaardfiets een
+sporttype dat wél klopte, en kreeg elke mountainbikerit het label van de
+racefiets.
+
+Controleer dus in Strava of de juiste fiets onder je ritten hangt voordat je op
+de koppeling vertrouwt. Klopt dat niet en kies je in Garmin wél netjes je
+activiteitsprofiel, dan heb je de koppeling helemaal niet nodig.
 
 De naam van de fiets wordt níet uitgelezen om er een type uit te raden.
 "Canyon Grail" is een gravelfiets en "Grail" staat in geen trefwoordenlijst;

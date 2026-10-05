@@ -395,10 +395,23 @@ function stravaToSession(activity, streams) {
     date: (activity.start_date_local || activity.start_date || "").slice(0, 10),
     timeOfDay: timeOfDayFromIso(activity.start_date_local || activity.start_date),
     type: mapSportType(activity.sport_type || activity.type),
-    // De fiets die je in Strava aan de rit hangt is een registratie; het
-    // sporttype is in het beste geval een aanwijzing. Dus eerst kijken wat de
-    // koppeling zegt, en pas daarna terugvallen op "MountainBikeRide".
-    sub_type: subTypeForGear(gear.gear_id) || mapSubType(activity.sport_type || activity.type),
+    // Sporttype eerst, fiets als vangnet — en dat is bewust andersom dan het
+    // op het eerste gezicht lijkt.
+    //
+    // Een expliciet sporttype (MountainBikeRide, GravelRide, VirtualRide) is
+    // een keuze die per activiteit is gemaakt. Wie met een Garmin rijdt kiest
+    // dat profiel voor hij wegrijdt, en het reist via sport/sub_sport in het
+    // FIT-bestand mee naar Strava.
+    //
+    // De fiets in Strava is óók per activiteit, maar is veel vaker blijven
+    // staan op de standaardfiets: Garmin stuurt zijn eigen materiaal niet mee,
+    // dus Strava vult zelf iets in. Zou de koppeling voorgaan, dan overschreef
+    // een standaardfiets een sporttype dat wél klopte — en kreeg elke
+    // mountainbikerit het label van de racefiets.
+    //
+    // Dus: zegt het sporttype welke fiets het was, dan is dat het antwoord.
+    // Zegt het alleen "Ride", dan vult de koppeling de leegte.
+    sub_type: mapSubType(activity.sport_type || activity.type) || subTypeForGear(gear.gear_id),
     surface: mapSurface(activity.sport_type || activity.type),
     gear_id: gear.gear_id,
     gear_name: gear.gear_name,
