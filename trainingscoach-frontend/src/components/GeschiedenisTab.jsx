@@ -179,6 +179,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              <div className="tc-table-scroll">
               <table className="tc-table">
                 <thead><tr><th>Datum</th><th>Moment</th><th>Type</th><th>Duur</th><th>Afstand</th><th>Gem./Max HR</th><th>Snelheid</th><th>Vermogen</th><th>Cadans</th><th>Hoogte</th><th></th><th></th></tr></thead>
                 <tbody>
@@ -192,8 +193,14 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                             wat er aan de hand is. */}
                         <td>
                           {c.type}
-                          {c.subType && <span className="tc-hint-badge" style={{ marginLeft: 6 }}>{subTypeLabel(c.subType)}</span>}
-                          {c.surface && <span className="tc-hint-badge" style={{ marginLeft: 4 }}>{surfaceLabel(c.surface)}</span>}
+                          {/* Onder elkaar, niet ernaast: naast de sport duwden
+                              deze labels de tabel breder dan het scherm en
+                              vielen de knoppen rechts eraf. */}
+                          {(c.subType || c.surface) && (
+                            <div className="tc-table-sublabel">
+                              {[subTypeLabel(c.subType), surfaceLabel(c.surface)].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
                         </td>
                         <td className="tc-mono">
                           {c.duration_min ? `${c.duration_min} min` : "–"}
@@ -270,6 +277,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
                   ))}
                 </tbody>
               </table>
+              </div>
             </>
           )}
         </div>
