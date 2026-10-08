@@ -84,14 +84,28 @@ except Exception as err:
 day = (date.today() - timedelta(days=1)).isoformat()
 print(f"\nGegevens van {day}:")
 
+# De eerste groep is wat de app vandaag leest. De tweede groep is wat een
+# nieuwer horloge er mogelijk bij levert en wat hier nog niets doet — een
+# wisseling van apparaat is precies het moment om te kijken of die velden
+# ineens gevuld zijn. Endpoints die deze versie van de bibliotheek niet kent
+# of die Garmin met een 403 afwijst worden gewoon gemeld en overgeslagen.
 endpoints = [
     ("get_stats", "dagstatistieken (rusthartslag, Body Battery, stress)"),
     ("get_user_summary", "dagsamenvatting (alternatief)"),
     ("get_rhr_day", "rusthartslag apart"),
-    ("get_sleep_data", "slaap"),
+    ("get_sleep_data", "slaap — ook slaapfasen, ademhaling en SpO2"),
     ("get_hrv_data", "HRV"),
     ("get_body_battery", "Body Battery apart"),
     ("get_stress_data", "stress apart"),
+    # Hieronder: nog niet in gebruik.
+    ("get_training_readiness", "trainingsbereidheid (nieuwere modellen)"),
+    ("get_training_status", "trainingsstatus, acute belasting, VO2max"),
+    ("get_max_metrics", "VO2max en fitnessleeftijd"),
+    ("get_respiration_data", "ademhaling per dag"),
+    ("get_spo2_data", "zuurstofsaturatie"),
+    ("get_daily_wellness", "dagelijkse welzijnssamenvatting"),
+    ("get_hill_score", "heuvelscore"),
+    ("get_endurance_score", "uithoudingsscore"),
 ]
 
 for method_name, label in endpoints:
