@@ -488,3 +488,23 @@ ALTER TABLE planned_sessions ADD COLUMN surface TEXT;
 -- Standaard 'fiets', want dat is de gok die het minst kapotmaakt als hij fout
 -- is: je krijgt dan een onbekende ondergrond in plaats van een verkeerde.
 ALTER TABLE profile ADD COLUMN strava_sport_type_means TEXT NOT NULL DEFAULT 'fiets';
+
+-- Slaapfasen en ademhaling, van een band die ze meet.
+--
+-- Slaapduur alleen zegt weinig: zeven uur met twee uur diepe slaap is iets
+-- anders dan zeven uur die vooral licht waren. Diepe slaap en REM zijn de
+-- fasen waarin het herstel zit, dus die horen apart bewaard te worden in
+-- plaats van opgeteld te verdwijnen in één getal.
+--
+-- De ademhaling in rust is het signaal dat als eerste oploopt bij vermoeidheid
+-- en bij een opkomende infectie, vaak nog voordat de hartslag reageert. Net
+-- als de nachthartslag wordt hij over het slaapvenster gemeten, dus hij is
+-- van nacht tot nacht vergelijkbaar.
+--
+-- Allemaal optioneel: een ouder apparaat levert ze niet, en dan blijven ze
+-- leeg zonder dat er iets kapotgaat.
+ALTER TABLE wellness_logs ADD COLUMN deep_sleep_min INTEGER;
+ALTER TABLE wellness_logs ADD COLUMN rem_sleep_min INTEGER;
+ALTER TABLE wellness_logs ADD COLUMN light_sleep_min INTEGER;
+ALTER TABLE wellness_logs ADD COLUMN awake_min INTEGER;
+ALTER TABLE wellness_logs ADD COLUMN respiration_avg REAL;

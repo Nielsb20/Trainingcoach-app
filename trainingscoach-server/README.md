@@ -1041,6 +1041,60 @@ ochtends zittend meet, waar Karvonen mee gevalideerd is. Voor het volgen van je
 eigen trend maakt dat niet uit (het is steeds dezelfde meting), maar plak er
 geen normaalwaarden uit de literatuur op.
 
+## Slaapfasen en ademhaling
+
+Een band die ze meet (zoals de Garmin CIRQA) levert meer dan slaapduur alleen.
+Zeven uur die vooral licht waren is iets anders dan zeven uur met twee uur
+diepe slaap, dus de fasen worden apart bewaard in plaats van opgeteld te
+verdwijnen in één getal.
+
+| Veld | Waar het vandaan komt |
+|---|---|
+| `deep_sleep_min`, `rem_sleep_min`, `light_sleep_min`, `awake_min` | `dailySleepDTO` uit `get_sleep_data` |
+| `respiration_avg` | `averageRespirationValue`, met `get_respiration_data` als terugval |
+
+De **ademhaling in rust** is het signaal dat als eerste oploopt bij
+vermoeidheid en bij een opkomende infectie, vaak nog voordat de hartslag
+reageert. Net als de nachthartslag wordt hij over het slaapvenster gemeten, dus
+van nacht tot nacht vergelijkbaar.
+
+De coach krijgt ze mee met de instructie ze tegen de eigen basislijn te leggen
+en niet tegen vuistregels: hoeveel diepe slaap iemand maakt verschilt sterk per
+persoon en neemt af met de leeftijd. Een daling van diepe slaap of REM samen
+met een verhoogde nachthartslag is reden om een zware sessie uit te stellen; een
+stijging van de ademhaling met meer dan ongeveer twee per minuut boven de
+basislijn is het benoemen waard.
+
+De nachthartslag komt nu bij voorkeur uit Garmin's eigen `avgHeartRate` over het
+slaapvenster. Dat is dezelfde grootheid die de app zelf uit de hartslagreeks
+berekent, maar dan volgens Garmin's definitie van het venster; de eigen
+berekening blijft de terugval voor apparaten die hem niet meeleveren.
+
+Ontbreken deze velden, dan meet het apparaat ze niet. Ze blijven dan leeg, de
+kolommen verschijnen niet in de interface en de coach doet er geen uitspraken
+over.
+
+### Bewust niet overgenomen
+
+- **Training Readiness en VO2max.** Garmin's eigen conclusies uit dezelfde ruwe
+  data. Die naast de CTL/ATL van de app zetten levert twee stemmen die elkaar
+  tegenspreken zonder dat je kunt zien welke klopt.
+- **SpO2.** Buiten hoogtestage of apneuscreening zegt het voor training weinig,
+  en het kost batterij om 's nachts te meten.
+- **HRV-status.** De app rekent zijn eigen basislijn over 28 dagen; Garmin's
+  status is dezelfde meting met een ander label eromheen. De kale waarde per
+  nacht wordt wél gelezen.
+
+### Bij een nieuw apparaat
+
+Verwacht een sprongetje in je basislijnen: een andere sensor meet anders. De
+basislijn loopt over 28 dagen, dus dat trekt vanzelf bij, maar de eerste weken
+kan de coach een verandering zien die van het horloge komt en niet van jou.
+
+Afgeleide waarden hebben bovendien tijd nodig. HRV-status en de
+huidtemperatuur-afwijking berekent Garmin pas na een paar weken nachten; tot
+die tijd komen ze leeg terug, ook al meet het apparaat ze wel.
+
 ## Welke fiets, en waar je reed
 
 Twee losse vragen, en dat onderscheid is het punt.

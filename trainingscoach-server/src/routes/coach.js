@@ -193,6 +193,9 @@ function buildCoachPayload({ question = null } = {}) {
         gemHrvMs: avg(recent, "hrv_ms"),
         gemSlaapMinuten: avg(recent, "sleep_minutes"),
         gemSlaapscore: avg(recent, "sleep_score"),
+        gemDiepeSlaapMinuten: avg(recent, "deep_sleep_min"),
+        gemRemSlaapMinuten: avg(recent, "rem_sleep_min"),
+        gemAdemhaling: avg(recent, "respiration_avg"),
       },
       basislijn8tot28Dagen: baseline.length
         ? {
@@ -200,6 +203,9 @@ function buildCoachPayload({ question = null } = {}) {
             gemRusthartslag: avg(baseline, "resting_hr"),
             gemHrvMs: avg(baseline, "hrv_ms"),
             gemSlaapMinuten: avg(baseline, "sleep_minutes"),
+            gemDiepeSlaapMinuten: avg(baseline, "deep_sleep_min"),
+            gemRemSlaapMinuten: avg(baseline, "rem_sleep_min"),
+            gemAdemhaling: avg(baseline, "respiration_avg"),
           }
         : null,
       recenteDagen: wellnessLogs.slice(0, 7).map((w) => ({
@@ -208,6 +214,9 @@ function buildCoachPayload({ question = null } = {}) {
         rusthartslag: w.resting_hr,
         hrv_ms: w.hrv_ms,
         slaap_minuten: w.sleep_minutes,
+        diepe_slaap_minuten: w.deep_sleep_min,
+        rem_slaap_minuten: w.rem_sleep_min,
+        ademhaling: w.respiration_avg,
         slaapscore: w.sleep_score,
       })),
     };
