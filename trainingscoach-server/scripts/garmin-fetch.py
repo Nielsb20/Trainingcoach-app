@@ -521,19 +521,53 @@ def collect(client, day):
         if sleep.get("restingHeartRate") is not None:
             entry["restingHr"] = sleep["restingHeartRate"]
 
-        nacht = overnight_heart_rate(sleep)
+        # Slaapfasen. Zeven uur met twee uur diepe slaap is iets anders dan
+        # zeven uur die vooral licht waren, dus die gaan apart mee in plaats
+        # van op te tellen tot één getal.
+        for bron, doel in (
+            ("deepSleepSeconds", "deepSleepMin"),
+            ("remSleepSeconds", "remSleepMin"),
+            ("lightSleepSeconds", "lightSleepMin"),
+            ("awakeSleepSeconds", "awakeMin"),
+        ):
+            seconden = daily.get(bron)
+            if isinstance(seconden, (int, float)) and seconden >= 0:
+                entry[doel] = round(seconden / 60)
+
+        # Ademhaling in rust: loopt als eerste op bij vermoeidheid en bij een
+        # opkomende infectie, vaak nog voordat de hartslag reageert.
+        adem = daily.get("averageRespirationValue")
+        if isinstance(adem, (int, float)) and 4 <= adem <= 40:
+            entry["respirationAvg"] = round(adem, 1)
+
+        # Garmin rekent de gemiddelde hartslag over het slaapvenster zelf al
+        # uit. Dat is dezelfde grootheid als overnight_heart_rate() maakt, maar
+        # dan volgens hun eigen definitie van het venster — dus die gaat voor,
+        # en onze berekening blijft de terugval voor apparaten die hem niet
+        # meeleveren.
+        nacht = daily.get("avgHeartRate")
+        if not isinstance(nacht, (int, float)) or not (25 <= nacht <= 120):
+            nacht = None
+        if nacht is None:
+            nacht = overnight_heart_rate(sleep)
         if nacht is None:
             # Geen slaapreeks in dit antwoord; dan de dagreeks, maar alleen het
             # stuk dat binnen de nacht valt.
             dagreeks = safe(lambda: client.get_heart_rates(iso), "hartslagreeks")
             nacht = overnight_uit_dagreeks(dagreeks, slaapvenster(sleep))
         if nacht is not None:
-            entry["sleepingHr"] = nacht
+            entry["sleepingHr"] = round(nacht)
 
         scores = daily.get("sleepScores") or {}
         overall = scores.get("overall") or {}
         if overall.get("value") is not None:
             entry["sleepScore"] = overall["value"]
+
+    if entry.get("respirationAvg") is None:
+        adem_dag = safe(lambda: client.get_respiration_data(iso), "ademhaling")
+        waarde = (adem_dag or {}).get("avgSleepRespirationValue")
+        if isinstance(waarde, (int, float)) and 4 <= waarde <= 40:
+            entry["respirationAvg"] = round(waarde, 1)
 
     hrv = safe(lambda: client.get_hrv_data(iso), "HRV")
     if hrv:
@@ -567,7 +601,8 @@ def collect(client, day):
 
     has_data = any(entry.get(k) is not None for k in
                    ["restingHr", "sleepingHr", "hrvMs", "sleepMinutes", "sleepScore",
-                    "bodyBatteryMax", "stressAvg"])
+                    "bodyBatteryMax", "stressAvg", "deepSleepMin", "remSleepMin",
+                    "respirationAvg"])
     return entry if has_data else None
 
 
