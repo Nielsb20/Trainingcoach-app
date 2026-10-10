@@ -11,6 +11,9 @@ import { todayStr, formatDateNL } from "../lib/calculations";
  * auto-fetch is a bonus that may stop working when Garmin changes things, so
  * the UI never assumes it's available.
  */
+/** 124 -> "2u04". Leeg blijft een streepje. */
+const duurKort = (min) => (min ? `${Math.floor(min / 60)}u${String(min % 60).padStart(2, "0")}` : "–");
+
 export default function WellnessTab() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +77,8 @@ export default function WellnessTab() {
         label: formatDateNL(l.date),
         nachthartslag: l.sleepingHr,
         rusthartslag: l.restingHr,
+        ademhaling: l.respirationAvg,
+        diepeSlaapUren: l.deepSleepMin ? Math.round((l.deepSleepMin / 60) * 10) / 10 : null,
         hrv: l.hrvMs,
         slaapUren: l.sleepMinutes ? Math.round((l.sleepMinutes / 60) * 10) / 10 : null,
       })),
@@ -83,6 +88,10 @@ export default function WellnessTab() {
   const hasHrv = logs.some((l) => l.hrvMs !== null);
   const hasSleep = logs.some((l) => l.sleepMinutes !== null);
   const hasNacht = logs.some((l) => l.sleepingHr !== null && l.sleepingHr !== undefined);
+  // Een band die slaapfasen meet laat die kolommen zien; een ouder apparaat
+  // levert ze niet en dan hoort er ook geen lege kolom te staan.
+  const hasFasen = logs.some((l) => l.deepSleepMin !== null && l.deepSleepMin !== undefined);
+  const hasAdem = logs.some((l) => l.respirationAvg !== null && l.respirationAvg !== undefined);
 
   // A 7-day mean versus the three weeks before it — the same comparison the
   // coach makes, shown here so the number on screen matches the advice.
@@ -173,12 +182,14 @@ export default function WellnessTab() {
                 <Line yAxisId="hr" type="monotone" dataKey="rusthartslag" stroke="#8B949B" strokeWidth={hasNacht ? 1.5 : 2} strokeDasharray={hasNacht ? "4 3" : undefined} dot={false} name={hasNacht ? "Rusthartslag, dagwaarde (bpm)" : "Rusthartslag (bpm)"} connectNulls />
                 {hasHrv && <Line yAxisId="other" type="monotone" dataKey="hrv" stroke="#4FA8A0" strokeWidth={2} dot={false} name="HRV (ms)" connectNulls />}
                 {hasSleep && <Line yAxisId="other" type="monotone" dataKey="slaapUren" stroke="#8C86C9" strokeWidth={2} dot={false} strokeDasharray="4 3" name="Slaap (uren)" connectNulls />}
+                {hasFasen && <Line yAxisId="other" type="monotone" dataKey="diepeSlaapUren" stroke="#5B8FBF" strokeWidth={2} dot={false} name="Diepe slaap (uren)" connectNulls />}
+                {hasAdem && <Line yAxisId="other" type="monotone" dataKey="ademhaling" stroke="#C97A3F" strokeWidth={1.5} dot={false} strokeDasharray="2 2" name="Ademhaling (/min)" connectNulls />}
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           <table className="tc-table">
-            <thead><tr><th>Datum</th>{hasNacht && <th>Nacht-HR</th>}<th>Rust-HR</th><th>HRV</th><th>Slaap</th><th>Score</th><th>Bron</th><th></th></tr></thead>
+            <thead><tr><th>Datum</th>{hasNacht && <th>Nacht-HR</th>}<th>Rust-HR</th><th>HRV</th>{hasAdem && <th>Adem</th>}<th>Slaap</th>{hasFasen && <th>Diep</th>}{hasFasen && <th>REM</th>}<th>Score</th><th>Bron</th><th></th></tr></thead>
             <tbody>
               {[...logs].reverse().map((l) => (
                 <tr key={l.date}>
@@ -186,7 +197,10 @@ export default function WellnessTab() {
                   {hasNacht && <td className="tc-mono">{l.sleepingHr ?? "–"}</td>}
                   <td className="tc-mono">{l.restingHr ?? "–"}</td>
                   <td className="tc-mono">{l.hrvMs ?? "–"}</td>
+                  {hasAdem && <td className="tc-mono">{l.respirationAvg ?? "–"}</td>}
                   <td className="tc-mono">{l.sleepMinutes ? `${Math.floor(l.sleepMinutes / 60)}u ${l.sleepMinutes % 60}m` : "–"}</td>
+                  {hasFasen && <td className="tc-mono">{duurKort(l.deepSleepMin)}</td>}
+                  {hasFasen && <td className="tc-mono">{duurKort(l.remSleepMin)}</td>}
                   <td className="tc-mono">{l.sleepScore ?? "–"}</td>
                   <td>{l.source}</td>
                   <td><ConfirmDeleteButton onConfirm={() => handleDelete(l.date)} title="Deze dag verwijderen" /></td>
