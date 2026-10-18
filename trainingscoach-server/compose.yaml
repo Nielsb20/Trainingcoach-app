@@ -6,6 +6,6 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ./data:/app/data
-      - ./.env:/app/.env:ro
-      - ./public:/app/public
+      - /home/nielsb20/Trainingcoach-app/trainingscoach-server/data:/app/data
+      - /home/nielsb20/Trainingcoach-app/trainingscoach-server/.env:/app/.env:ro
+      - /home/nielsb20/Trainingcoach-app/trainingscoach-server/public:/app/public
