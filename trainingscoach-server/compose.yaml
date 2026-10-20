@@ -1,11 +1,18 @@
 services:
   trainingscoach:
-    build: .
+    # De bouwcontext is de repowortel en niet deze map: het image bouwt ook de
+    # interface, en die staat een niveau hoger in trainingscoach-frontend.
+    build:
+      context: ..
+      dockerfile: trainingscoach-server/Dockerfile
     container_name: trainingscoach
     restart: unless-stopped
     ports:
       - "3001:3001"
     volumes:
+      # Alleen wat van jou is en de deploy moet overleven. De gebouwde
+      # interface zat hier eerder ook bij; die zit nu in het image, zodat één
+      # deploy server en scherm tegelijk vervangt in plaats van alleen de
+      # server.
       - /home/nielsb20/Trainingcoach-app/trainingscoach-server/data:/app/data
       - /home/nielsb20/Trainingcoach-app/trainingscoach-server/.env:/app/.env:ro
-      - /home/nielsb20/Trainingcoach-app/trainingscoach-server/public:/app/public
