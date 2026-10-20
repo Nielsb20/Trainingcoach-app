@@ -417,3 +417,9 @@ html, body, #root {
 /* Fiets en ondergrond onder de sport, niet ernaast: naast elkaar duwen ze de
    tabel breder dan de pagina. */
 .tc-table-sublabel { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family:'JetBrains Mono', monospace; }
+
+/* De twee pijltjes om een oefening te verschuiven, gestapeld zodat ze samen
+   niet hoger zijn dan de regel zelf. */
+.tc-ex-move { display:flex; flex-direction:column; gap:0; flex-shrink:0; }
+.tc-ex-move .tc-icon-btn { padding:1px 3px; }
+.tc-ex-move .tc-icon-btn:disabled { opacity:0.25; cursor:default; }

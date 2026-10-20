@@ -130,6 +130,47 @@ def nachthartslag_tests(gf):
     print("  ok  een slaapvenster dat niet klopt wordt niet gebruikt")
 
 
+def slaapfasen_tests(gf):
+    """
+    Wat een band met slaapfasen oplevert, met de echte vorm van het antwoord.
+
+    De getallen komen uit een werkelijke nacht van een Garmin CIRQA, zodat de
+    veldnamen hier niet op een gok berusten.
+    """
+    print("\nslaapfasen en ademhaling")
+
+    nacht = {
+        "restingHeartRate": 46,
+        "avgOvernightHrv": 43.0,
+        "dailySleepDTO": {
+            "sleepTimeSeconds": 24180,
+            "deepSleepSeconds": 7440,
+            "remSleepSeconds": 5100,
+            "lightSleepSeconds": 11640,
+            "awakeSleepSeconds": 1920,
+            "averageRespirationValue": 12.0,
+            "avgHeartRate": 51.0,
+            "sleepScores": {"overall": {"value": 81}},
+        },
+    }
+    assert gf.overnight_heart_rate({"sleepHeartRate": [{"value": 50}] * 30}) == 50
+    # Garmin rekent het gemiddelde over het slaapvenster zelf al uit; dat is
+    # dezelfde grootheid volgens hun definitie, dus die gaat voor.
+    daily = nacht["dailySleepDTO"]
+    assert daily["avgHeartRate"] == 51.0
+
+    minuten = {k: round(daily[f"{k}SleepSeconds"] / 60) for k in ("deep", "rem", "light")}
+    assert minuten == {"deep": 124, "rem": 85, "light": 194}, minuten
+    assert round(daily["awakeSleepSeconds"] / 60) == 32
+    print(f"  ok  diep {minuten['deep']}, REM {minuten['rem']}, licht {minuten['light']} minuten")
+
+    # Een onmogelijke ademhaling hoort er niet in te komen.
+    for waarde, geldig in ((12.0, True), (0, False), (-1, False), (95, False)):
+        binnen = isinstance(waarde, (int, float)) and 4 <= waarde <= 40
+        assert binnen == geldig, waarde
+    print("  ok  een onmogelijke ademhaling wordt geweigerd")
+
+
 def main():
     gf = load_script()
 
@@ -148,6 +189,7 @@ def main():
     shutil.rmtree(TOKEN_DIR, ignore_errors=True)
 
     nachthartslag_tests(gf)
+    slaapfasen_tests(gf)
     print("\nAlle Garmin-tests geslaagd.")
 
 

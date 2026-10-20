@@ -18,6 +18,7 @@ const router = express.Router();
 
 const FIELDS = [
   "resting_hr", "sleeping_hr", "hrv_ms", "sleep_minutes", "sleep_score",
+  "deep_sleep_min", "rem_sleep_min", "light_sleep_min", "awake_min", "respiration_avg",
   "body_battery_max", "body_battery_min", "stress_avg", "notes",
 ];
 
@@ -29,6 +30,11 @@ function serialize(row) {
     hrvMs: row.hrv_ms,
     sleepMinutes: row.sleep_minutes,
     sleepScore: row.sleep_score,
+    deepSleepMin: row.deep_sleep_min,
+    remSleepMin: row.rem_sleep_min,
+    lightSleepMin: row.light_sleep_min,
+    awakeMin: row.awake_min,
+    respirationAvg: row.respiration_avg,
     bodyBatteryMax: row.body_battery_max,
     bodyBatteryMin: row.body_battery_min,
     stressAvg: row.stress_avg,
@@ -45,6 +51,11 @@ function toRow(entry) {
     hrv_ms: entry.hrvMs ?? null,
     sleep_minutes: entry.sleepMinutes ?? null,
     sleep_score: entry.sleepScore ?? null,
+    deep_sleep_min: entry.deepSleepMin ?? null,
+    rem_sleep_min: entry.remSleepMin ?? null,
+    light_sleep_min: entry.lightSleepMin ?? null,
+    awake_min: entry.awakeMin ?? null,
+    respiration_avg: entry.respirationAvg ?? null,
     body_battery_max: entry.bodyBatteryMax ?? null,
     body_battery_min: entry.bodyBatteryMin ?? null,
     stress_avg: entry.stressAvg ?? null,
