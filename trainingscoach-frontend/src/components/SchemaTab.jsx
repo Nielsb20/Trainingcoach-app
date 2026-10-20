@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2, Lock, Unlock } from "lucide-react";
+import { Plus, Trash2, X, Download, UploadCloud, Check, Loader2, Lock, Unlock, ChevronUp, ChevronDown } from "lucide-react";
 import { CARDIO_TYPES, TIME_OF_DAY } from "../lib/constants";
 import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones, computePaceZones, formatPace } from "../lib/calculations";
 import { uid } from "../lib/uiHelpers";
@@ -188,6 +188,34 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
       ),
     });
   }
+  /**
+   * Verschuift een oefening een plek omhoog of omlaag.
+   *
+   * De volgorde werd al bewaard — bij het opslaan krijgt elke oefening zijn
+   * positie in de lijst als sort_order mee — maar er was geen manier om hem
+   * te veranderen. En de volgorde doet ertoe: het tabblad Kracht loggen volgt
+   * hem, en de coach ziet de oefeningen in dezelfde volgorde. Je wil zwaar
+   * en samengesteld vooraan, niet de oefening die je toevallig het laatst
+   * hebt toegevoegd.
+   *
+   * Knoppen en geen slepen: slepen is op een telefoon naast het rek net zo
+   * vaak mis als raak, en dit scherm bewerk je zelden.
+   */
+  function moveExercise(dayId, exId, richting) {
+    setSchema({
+      ...schema,
+      days: schema.days.map((d) => {
+        if (d.id !== dayId) return d;
+        const index = d.exercises.findIndex((e) => e.id === exId);
+        const doel = index + richting;
+        if (index === -1 || doel < 0 || doel >= d.exercises.length) return d;
+        const exercises = [...d.exercises];
+        [exercises[index], exercises[doel]] = [exercises[doel], exercises[index]];
+        return { ...d, exercises };
+      }),
+    });
+  }
+
   function removeExercise(dayId, exId) {
     setSchema({
       ...schema,
@@ -299,8 +327,28 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
             </div>
 
             <div className="tc-ex-list">
-              {day.exercises.map((ex) => (
+              {day.exercises.map((ex, exIndex) => (
                 <div className="tc-ex-row" key={ex.id}>
+                  <div className="tc-ex-move">
+                    <button
+                      className="tc-icon-btn"
+                      disabled={exIndex === 0}
+                      title="Een plek omhoog"
+                      aria-label={`${ex.name || "Oefening"} een plek omhoog`}
+                      onClick={() => moveExercise(day.id, ex.id, -1)}
+                    >
+                      <ChevronUp size={13} />
+                    </button>
+                    <button
+                      className="tc-icon-btn"
+                      disabled={exIndex === day.exercises.length - 1}
+                      title="Een plek omlaag"
+                      aria-label={`${ex.name || "Oefening"} een plek omlaag`}
+                      onClick={() => moveExercise(day.id, ex.id, 1)}
+                    >
+                      <ChevronDown size={13} />
+                    </button>
+                  </div>
                   <input
                     className="tc-input"
                     placeholder="Oefening (bv. Squat)"

@@ -8,6 +8,7 @@ import WorkoutFilePanel from "../components/shared/WorkoutFilePanel";
 import GearMapping from "../components/shared/GearMapping";
 import KrachtTab from "../components/KrachtTab";
 import EventsTab from "../components/EventsTab";
+import SchemaTab from "../components/SchemaTab";
 import * as api from "../api/client";
 
 /**
@@ -381,5 +382,47 @@ describe("Betekenis van het Garmin-profiel", () => {
     await waitFor(() => expect(api.setStravaSportTypeMeaning).toHaveBeenCalledWith("ondergrond"));
     // Belangrijk dat dit erbij staat: de keuze verandert niets aan wat er al ligt.
     expect(await screen.findByText(/Geldt vanaf de volgende synchronisatie/)).toBeInTheDocument();
+  });
+});
+
+describe("Volgorde van oefeningen", () => {
+  const schema = {
+    days: [{
+      id: "d1", name: "Dag A", weekdays: [], exercises: [
+        { id: "e1", name: "Squat", targetSets: 3, targetReps: 5 },
+        { id: "e2", name: "Bench press", targetSets: 3, targetReps: 8 },
+        { id: "e3", name: "Roeien", targetSets: 3, targetReps: 10 },
+      ],
+    }],
+    cardioDays: [],
+    profile: {},
+  };
+
+  beforeEach(() => {
+    vi.spyOn(api, "getBackups").mockResolvedValue({ backups: [], laatste: null });
+    vi.spyOn(api, "getGoals").mockResolvedValue({});
+    vi.spyOn(api, "getAutomation").mockResolvedValue({});
+  });
+
+  it("schuift een oefening omhoog en laat de rest staan", async () => {
+    const setSchema = vi.fn();
+    render(<SchemaTab schema={schema} setSchema={setSchema} />);
+
+    fireEvent.click(await screen.findByLabelText("Roeien een plek omhoog"));
+
+    expect(setSchema).toHaveBeenCalled();
+    const namen = setSchema.mock.calls[0][0].days[0].exercises.map((e) => e.name);
+    expect(namen).toEqual(["Squat", "Roeien", "Bench press"]);
+  });
+
+  it("laat de randen met rust", async () => {
+    const setSchema = vi.fn();
+    render(<SchemaTab schema={schema} setSchema={setSchema} />);
+
+    // De eerste kan niet omhoog en de laatste niet omlaag; dat hoort niet als
+    // een klikbare knop te ogen die vervolgens niets doet.
+    expect(await screen.findByLabelText("Squat een plek omhoog")).toBeDisabled();
+    expect(screen.getByLabelText("Roeien een plek omlaag")).toBeDisabled();
+    expect(screen.getByLabelText("Squat een plek omlaag")).not.toBeDisabled();
   });
 });
