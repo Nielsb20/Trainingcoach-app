@@ -102,10 +102,72 @@ function resolveProvider() {
 
 /* ------------------------------- Anthropic ------------------------------ */
 
-async function callAnthropic({ systemPrompt, userContent, maxTokens }) {
+/**
+ * Gemini's schemadialect omzetten naar het JSON Schema dat Anthropic wil.
+ *
+ * Beide beschrijven hetzelfde, maar Gemini schrijft types in hoofdletters en
+ * markeert optionele velden met `nullable`. Eén contract op twee plekken
+ * onderhouden is precies hoe die twee uit elkaar gaan lopen, dus er is er één
+ * en deze functie vertaalt hem.
+ */
+function naarJsonSchema(schema) {
+  if (!schema || typeof schema !== "object") return schema;
+  const type = String(schema.type || "").toLowerCase();
+  const uit = {};
+
+  if (type === "object") {
+    uit.type = "object";
+    uit.properties = Object.fromEntries(
+      Object.entries(schema.properties || {}).map(([k, v]) => [k, naarJsonSchema(v)])
+    );
+    if (schema.required) uit.required = schema.required;
+    // Alles wat niet in het contract staat hoort er niet in te zitten.
+    uit.additionalProperties = false;
+  } else if (type === "array") {
+    uit.type = "array";
+    uit.items = naarJsonSchema(schema.items);
+  } else {
+    // Een nullable veld wordt een unie, want JSON Schema kent geen `nullable`.
+    uit.type = schema.nullable ? [type, "null"] : type;
+  }
+  return uit;
+}
+
+/**
+ * Anthropic, met het antwoord afgedwongen via tool-use.
+ *
+ * Zonder dit was deze route zwakker dan de Gemini-route: die laat Google het
+ * JSON server-side afdwingen, terwijl hier alleen de prompt erom vroeg. Een
+ * antwoord dat niet parste viel terug op ruwe tekst, en dan verdwijnen de
+ * cardio- en krachtvoorstellen uit de planner zonder dat iemand ziet waarom.
+ *
+ * Een tool met `tool_choice` erop vastgezet is Anthropics manier om hetzelfde
+ * te garanderen: het model mág niets anders dan dat schema invullen. De
+ * ingevulde waarden gaan er als JSON-tekst weer uit, zodat de aanroeper geen
+ * verschil merkt tussen de twee providers.
+ */
+async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSchema }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ontbreekt in .env.");
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+
+  const body = {
+    model,
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userContent }],
+  };
+
+  if (responseSchema) {
+    body.tools = [
+      {
+        name: "antwoord",
+        description: "Geef je antwoord volgens dit schema. Gebruik altijd deze tool.",
+        input_schema: naarJsonSchema(responseSchema),
+      },
+    ];
+    body.tool_choice = { type: "tool", name: "antwoord" };
+  }
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -114,17 +176,19 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens }) {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userContent }],
-    }),
+    body: JSON.stringify(body),
   });
 
   const data = await response.json();
   if (!response.ok || !data.content) {
     throw new Error(data?.error?.message || `Anthropic API gaf status ${response.status}`);
+  }
+
+  // Met een afgedwongen tool komt het antwoord als ingevulde velden terug, niet
+  // als tekst. De aanroeper verwacht JSON-tekst, dus dat maken we ervan.
+  const toolGebruik = data.content.find((b) => b.type === "tool_use");
+  if (toolGebruik) {
+    return { rawText: JSON.stringify(toolGebruik.input), provider: "anthropic", model };
   }
 
   const rawText = data.content
@@ -223,7 +287,7 @@ async function callCoachModel({
 
   const provider = resolveProvider();
   if (provider === "gemini") return callGemini({ systemPrompt, userContent, maxTokens, responseSchema });
-  return callAnthropic({ systemPrompt, userContent, maxTokens });
+  return callAnthropic({ systemPrompt, userContent, maxTokens, responseSchema });
 }
 
 /** Which provider/model would be used right now — handy for diagnostics. */
@@ -240,4 +304,4 @@ function describeProvider() {
   }
 }
 
-module.exports = { callCoachModel, describeProvider, resolveProvider, COACH_RESPONSE_SCHEMA };
+module.exports = { callCoachModel, describeProvider, resolveProvider, COACH_RESPONSE_SCHEMA, naarJsonSchema };

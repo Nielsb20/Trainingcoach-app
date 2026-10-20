@@ -1070,6 +1070,44 @@ ochtends zittend meet, waar Karvonen mee gevalideerd is. Voor het volgen van je
 eigen trend maakt dat niet uit (het is steeds dezelfde meting), maar plak er
 geen normaalwaarden uit de literatuur op.
 
+## Wat de coach te lezen krijgt
+
+Elke consultatie is één modelaanroep met de hele context erin. Hoe groot die
+context is bepaalt wat hij kost en hoeveel ruis er tussen de signalen zit, dus
+hij is gemeten in plaats van geschat:
+
+| | tokens |
+|---|---|
+| systeemprompt | ~4.700 |
+| payload | ~1.500 |
+
+De payload was ~47.000. Daarvan was 97% het seconde-voor-seconde verloop van
+acht ritten, meegestuurd zodat het model twee dingen kon aflezen: zat er
+structuur in de inspanning, en liep de hartslag op bij gelijkblijvend
+vermogen.
+
+Allebei zijn het sommen, geen patroonherkenning. `summarizeSessionProfile()`
+rekent ze uit en stuurt de uitkomst mee — variabiliteit, de twee helften van
+de sessie met het verschil ertussen, en het hoogteverschil zodat terrein de
+drift kan verklaren. Dezelfde redenering als bij de TSS: liever meegeven dan
+laten schatten.
+
+### Beide providers dwingen het antwoordformaat af
+
+De app praat met Gemini of met Anthropic, te kiezen met `LLM_PROVIDER`. Bij
+Gemini dwingt `responseSchema` het JSON-contract server-side af. Bij Anthropic
+gebeurt dat met een tool waarvan het gebruik is vastgezet (`tool_choice`), wat
+op hetzelfde neerkomt: het model kan niets anders dan dat schema invullen.
+
+Er is één contract, `COACH_RESPONSE_SCHEMA`, in Gemini's dialect.
+`naarJsonSchema()` vertaalt het naar wat Anthropic verwacht — hoofdletters naar
+kleine letters, en `nullable` naar een unie met `null`. Twee handgeschreven
+kopieën van hetzelfde contract is precies hoe ze uit elkaar gaan lopen.
+
+Zonder die tool viel een antwoord dat niet parste terug op ruwe tekst, en dan
+verdwijnen de cardio- en krachtvoorstellen uit de planner zonder dat zichtbaar
+is waarom.
+
 ## Slaapfasen en ademhaling
 
 Een band die ze meet (zoals de Garmin CIRQA) levert meer dan slaapduur alleen.
