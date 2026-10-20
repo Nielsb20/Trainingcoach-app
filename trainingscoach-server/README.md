@@ -110,7 +110,33 @@ curl http://localhost:3001/api/coach/provider
 
 ## 24/7 laten draaien
 
-Gebruik een process manager zodat de server na een crash of reboot vanzelf weer opstart:
+Met Docker, zodat de server na een crash of reboot vanzelf weer opstart:
+
+```bash
+cd trainingscoach-server
+docker compose up -d --build
+```
+
+Eén deploy vervangt server én interface. Dat is bewust zo: de interface wordt
+**in het image** gebouwd en niet op de host. Stond hij in een volume, dan
+verving een deploy alleen de server en bleef het scherm staan tot iemand met
+de hand `npm run build` draaide — en dat vergeten levert een interface op die
+niet bij de server past, wat je pas merkt als een knop iets anders doet dan
+hij belooft.
+
+Gevolg voor de bouwcontext: die is de **repowortel**, niet `trainingscoach-server`.
+Het image heeft beide mappen nodig. Dat staat in `compose.yaml` en in
+`.dockerignore` in de wortel; draai je `docker build` met de hand, dan hoort
+dat er ook zo uit te zien:
+
+```bash
+docker build -f trainingscoach-server/Dockerfile -t trainingscoach .
+```
+
+Alleen je eigen gegevens zitten in een volume: `data/` met de database en
+`.env` met je sleutels. Die overleven een deploy, de rest wordt vervangen.
+
+Zonder Docker kan het ook met een process manager:
 
 ```bash
 npm install -g pm2
@@ -118,6 +144,9 @@ pm2 start src/server.js --name trainingscoach
 pm2 save
 pm2 startup   # volg de instructies die dit commando toont
 ```
+
+In dat geval bouw je de interface wél zelf, met `npm run build` in
+`trainingscoach-frontend`.
 
 ## Volgende stappen
 
@@ -148,7 +177,7 @@ vanzelf binnenkomt.
    STRAVA_CLIENT_SECRET=...
    STRAVA_WEBHOOK_VERIFY_TOKEN=verzin-hier-iets-willekeurigs
    ```
-3. Herstart de server (`pm2 restart trainingscoach`)
+3. Herstart de server (`docker compose up -d` in `trainingscoach-server`, of `pm2 restart trainingscoach`)
 4. Ga in de app naar **Cardio loggen → Strava** en klik op "Verbinden met Strava"
 5. Na het goedkeuren kun je op "Nu synchroniseren" klikken om je laatste activiteiten op te halen
 

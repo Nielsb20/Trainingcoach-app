@@ -1,0 +1,24 @@
+# De bouwcontext is de hele repo, want het image bouwt zowel de server als de
+# interface. Zonder deze lijst gaat ook je database, je .env en twee mappen
+# node_modules mee naar de Docker-daemon — traag, en je gegevens horen niet in
+# een image te belanden.
+**/node_modules
+.git
+
+# Persoonlijke gegevens en geheimen. Allebei worden ze als volume gekoppeld,
+# dus ze horen niet in de laag zelf.
+trainingscoach-server/data
+trainingscoach-server/data-test
+trainingscoach-server/data-backup
+trainingscoach-server/.env
+*.db
+trainingscoach-backup-*.json
+backup.json
+
+# De interface wordt ín het image gebouwd. Een oude build van de host zou die
+# verse versie anders overschrijven.
+trainingscoach-server/public
+
+# Python-virtualenv voor het Garmin-script; draait op de host, niet hier.
+trainingscoach-server/scripts/garmin-venv
+**/__pycache__
