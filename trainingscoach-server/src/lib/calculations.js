@@ -388,6 +388,71 @@ function comparabilityRank(a, b) {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Het verloop binnen een sessie, samengevat                              */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Wat er uit de tijdreeks van een sessie te halen valt, als handvol getallen.
+ *
+ * De reeks zelf is groot: een rit van twee uur levert ruim tweehonderd punten
+ * met zes velden elk. Die integraal naar een taalmodel sturen kostte 46.000
+ * tokens per consult — zevenennegentig procent van alles wat de coach kreeg —
+ * om twee dingen te laten aflezen die hier gewoon uit te rekenen zijn.
+ *
+ * En uitrekenen is beter dan laten aflezen. Of een rit intervallen bevatte is
+ * een deling, geen patroonherkenning op een JSON-lijst; of de hartslag opliep
+ * bij gelijkblijvend vermogen ook. Dezelfde reden waarom de app de TSS
+ * meegeeft in plaats van het model te vragen hem te schatten.
+ *
+ * - variabiliteit  genormaliseerd vermogen gedeeld door het gemiddelde. Rond
+ *                  1,0 is gelijkmatig; vanaf ongeveer 1,1 zat er structuur in,
+ *                  intervallen of een heuvelachtig parcours.
+ * - drift          eerste helft tegen tweede helft. Een hartslag die oploopt
+ *                  terwijl het vermogen gelijk blijft is het klassieke teken
+ *                  van vermoeidheid — of van oplopend terrein, dus het blijft
+ *                  een signaal en geen conclusie.
+ */
+function summarizeSessionProfile(profile, { avgPower = null, normalizedPower = null } = {}) {
+  if (!Array.isArray(profile) || profile.length < 6) return null;
+
+  const avg = (rows, key) => {
+    const v = rows.map((p) => p[key]).filter((x) => x !== null && x !== undefined && !isNaN(x));
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+
+  const samenvatting = { punten: profile.length };
+
+  if (normalizedPower && avgPower) {
+    samenvatting.variabiliteit = Math.round((normalizedPower / avgPower) * 100) / 100;
+  }
+
+  const metHartslag = profile.filter((p) => p.gemHartslag);
+  if (metHartslag.length >= 6) {
+    const half = Math.floor(metHartslag.length / 2);
+    const eersteHr = avg(metHartslag.slice(0, half), "gemHartslag");
+    const tweedeHr = avg(metHartslag.slice(half), "gemHartslag");
+    if (eersteHr && tweedeHr) {
+      samenvatting.eersteHelftHartslag = Math.round(eersteHr);
+      samenvatting.tweedeHelftHartslag = Math.round(tweedeHr);
+      samenvatting.driftBpm = Math.round(tweedeHr - eersteHr);
+      const eersteW = avg(metHartslag.slice(0, half), "gemVermogen");
+      const tweedeW = avg(metHartslag.slice(half), "gemVermogen");
+      if (eersteW && tweedeW) {
+        samenvatting.eersteHelftVermogen = Math.round(eersteW);
+        samenvatting.tweedeHelftVermogen = Math.round(tweedeW);
+      }
+    }
+  }
+
+  const hoogtes = profile.map((p) => p.hoogte).filter((h) => h !== null && h !== undefined);
+  if (hoogtes.length >= 6) {
+    samenvatting.hoogteverschilM = Math.round(Math.max(...hoogtes) - Math.min(...hoogtes));
+  }
+
+  return Object.keys(samenvatting).length > 1 ? samenvatting : null;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Speed / distance                                                       */
 /* ---------------------------------------------------------------------- */
 
@@ -919,6 +984,7 @@ module.exports = {
   sameSubType,
   sameSurface,
   comparabilityRank,
+  summarizeSessionProfile,
   computeAvgSpeedKmh,
   haversineKm,
   computeNormalizedPower,

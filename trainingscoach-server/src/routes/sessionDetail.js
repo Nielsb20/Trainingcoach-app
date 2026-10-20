@@ -130,32 +130,22 @@ router.get("/:id", (req, res) => {
   );
 
   // Cardiac drift: heart rate creeping up at constant effort is the classic
-  // fatigue signal on a long ride. Comparing first and second half of the
-  // profile is the standard way to spot it.
-  let drift = null;
-  if (session.profile && session.profile.length >= 6) {
-    const points = session.profile.filter((p) => p.gemHartslag);
-    if (points.length >= 6) {
-      const half = Math.floor(points.length / 2);
-      const avg = (arr, key) => {
-        const v = arr.map((p) => p[key]).filter((x) => x != null);
-        return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
-      };
-      const firstHr = avg(points.slice(0, half), "gemHartslag");
-      const secondHr = avg(points.slice(half), "gemHartslag");
-      const firstPower = avg(points.slice(0, half), "gemVermogen");
-      const secondPower = avg(points.slice(half), "gemVermogen");
-      if (firstHr && secondHr) {
-        drift = {
-          eersteHelftHartslag: Math.round(firstHr),
-          tweedeHelftHartslag: Math.round(secondHr),
-          verschilBpm: Math.round(secondHr - firstHr),
-          eersteHelftVermogen: firstPower ? Math.round(firstPower) : null,
-          tweedeHelftVermogen: secondPower ? Math.round(secondPower) : null,
-        };
+  // fatigue signal on a long ride. De berekening staat in de rekenkern, zodat
+  // dit scherm en de coach met hetzelfde getal werken in plaats van met twee
+  // kopieën die uit elkaar kunnen lopen.
+  const verloop = calc.summarizeSessionProfile(session.profile, {
+    avgPower: session.avg_power,
+    normalizedPower: session.weighted_avg_power,
+  });
+  const drift = verloop && verloop.driftBpm !== undefined
+    ? {
+        eersteHelftHartslag: verloop.eersteHelftHartslag,
+        tweedeHelftHartslag: verloop.tweedeHelftHartslag,
+        verschilBpm: verloop.driftBpm,
+        eersteHelftVermogen: verloop.eersteHelftVermogen ?? null,
+        tweedeHelftVermogen: verloop.tweedeHelftVermogen ?? null,
       }
-    }
-  }
+    : null;
 
   const comparable = findComparableSessions(session);
   const speed = calc.computeAvgSpeedKmh(session.distance_km, session.duration_min);

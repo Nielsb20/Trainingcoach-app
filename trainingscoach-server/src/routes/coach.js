@@ -277,7 +277,15 @@ function buildCoachPayload({ question = null } = {}) {
         watt_per_kg: calc.computeWattsPerKg(c.avg_power, calc.getWeightAtDate(weightLogs, c.date)),
         tss: tssResult ? tssResult.tss : null, intensiteitsfactor: tssResult ? tssResult.intensityFactor : null, tssMethode: tssResult ? tssResult.method : null,
         gem_cadans: c.avg_cadence, max_cadans: c.max_cadence, hoogtemeters_omhoog: c.elevation_gain_m, hoogtemeters_omlaag: c.elevation_loss_m, tempo: c.pace, notities: c.notes,
-        verloopBinnenSessie: c.profile ? c.profile.map((p) => ({ minuut: p.tMin, hartslag: p.gemHartslag, snelheid_kmu: p.gemSnelheidKmu, vermogen_watt: p.gemVermogen, cadans: p.gemCadans, hoogte_m: p.hoogte })) : null,
+        // Samengevat, niet uitgeschreven. De volledige tijdreeks van acht
+        // ritten was 46.000 tokens — zevenennegentig procent van alles wat de
+        // coach kreeg — om twee dingen te laten aflezen die hier beter zijn
+        // uit te rekenen: zat er structuur in, en liep de hartslag op bij
+        // gelijkblijvend vermogen.
+        verloop: calc.summarizeSessionProfile(c.profile, {
+          avgPower: c.avg_power,
+          normalizedPower: c.weighted_avg_power,
+        }),
       };
     }),
     geplandeEvenementen: upcomingEvents.map((e) => ({ naam: e.name, datum: e.date, overDagen: calc.daysUntil(e.date), type: e.type, doel: e.target, notities: e.notes })),
