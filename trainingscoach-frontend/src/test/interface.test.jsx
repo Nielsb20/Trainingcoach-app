@@ -9,6 +9,9 @@ import GearMapping from "../components/shared/GearMapping";
 import KrachtTab from "../components/KrachtTab";
 import EventsTab from "../components/EventsTab";
 import SchemaTab from "../components/SchemaTab";
+import WellnessTab from "../components/WellnessTab";
+import App from "../App";
+import { NAV } from "../lib/constants";
 import * as api from "../api/client";
 
 /**
@@ -424,5 +427,79 @@ describe("Volgorde van oefeningen", () => {
     expect(await screen.findByLabelText("Squat een plek omhoog")).toBeDisabled();
     expect(screen.getByLabelText("Roeien een plek omlaag")).toBeDisabled();
     expect(screen.getByLabelText("Squat een plek omlaag")).not.toBeDisabled();
+  });
+});
+
+describe("Navigatie", () => {
+  it("geeft elk tabblad een naam, ook als het label om ruimte wegvalt", async () => {
+    vi.spyOn(api, "loadAll").mockResolvedValue({
+      schema: { days: [], cardioDays: [], profile: {} },
+      workoutLogs: [], cardioLogs: [], weightLogs: [], events: [], coachHistory: [],
+    });
+    vi.spyOn(api, "getPlannedSessions").mockResolvedValue({ plans: [] });
+    vi.spyOn(api, "getBackups").mockResolvedValue({ backups: [], laatste: null });
+    vi.spyOn(api, "getGoals").mockResolvedValue({});
+    vi.spyOn(api, "getAutomation").mockResolvedValue({});
+
+    render(<App />);
+
+    // Op een telefoon stonden de labels op display:none. Dat haalt ze ook uit
+    // de toegankelijkheidsboom, dus de negen knoppen hadden geen naam meer —
+    // niet voor een schermlezer en niet voor een tooltip. De naam hoort op de
+    // knop zelf te staan, los van of het label zichtbaar is.
+    for (const n of NAV) {
+      const knop = await screen.findByRole("button", { name: n.label });
+      expect(knop).toHaveAttribute("title", n.label);
+    }
+  });
+
+  it("markeert welk tabblad open staat", async () => {
+    vi.spyOn(api, "loadAll").mockResolvedValue({
+      schema: { days: [], cardioDays: [], profile: {} },
+      workoutLogs: [], cardioLogs: [], weightLogs: [], events: [], coachHistory: [],
+    });
+    vi.spyOn(api, "getPlannedSessions").mockResolvedValue({ plans: [] });
+    vi.spyOn(api, "getBackups").mockResolvedValue({ backups: [], laatste: null });
+    vi.spyOn(api, "getGoals").mockResolvedValue({});
+    vi.spyOn(api, "getAutomation").mockResolvedValue({});
+
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Schema" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Gewicht" })).not.toHaveAttribute("aria-current");
+  });
+});
+
+describe("Hersteltabel", () => {
+  const dag = (d, extra = {}) => ({
+    date: d, restingHr: 48, sleepingHr: 52, hrvMs: 44, sleepMinutes: 420,
+    sleepScore: 80, deepSleepMin: 90, remSleepMin: 70, respirationAvg: 12.3,
+    source: "garmin", ...extra,
+  });
+
+  it("rondt de ademhaling af in plaats van de binaire ruis te tonen", async () => {
+    // Garmin levert 12.3 als 12.299999999999999; die staart is geen meting.
+    vi.spyOn(api, "getWellnessLogs").mockResolvedValue([
+      dag("2026-10-20", { respirationAvg: 12.299999999999999 }),
+    ]);
+    render(<WellnessTab />);
+
+    expect(await screen.findByText("12.3")).toBeInTheDocument();
+    expect(screen.queryByText(/12\.2999/)).not.toBeInTheDocument();
+  });
+
+  it("toont standaard twee weken en de rest pas op verzoek", async () => {
+    const dagen = Array.from({ length: 34 }, (_, i) =>
+      dag(`2026-09-${String(i + 1).padStart(2, "0")}`)
+    );
+    vi.spyOn(api, "getWellnessLogs").mockResolvedValue(dagen);
+    render(<WellnessTab />);
+
+    const knop = await screen.findByRole("button", { name: "Toon alle 34 dagen" });
+    // Honderdtwintig regels openklappen duwt alles eronder van het scherm af.
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(14);
+
+    fireEvent.click(knop);
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(34);
+    expect(screen.getByRole("button", { name: "Toon alleen de laatste 14 dagen" })).toBeInTheDocument();
   });
 });

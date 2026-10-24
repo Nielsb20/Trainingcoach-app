@@ -13,12 +13,21 @@ import { todayStr, formatDateNL } from "../lib/calculations";
  */
 /** 124 -> "2u04". Leeg blijft een streepje. */
 const duurKort = (min) => (min ? `${Math.floor(min / 60)}u${String(min % 60).padStart(2, "0")}` : "–");
+// Garmin levert de ademhaling als drijvende komma, en dan staat er
+// 12.299999999999999 in de kolom. Dat is geen extra nauwkeurigheid, alleen
+// binaire ruis — één decimaal is alles wat het apparaat echt meet.
+const eenDecimaal = (v) => (v === null || v === undefined ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 
 export default function WellnessTab() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
+  // De grafiek erboven gaat over de hele reeks; de tabel is om een losse dag
+  // na te kijken of weg te gooien. Honderdtwintig regels daarvoor openklappen
+  // maakt van elke andere knop op dit scherm iets wat je eerst voorbij moet
+  // scrollen.
+  const [alleRijen, setAlleRijen] = useState(false);
 
   const [date, setDate] = useState(todayStr());
   const [restingHr, setRestingHr] = useState("");
@@ -84,6 +93,10 @@ export default function WellnessTab() {
       })),
     [logs]
   );
+
+  const RIJEN_INGEKLAPT = 14;
+  const nieuwsteEerst = useMemo(() => [...logs].reverse(), [logs]);
+  const zichtbareLogs = alleRijen ? nieuwsteEerst : nieuwsteEerst.slice(0, RIJEN_INGEKLAPT);
 
   const hasHrv = logs.some((l) => l.hrvMs !== null);
   const hasSleep = logs.some((l) => l.sleepMinutes !== null);
@@ -171,9 +184,13 @@ export default function WellnessTab() {
         <>
           <div className="tc-chart-wrap">
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={chartData}>
+              <LineChart data={chartData} margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
-                <XAxis dataKey="label" stroke="#8B949B" fontSize={11} />
+                {/* Een maand aan dagen levert meer datums op dan er naast
+                    elkaar passen; zonder ondergrens voor de tussenruimte
+                    schrijft recharts ze over elkaar heen tot één onleesbare
+                    streep. Nu laat hij er net zoveel staan als passen. */}
+                <XAxis dataKey="label" stroke="#8B949B" fontSize={11} minTickGap={28} interval="preserveStartEnd" />
                 <YAxis yAxisId="hr" stroke="#C97A3F" fontSize={12} domain={["auto", "auto"]} />
                 {(hasHrv || hasSleep) && <YAxis yAxisId="other" orientation="right" stroke="#4FA8A0" fontSize={12} domain={["auto", "auto"]} />}
                 <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
@@ -191,13 +208,13 @@ export default function WellnessTab() {
           <table className="tc-table">
             <thead><tr><th>Datum</th>{hasNacht && <th>Nacht-HR</th>}<th>Rust-HR</th><th>HRV</th>{hasAdem && <th>Adem</th>}<th>Slaap</th>{hasFasen && <th>Diep</th>}{hasFasen && <th>REM</th>}<th>Score</th><th>Bron</th><th></th></tr></thead>
             <tbody>
-              {[...logs].reverse().map((l) => (
+              {zichtbareLogs.map((l) => (
                 <tr key={l.date}>
                   <td>{formatDateNL(l.date)}</td>
                   {hasNacht && <td className="tc-mono">{l.sleepingHr ?? "–"}</td>}
                   <td className="tc-mono">{l.restingHr ?? "–"}</td>
                   <td className="tc-mono">{l.hrvMs ?? "–"}</td>
-                  {hasAdem && <td className="tc-mono">{l.respirationAvg ?? "–"}</td>}
+                  {hasAdem && <td className="tc-mono">{eenDecimaal(l.respirationAvg)}</td>}
                   <td className="tc-mono">{l.sleepMinutes ? `${Math.floor(l.sleepMinutes / 60)}u ${l.sleepMinutes % 60}m` : "–"}</td>
                   {hasFasen && <td className="tc-mono">{duurKort(l.deepSleepMin)}</td>}
                   {hasFasen && <td className="tc-mono">{duurKort(l.remSleepMin)}</td>}
@@ -208,6 +225,13 @@ export default function WellnessTab() {
               ))}
             </tbody>
           </table>
+          {nieuwsteEerst.length > RIJEN_INGEKLAPT && (
+            <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setAlleRijen(!alleRijen)}>
+              {alleRijen
+                ? `Toon alleen de laatste ${RIJEN_INGEKLAPT} dagen`
+                : `Toon alle ${nieuwsteEerst.length} dagen`}
+            </button>
+          )}
         </>
       )}
 
