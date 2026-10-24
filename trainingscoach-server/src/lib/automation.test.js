@@ -46,14 +46,69 @@ console.log("\nherstel wordt tegen je eigen basislijn gemeten");
   console.log("  ok  rusthartslag 54-55 vs basislijn 48 ->", signals.find(s=>s.code==="rusthartslag_hoog").reason);
 }
 {
-  // One bad night is not a signal
+  // One mildly off night is not a signal
   const wellness = [
     { date: daysBefore(0), resting_hr: 56, hrv_ms: 60 },
     ...Array.from({ length: 19 }, (_, i) => ({ date: daysBefore(i + 1), resting_hr: 48, hrv_ms: 60 })),
   ];
   const signals = detectSignals({ loadSeries: null, wellness, plans: [], events: [], today: TODAY });
-  assert.ok(!signals.some(s => s.code === "rusthartslag_hoog"), "één afwijkende nacht mag geen alarm geven");
-  console.log("  ok  één slechte nacht -> geen signaal (pas bij 2 dagen op rij)");
+  assert.deepStrictEqual(signals.filter(s => s.code.startsWith("rusthartslag")), [],
+    "één licht afwijkende nacht mag geen alarm geven");
+  console.log("  ok  één nacht +8 -> geen signaal (pas bij 2 dagen op rij)");
+}
+
+console.log("\néén nacht die er fors uitspringt wacht niet op de tweede");
+{
+  // 67 vs baseline 52: +15. Wachten op dag twee betekent dat het advies pas
+  // komt als de training van vandaag al gereden is.
+  const wellness = [
+    { date: daysBefore(0), sleeping_hr: 67, hrv_ms: 31 },
+    ...Array.from({ length: 19 }, (_, i) => ({ date: daysBefore(i + 1), sleeping_hr: 52, hrv_ms: 43 })),
+  ];
+  const signals = detectSignals({ loadSeries: null, wellness, plans: [], events: [], today: TODAY });
+  const hr = signals.find(s => s.code === "rusthartslag_uitschieter");
+  const hrv = signals.find(s => s.code === "hrv_uitschieter");
+  assert.ok(hr, "nachthartslag +15 hoort meteen af te gaan");
+  assert.ok(hrv, "HRV op 72% van de basislijn hoort meteen af te gaan");
+  assert.match(hr.reason, /Nachthartslag/, "nachthartslag hoort ook zo genoemd te worden");
+  console.log("  ok  " + hr.reason);
+  console.log("  ok  " + hrv.reason);
+}
+{
+  // Twee dagen op rij blijft één melding: niet ook nog de uitschieter erbij.
+  const wellness = [
+    { date: daysBefore(0), sleeping_hr: 67, hrv_ms: 31 },
+    { date: daysBefore(1), sleeping_hr: 66, hrv_ms: 30 },
+    ...Array.from({ length: 18 }, (_, i) => ({ date: daysBefore(i + 2), sleeping_hr: 52, hrv_ms: 43 })),
+  ];
+  const signals = detectSignals({ loadSeries: null, wellness, plans: [], events: [], today: TODAY });
+  assert.deepStrictEqual(signals.map(s => s.code).sort(), ["hrv_laag", "rusthartslag_hoog"]);
+  console.log("  ok  twee dagen op rij -> patroonmelding, niet dubbel");
+}
+{
+  // Garmins dagwaarde zakt mee met een rustige middag, dus de nachtwaarde
+  // gaat voor zodra die er is — en de melding zegt welke het was.
+  const wellness = [
+    { date: daysBefore(0), resting_hr: 48, sleeping_hr: 64, hrv_ms: 60 },
+    ...Array.from({ length: 19 }, (_, i) => ({ date: daysBefore(i + 1), resting_hr: 48, sleeping_hr: 52, hrv_ms: 60 })),
+  ];
+  const signals = detectSignals({ loadSeries: null, wellness, plans: [], events: [], today: TODAY });
+  const hr = signals.find(s => s.code === "rusthartslag_uitschieter");
+  assert.ok(hr, "de nachtwaarde springt eruit terwijl de dagwaarde vlak blijft");
+  assert.match(hr.reason, /Nachthartslag was vannacht 64 tegen een basislijn van 52/);
+  console.log("  ok  " + hr.reason);
+}
+{
+  // Zonder nachtmeting blijft de dagwaarde over, en dan heet het ook zo.
+  const wellness = [
+    { date: daysBefore(0), resting_hr: 62, hrv_ms: 60 },
+    ...Array.from({ length: 19 }, (_, i) => ({ date: daysBefore(i + 1), resting_hr: 48, hrv_ms: 60 })),
+  ];
+  const signals = detectSignals({ loadSeries: null, wellness, plans: [], events: [], today: TODAY });
+  const hr = signals.find(s => s.code === "rusthartslag_uitschieter");
+  assert.ok(hr);
+  assert.match(hr.reason, /^Rusthartslag/);
+  console.log("  ok  " + hr.reason);
 }
 {
   const wellness = [

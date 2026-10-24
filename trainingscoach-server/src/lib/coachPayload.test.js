@@ -78,4 +78,75 @@ assert.strictEqual(cardio.properties.blokken.type, "array", "geneste lijsten gaa
 assert.strictEqual(cardio.properties.blokken.items.properties.soort.type, "string");
 console.log("  ok  de geneste voorstellen en blokken vertalen mee");
 
-console.log("\nAlle tests rond de coachpayload geslaagd.");
+/* ------------ een afgekapt antwoord mag niet half worden bewaard -------- */
+
+console.log("\neen afgekapt antwoord valt op in plaats van stil");
+
+const { callCoachModel } = require("./llmProvider");
+
+// Het hele schema komt uit één tokenbudget en de voorstellen staan achteraan.
+// Wie te krap bemeten is, krijgt analyse en tips netjes binnen en daarna niets
+// meer — en dat is niet te onderscheiden van "ik had niets voor te stellen".
+async function metGespeeldAntwoord(antwoord, fn) {
+  const echteFetch = global.fetch;
+  const oudeSleutel = process.env.ANTHROPIC_API_KEY;
+  const oudeProvider = process.env.LLM_PROVIDER;
+  let verzonden = null;
+  global.fetch = async (_url, opties) => {
+    verzonden = JSON.parse(opties.body);
+    return { ok: true, status: 200, json: async () => antwoord };
+  };
+  process.env.ANTHROPIC_API_KEY = "test";
+  process.env.LLM_PROVIDER = "anthropic";
+  // Het budget bewaakt echte aanroepen; hier gaat er geen één de deur uit.
+  require("./coachBudget").reset();
+  try {
+    return { uitkomst: await fn(), verzonden };
+  } finally {
+    global.fetch = echteFetch;
+    if (oudeSleutel === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = oudeSleutel;
+    if (oudeProvider === undefined) delete process.env.LLM_PROVIDER;
+    else process.env.LLM_PROVIDER = oudeProvider;
+  }
+}
+
+(async () => {
+  const half = {
+    stop_reason: "max_tokens",
+    content: [{ type: "tool_use", name: "antwoord", input: { analyse: "Lange analyse…", tips: ["een tip"] } }],
+  };
+  let fout = null;
+  try {
+    await metGespeeldAntwoord(half, () =>
+      callCoachModel({ systemPrompt: "s", userContent: "u", maxTokens: 1000 })
+    );
+  } catch (err) {
+    fout = err;
+  }
+  assert.ok(fout, "een afgekapt antwoord hoort een fout te geven, geen lege voorstellen");
+  assert.match(fout.message, /afgekapt/);
+  console.log("  ok  " + fout.message);
+
+  const heel = {
+    stop_reason: "tool_use",
+    content: [
+      {
+        type: "tool_use",
+        name: "antwoord",
+        input: { analyse: "a", tips: [], cardioVoorstel: [{ dag: "maandag" }], krachtVoorstel: [] },
+      },
+    ],
+  };
+  const { uitkomst, verzonden } = await metGespeeldAntwoord(heel, () =>
+    callCoachModel({ systemPrompt: "s", userContent: "u", maxTokens: 1000 })
+  );
+  assert.deepStrictEqual(JSON.parse(uitkomst.rawText).cardioVoorstel, [{ dag: "maandag" }]);
+  assert.ok(
+    verzonden.max_tokens >= 4000,
+    `het budget stond op ${verzonden.max_tokens}; een weekplanning past daar niet in`
+  );
+  console.log(`  ok  een heel antwoord komt door, met ${verzonden.max_tokens} tokens ruimte`);
+
+  console.log("\nAlle tests rond de coachpayload geslaagd.");
+})();

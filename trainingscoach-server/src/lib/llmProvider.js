@@ -151,9 +151,21 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ontbreekt in .env.");
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
+  // De aanroepers kiezen hun `maxTokens` op het verhaal dat ze terugverwachten
+  // — de analyse en de tips. Maar met een afgedwongen schema komt het hele
+  // antwoord uit één tokenbudget, en de voorstellen staan achteraan. Een
+  // weekplanning die aan de analyse zelf al 700 tokens kwijt is, viel daardoor
+  // precies vóór `cardioVoorstel` stil: analyse en tips kwamen netjes binnen,
+  // de planner kreeg lege lijsten en niemand zag waaraan dat lag. Gemini had
+  // dat probleem niet omdat die hieronder al ruimer werd bemeten.
+  //
+  // Je betaalt alleen voor wat er daadwerkelijk uitkomt, dus de ruimte kost
+  // niets zolang het antwoord kort blijft.
+  const outputBudget = Math.max(maxTokens * 4, 4000);
+
   const body = {
     model,
-    max_tokens: maxTokens,
+    max_tokens: outputBudget,
     system: systemPrompt,
     messages: [{ role: "user", content: userContent }],
   };
@@ -182,6 +194,17 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   const data = await response.json();
   if (!response.ok || !data.content) {
     throw new Error(data?.error?.message || `Anthropic API gaf status ${response.status}`);
+  }
+
+  // Een afgekapt antwoord is erger dan geen antwoord: bij tool-use komt het
+  // half ingevulde schema gewoon als geldige JSON terug, dus de velden die er
+  // niet meer in pasten zien eruit als "het model had niets voor te stellen".
+  // Daarom hier hetzelfde als bij Gemini — hard stoppen, met de reden erbij.
+  if (data.stop_reason === "max_tokens") {
+    throw new Error(
+      `Het antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. ` +
+        "Wat er binnenkwam is onvolledig en is daarom niet bewaard; verhoog maxTokens voor deze vraag."
+    );
   }
 
   // Met een afgedwongen tool komt het antwoord als ingevulde velden terug, niet

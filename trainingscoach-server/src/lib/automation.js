@@ -31,6 +31,14 @@ const DEFAULTS = {
   hrvBelowBaselineFactor: 0.9,
   recoveryConsecutiveDays: 2,
 
+  // Twee dagen op rij is de regel voor een afwijking die net buiten normaal
+  // valt — één slechte nacht is ruis. Maar een nacht die er fors uitspringt is
+  // geen ruis, en daarop twee dagen wachten betekent dat het advies pas komt
+  // als de training van vandaag al gereden is. Deze grenzen liggen bewust
+  // flink hoger dan die hierboven, zodat alleen echte uitschieters ze halen.
+  restingHrSingleNightAbove: 10,
+  hrvSingleNightFactor: 0.8,
+
   // Missing the occasional session is normal; a pattern is worth discussing.
   missedSessionsIn7Days: 2,
 
@@ -96,32 +104,73 @@ function detectSignals({ loadSeries, wellness = [], plans = [], events = [], tod
     const baseline = sorted.slice(t.recoveryConsecutiveDays, 28);
 
     if (baseline.length >= 5) {
-      const baseRestingHr = averageOf(baseline, "resting_hr");
+      // Nachthartslag als die er is, anders Garmins dagwaarde. Dat is dezelfde
+      // voorkeur als computeRestingHrBaseline aanhoudt, en om dezelfde reden:
+      // de dagwaarde zakt mee met een rustige middag, dus die vergelijkt een
+      // slechte nacht met iets anders dan een goede nacht. Deze twee mogen
+      // niet door elkaar lopen binnen één vergelijking, dus het veld wordt
+      // één keer gekozen en daarna consequent gebruikt.
+      const nachtOveral = (rows) => rows.some((r) => r.sleeping_hr != null);
+      const hrVeld = nachtOveral(recent) && nachtOveral(baseline) ? "sleeping_hr" : "resting_hr";
+      const hrNaam = hrVeld === "sleeping_hr" ? "Nachthartslag" : "Rusthartslag";
+
+      const baseRestingHr = averageOf(baseline, hrVeld);
       const baseHrv = averageOf(baseline, "hrv_ms");
 
-      const recentRestingHr = recent.map((r) => r.resting_hr).filter((v) => v != null);
-      if (
+      // De uitschietercontrole gaat uitdrukkelijk over de laatste nacht, dus
+      // die wordt los gepakt: in de gefilterde lijst hierboven zou een nacht
+      // zonder meting de dag ervóór op plek nul zetten, en dan zou "vannacht"
+      // over eergisteren gaan.
+      const laatsteNachtHr = sorted[0]?.[hrVeld] ?? null;
+      const laatsteNachtHrv = sorted[0]?.hrv_ms ?? null;
+
+      const recentRestingHr = recent.map((r) => r[hrVeld]).filter((v) => v != null);
+      const hrMeerdereDagen =
         baseRestingHr !== null &&
         recentRestingHr.length === t.recoveryConsecutiveDays &&
-        recentRestingHr.every((v) => v >= baseRestingHr + t.restingHrAboveBaseline)
-      ) {
+        recentRestingHr.every((v) => v >= baseRestingHr + t.restingHrAboveBaseline);
+
+      if (hrMeerdereDagen) {
         signals.push({
           code: "rusthartslag_hoog",
           severity: "hoog",
-          reason: `Rusthartslag ligt ${t.recoveryConsecutiveDays} dagen op rij minstens ${t.restingHrAboveBaseline} slagen boven je basislijn (${Math.round(baseRestingHr)}).`,
+          reason: `${hrNaam} ligt ${t.recoveryConsecutiveDays} dagen op rij minstens ${t.restingHrAboveBaseline} slagen boven je basislijn (${Math.round(baseRestingHr)}).`,
+        });
+      } else if (
+        baseRestingHr !== null &&
+        laatsteNachtHr !== null &&
+        laatsteNachtHr >= baseRestingHr + t.restingHrSingleNightAbove
+      ) {
+        // Eén nacht, maar fors. Niet als het patroon hierboven al afging —
+        // dan zou dezelfde constatering twee keer in het signaal staan.
+        signals.push({
+          code: "rusthartslag_uitschieter",
+          severity: "hoog",
+          reason: `${hrNaam} was vannacht ${Math.round(laatsteNachtHr)} tegen een basislijn van ${Math.round(baseRestingHr)} — ${Math.round(laatsteNachtHr - baseRestingHr)} slagen hoger.`,
         });
       }
 
       const recentHrv = recent.map((r) => r.hrv_ms).filter((v) => v != null);
-      if (
+      const hrvMeerdereDagen =
         baseHrv !== null &&
         recentHrv.length === t.recoveryConsecutiveDays &&
-        recentHrv.every((v) => v <= baseHrv * t.hrvBelowBaselineFactor)
-      ) {
+        recentHrv.every((v) => v <= baseHrv * t.hrvBelowBaselineFactor);
+
+      if (hrvMeerdereDagen) {
         signals.push({
           code: "hrv_laag",
           severity: "hoog",
           reason: `HRV ligt ${t.recoveryConsecutiveDays} dagen op rij onder ${Math.round(t.hrvBelowBaselineFactor * 100)}% van je basislijn (${Math.round(baseHrv)} ms).`,
+        });
+      } else if (
+        baseHrv !== null &&
+        laatsteNachtHrv !== null &&
+        laatsteNachtHrv <= baseHrv * t.hrvSingleNightFactor
+      ) {
+        signals.push({
+          code: "hrv_uitschieter",
+          severity: "hoog",
+          reason: `HRV was vannacht ${Math.round(laatsteNachtHrv)} ms tegen een basislijn van ${Math.round(baseHrv)} ms.`,
         });
       }
     }
