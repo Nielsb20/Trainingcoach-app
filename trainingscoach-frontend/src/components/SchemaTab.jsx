@@ -350,7 +350,7 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
                     </button>
                   </div>
                   <input
-                    className="tc-input"
+                    className="tc-input tc-ex-name-input"
                     placeholder="Oefening (bv. Squat)"
                     value={ex.name}
                     onChange={(e) => updateExercise(day.id, ex.id, { name: e.target.value })}
@@ -372,7 +372,12 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
                     onChange={(e) => updateExercise(day.id, ex.id, { targetReps: Number(e.target.value) || 1 })}
                     title="Aantal reps"
                   />
-                  <button className="tc-icon-btn" onClick={() => removeExercise(day.id, ex.id)}>
+                  <button
+                    className="tc-icon-btn"
+                    title="Oefening verwijderen"
+                    aria-label={`${ex.name || "Oefening"} verwijderen`}
+                    onClick={() => removeExercise(day.id, ex.id)}
+                  >
                     <X size={14} />
                   </button>
                 </div>

@@ -40,7 +40,18 @@
 .tc-navitem:hover { background: var(--surface-alt); color: var(--text); }
 .tc-navitem.active { background: var(--strength-dim); color: var(--strength); }
 
-.tc-main { flex:1; padding: 26px 32px 60px; overflow-y:auto; max-width: 880px; }
+/* De kolom blijft 880px breed — breder leest slechter — maar stond links
+   vastgeplakt, met op een normaal scherm een derde van de breedte leeg
+   ernaast. Gecentreerd binnen de ruimte naast de navigatie oogt dezelfde
+   inhoud afgemaakt in plaats van afgekapt. */
+/* min-width:0 is hier geen detail. Een flex-item krimpt standaard niet onder
+   de minimumbreedte van zijn inhoud, en een tabel met `white-space: nowrap`
+   meldt een hele brede minimumbreedte. Daardoor werd niet de tabel maar de
+   hele kolom 679px breed op een telefoon van 390: de koptekst, de uitleg en
+   alles eronder stonden deels buiten beeld en je moest zijwaarts scrollen om
+   een titel te lezen. Met min-width:0 krimpt de kolom wel, en schuift alleen
+   de tabel zelf binnen zijn eigen overflow. */
+.tc-main { flex:1; min-width:0; padding: 26px 32px 60px; overflow-y:auto; max-width: 880px; margin: 0 auto; }
 .tc-savebanner { display:flex; align-items:flex-start; gap:12px; background: rgba(184,92,92,0.14); border:1px solid #B85C5C; color:#E8C9C9; border-radius:9px; padding:12px 14px; margin-bottom:18px; font-size:13px; line-height:1.5; }
 .tc-savebanner span:first-child { flex:1; }
 .tc-backup-card { border-color: var(--border); }
@@ -60,6 +71,15 @@
 .tc-collapsible-chevron { flex-shrink:0; color:var(--text-muted); transition: transform 0.15s; }
 .tc-collapsible-chevron.open { transform: rotate(90deg); }
 .tc-collapsible-subtitle { font-size:12.5px; color:var(--text-muted); }
+/* Titel en ondertitel delen één regel, en op een telefoon vechten ze om
+   dezelfde ruimte: "Back-ups" kwam als "Back-" / "ups" in beeld. Onder
+   elkaar houdt allebei zijn eigen regel. */
+@media (max-width: 760px) {
+  .tc-collapsible-head { flex-wrap:wrap; }
+  .tc-collapsible-head .tc-ex-name { white-space:nowrap; }
+  .tc-collapsible-subtitle { flex-basis:100%; padding-left:24px; }
+  .tc-collapsible-head .tc-feedback-spacer { display:none; }
+}
 .tc-collapsible-body { margin-top:14px; }
 .tc-daygrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px; }
 
@@ -76,8 +96,18 @@
 .tc-form-row > div { flex:1; min-width: 160px; }
 
 .tc-ex-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
-.tc-ex-row .tc-input:first-child { flex:1; }
+/* De naam krijgt de ruimte die overblijft. Dit stond op `.tc-input:first-child`,
+   maar sinds de verschuifpijltjes ervóór staan is het eerste kind geen input
+   meer en greep die regel nergens meer op — vandaar dat "Romanian deadlift"
+   als "Romanian dead" in beeld stond. min-width:0 erbij, anders weigert een
+   flex-item onder zijn eigen inhoudsbreedte te krimpen. */
+.tc-ex-name-input { flex:1; min-width:0; }
 .tc-x { color: var(--text-muted); font-size:12.5px; }
+/* Op een smalle kaart winnen sets en reps het anders van de naam: twee vaste
+   velden van 82px naast een naam die wél mag krimpen. */
+@media (max-width: 760px) {
+  .tc-ex-row .tc-input-num { max-width: 52px; padding-left:6px; padding-right:4px; }
+}
 
 .tc-btn { display:inline-flex; align-items:center; gap:7px; border:none; border-radius:8px; padding:9px 16px; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer; transition: opacity 0.15s, transform 0.1s; }
 .tc-btn:active { transform: scale(0.98); }
@@ -145,9 +175,15 @@
 .tc-event-meta { font-size:12.5px; color: var(--text-muted); margin:0; font-family:'JetBrains Mono', monospace; }
 .tc-event-notes { font-size:13px; margin: 8px 0 0; }
 .tc-cardioday-list { display:flex; flex-direction:column; gap:8px; }
-.tc-cardioday-row { display:flex; align-items:center; gap:8px; padding: 10px 14px; }
+.tc-cardioday-row { display:flex; align-items:center; gap:8px; padding: 10px 14px; flex-wrap:wrap; }
 .tc-cardioday-row select { max-width: 150px; flex-shrink:0; }
-.tc-cardioday-row input { flex:1; }
+.tc-cardioday-row input { flex:1; min-width: 140px; }
+/* Drie keuzelijsten van 150px die niet mogen krimpen passen niet naast elkaar
+   op een telefoon: wat er niet bij kon viel buiten het scherm, zonder
+   schuifbalk. Nu breken ze af naar de volgende regel. */
+@media (max-width: 760px) {
+  .tc-cardioday-row select { flex: 1 1 calc(50% - 4px); max-width: none; }
+}
 
 .tc-tod-picker { display:flex; gap:6px; margin-bottom: 12px; }
 .tc-tod-btn { display:flex; align-items:center; gap:5px; background: var(--surface-alt); border:1px solid var(--border); color: var(--text-muted); padding:7px 12px; border-radius:7px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; }
@@ -192,14 +228,40 @@
 .tc-proposal-type { font-family:'Oswald',sans-serif; font-weight:600; font-size:13px; }
 .tc-proposal-invulling { font-size:13px; color: var(--text-muted); flex:1; min-width: 140px; }
 
+/* Op een telefoon stond hier ooit alleen een rij pictogrammen: de labels
+   gingen op display:none en wat overbleef waren negen tekeningetjes die ook
+   nog eens over de merknaam heen vielen. Niet te lezen, en voor een
+   schermlezer helemaal niets — display:none haalt de tekst ook uit de
+   toegankelijkheidsboom, dus die knoppen hadden letterlijk geen naam.
+
+   Nu blijven de labels staan, gestapeld onder het pictogram, en mogen ze over
+   twee regels vallen. Dat kost wat hoogte, maar de balk schuift mee omhoog
+   zodra je begint te lezen, dus je betaalt het één keer. */
 @media (max-width: 760px) {
   .tc-app { flex-direction: column; }
-  .tc-sidebar { width:100%; flex-direction:row; align-items:center; padding: 10px 12px; gap: 10px; }
-  .tc-navlist { flex-direction:row; flex-wrap:wrap; }
-  .tc-navitem span { display:none; }
-  .tc-main { padding: 18px 16px 50px; }
+  .tc-sidebar { width:100%; flex-direction:row; align-items:center; padding: 10px 10px; gap: 10px; flex-wrap:wrap; }
+  .tc-brand-name { display:none; } /* het TC-blokje zegt genoeg, de ruimte is voor de tabs */
+  /* De tabs krijgen hun eigen regels onder het merkje en de verversknop. Lieten
+     we ze op dezelfde regel beginnen, dan vulden ze de ruimte eromheen op en
+     stond het merkje ergens halverwege tussen de tabs in. */
+  .tc-navlist { flex-direction:row; flex-wrap:wrap; gap:3px; flex-basis:100%; order:3; justify-content:space-between; }
+  .tc-navitem {
+    flex-direction:column; gap:3px; align-items:center; text-align:center;
+    padding:6px 8px; min-width:58px; font-size:11px; line-height:1.1;
+  }
+  /* Het telbolletje hangt bij het pictogram in plaats van aan het eind van de
+     regel: in een kolom zou margin-left:auto hem onder het label duwen. */
+  .tc-navitem { position:relative; }
+  .tc-nav-badge { position:absolute; top:2px; right:2px; margin-left:0; padding:0 5px; font-size:10px; }
+  /* Breedte expliciet, anders rekt de kolom op tot de breedste tabel erin.
+     Naast elkaar (desktop) vangt min-width:0 dat af, maar onder elkaar is
+     breedte de dwarsrichting: dan bepaalt de breedste inhoud hoe breed de
+     flexregel wordt en stretcht .tc-main gewoon mee tot 679px op een scherm
+     van 390. Met een vaste 100% schuift alleen de tabel nog. */
+  .tc-main { padding: 18px 16px 50px; width: 100%; }
   .tc-sidebar-footer { margin-top: 0; margin-left: auto; flex-direction:row; align-items:center; border-top:none; padding-top:0; }
   .tc-refresh-btn { width: auto; }
+  .tc-refresh-btn span { display:none; } /* het ronde pijltje is eenduidig genoeg */
   .tc-refresh-timestamp { display: none; }
   .tc-copyright { display: none; }
 }
@@ -235,6 +297,15 @@ html, body, #root {
 .tc-planner-date { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
 .tc-planner-sessions { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tc-planner-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+/* Een samengevatte reeks rustdagen: dezelfde kaartvorm als een gewone dag,
+   maar lager en als knop, zodat duidelijk is dat er iets onder zit. */
+.tc-planner-rust {
+  align-items: center; gap: 9px; padding: 7px 12px;
+  font-family: 'Inter', sans-serif; font-size: 12.5px; color: var(--text-muted);
+  cursor: pointer; text-align: left; width: 100%;
+}
+.tc-planner-rust:hover { background: var(--surface-alt); color: var(--text); }
+.tc-planner-rust .tc-planner-date { margin-left: 0; }
 .tc-planner-session {
   display: flex; align-items: flex-start; gap: 10px;
   background: var(--surface-alt); border-radius: 7px; padding: 8px 10px;
@@ -407,8 +478,9 @@ html, body, #root {
 .tc-workoutfile { margin-top: 8px; padding: 8px 10px; background: var(--surface-alt); border:1px solid var(--border); border-radius:8px; }
 .tc-workoutfile-title { display:flex; align-items:center; gap:6px; font-family:'Oswald',sans-serif; font-weight:600; font-size:12px; color: var(--cardio); text-transform:uppercase; letter-spacing:0.04em; }
 .tc-workoutfile-blocks { margin: 6px 0 8px; padding-left: 18px; font-size:12.5px; line-height:1.6; color: var(--text); }
+/* `.tc-spin` en de keyframes stonden hier een tweede keer, identiek aan de
+   definitie bovenaan. Eén blijft over. */
 .tc-spin { animation: tc-spin 1s linear infinite; }
-@keyframes tc-spin { to { transform: rotate(360deg); } }
 
 /* Een brede tabel mag schuiven in plaats van rechts afgeknipt te worden.
    De actieknoppen staan in de laatste kolom, dus afknippen betekent dat je

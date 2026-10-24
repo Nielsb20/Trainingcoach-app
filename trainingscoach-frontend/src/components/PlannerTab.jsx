@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy, Moon } from "lucide-react";
 import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import WorkoutFilePanel from "./shared/WorkoutFilePanel";
@@ -14,6 +14,10 @@ import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel, surfaceLabel 
  * review them here, keep what fits, and conflicts with sessions you already
  * committed to are called out rather than resolved behind your back.
  */
+/** Een dag waarop niets staat: geen plan, geen voorstel, geen kracht, geen evenement. */
+const isRustdag = (day) =>
+  day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0 && day.events.length === 0;
+
 const formatDuration = (min) => {
   if (!min) return "";
   const h = Math.floor(min / 60);
@@ -32,6 +36,8 @@ export default function PlannerTab({ onOpenSession }) {
   // Offset in 2-week blocks from today. The coach happily plans three weeks
   // out, so a fixed window would hide part of its own advice.
   const [blockOffset, setBlockOffset] = useState(0);
+  // Reeksen rustdagen staan samengevat; één klik zet ze weer los uit elkaar.
+  const [rustUitgeklapt, setRustUitgeklapt] = useState(false);
 
   const DAYS_PER_BLOCK = 14;
   const rangeStart = useMemo(() => {
@@ -105,6 +111,32 @@ export default function PlannerTab({ onOpenSession }) {
     }
     return out;
   }, [committed, proposals, strengthSessions, events, rangeStart]);
+
+  /**
+   * Waar zitten de aaneengesloten rustdagen?
+   *
+   * De uitkomst staat op de eerste dag van elke reeks van twee of meer; de
+   * dagen erna komen er niet in voor en worden bij het tekenen overgeslagen.
+   * Eén losse rustdag blijft een gewone regel — die hoort bij het ritme van
+   * de week en kost geen ruimte die iets anders nodig heeft.
+   */
+  const { rustReeksen, rustVerborgen } = useMemo(() => {
+    const reeksen = new Map();
+    const verborgen = new Set();
+    let i = 0;
+    while (i < days.length) {
+      if (!isRustdag(days[i])) { i += 1; continue; }
+      let eind = i;
+      while (eind + 1 < days.length && isRustdag(days[eind + 1])) eind += 1;
+      const lengte = eind - i + 1;
+      if (lengte >= 2) {
+        reeksen.set(days[i].date, { lengte, eind: days[eind].date });
+        for (let j = i + 1; j <= eind; j += 1) verborgen.add(days[j].date);
+      }
+      i = eind + 1;
+    }
+    return { rustReeksen: reeksen, rustVerborgen: verborgen };
+  }, [days]);
 
   if (loading) {
     return (
@@ -239,7 +271,32 @@ export default function PlannerTab({ onOpenSession }) {
 
       <div className="tc-planner">
         {days.map((day) => {
-          const empty = day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0 && day.events.length === 0;
+          const empty = isRustdag(day);
+          // Een reeks lege dagen wordt één regel. Twee weken vooruit kijken
+          // levert al gauw tien "rustdag"-regels op, en dan staat de vorm van
+          // je week — waar de zware dagen zitten en wat ertussen past — over
+          // anderhalf scherm uitgesmeerd. Losse rustdagen blijven wél staan:
+          // die zijn onderdeel van het ritme, geen opvulling.
+          const reeks = rustReeksen.get(day.date);
+          if (empty && !rustUitgeklapt && rustVerborgen.has(day.date)) {
+            return null; // zit in de reeks die hierboven al is samengevat
+          }
+          if (empty && !rustUitgeklapt && reeks) {
+            return (
+              <button
+                className="tc-planner-day tc-planner-rust"
+                key={day.date}
+                onClick={() => setRustUitgeklapt(true)}
+                title="Toon de losse rustdagen"
+              >
+                <Moon size={15} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                <span>
+                  {reeks.lengte} rustdagen
+                  <span className="tc-planner-date"> · {formatDateNL(day.date)} t/m {formatDateNL(reeks.eind)}</span>
+                </span>
+              </button>
+            );
+          }
           return (
             <div className={"tc-planner-day" + (day.isToday ? " tc-planner-today" : "")} key={day.date}>
               <div className="tc-planner-daylabel">
@@ -481,6 +538,11 @@ export default function PlannerTab({ onOpenSession }) {
             </div>
           );
         })}
+        {rustUitgeklapt && rustReeksen.size > 0 && (
+          <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setRustUitgeklapt(false)}>
+            Rustdagen weer samenvatten
+          </button>
+        )}
       </div>
 
       {data.samenvatting.opvolgingPercentage !== null && (

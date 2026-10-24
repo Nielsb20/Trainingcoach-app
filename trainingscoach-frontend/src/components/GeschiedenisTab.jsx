@@ -119,10 +119,14 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
               </select>
               <div className="tc-chart-wrap">
                 <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={exChartData}>
+                  <LineChart data={exChartData} margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
-                    <XAxis dataKey="label" stroke="#8B949B" fontSize={12} />
-                    <YAxis stroke="#8B949B" fontSize={12} unit="kg" />
+                    <XAxis dataKey="label" stroke="#8B949B" fontSize={12} minTickGap={28} interval="preserveStartEnd" />
+                    {/* Niet vanaf nul: je bankt nooit 0 kg, dus die nul voegt
+                        niets toe en drukt een opbouw van 80 naar 90 kg plat
+                        tot een streep bovenin. Rond de echte waarden schalen
+                        laat zien waar het hier om gaat. */}
+                    <YAxis stroke="#8B949B" fontSize={12} unit="kg" domain={["dataMin - 5", "dataMax + 5"]} />
                     <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
                     <Line type="monotone" dataKey="maxWeight" stroke="#C97A3F" strokeWidth={2} dot={{ fill: "#C97A3F", r: 3 }} name="Max gewicht (kg)" />
                   </LineChart>
@@ -170,9 +174,9 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
             <>
               <div className="tc-chart-wrap">
                 <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={cardioChartData}>
+                  <LineChart data={cardioChartData} margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
-                    <XAxis dataKey="label" stroke="#8B949B" fontSize={12} />
+                    <XAxis dataKey="label" stroke="#8B949B" fontSize={12} minTickGap={28} interval="preserveStartEnd" />
                     <YAxis stroke="#8B949B" fontSize={12} />
                     <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
                     <Line type="monotone" dataKey="distance" stroke="#4FA8A0" strokeWidth={2} dot={{ fill: "#4FA8A0", r: 3 }} name="Afstand (km)" />
@@ -304,7 +308,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
               </div>
               <div className="tc-chart-wrap">
                 <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={recentLoadSeries}>
+                  <LineChart data={recentLoadSeries} margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
                     <XAxis dataKey="label" stroke="#8B949B" fontSize={11} interval={Math.max(1, Math.floor(recentLoadSeries.length / 8))} />
                     <YAxis stroke="#8B949B" fontSize={12} />
@@ -350,7 +354,7 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
               </div>
               <div className="tc-chart-wrap">
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={weeklyStrengthLoad}>
+                  <BarChart data={weeklyStrengthLoad} margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
                     <XAxis dataKey="label" stroke="#8B949B" fontSize={11} />
                     <YAxis stroke="#8B949B" fontSize={12} />

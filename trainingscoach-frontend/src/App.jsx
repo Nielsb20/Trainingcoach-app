@@ -249,6 +249,12 @@ export default function App() {
                 key={n.id}
                 className={"tc-navitem" + (tab === n.id ? " active" : "")}
                 onClick={() => setTab(n.id)}
+                // Het label staat er als tekst naast, maar een naam op de knop
+                // zelf overleeft het ook als de tekst om ruimte wegvalt — en
+                // dat is precies wanneer je hem het hardst nodig hebt.
+                title={n.label}
+                aria-label={n.label}
+                aria-current={tab === n.id ? "page" : undefined}
               >
                 <Icon size={17} />
                 <span>{n.label}</span>
