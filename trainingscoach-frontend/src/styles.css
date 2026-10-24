@@ -297,6 +297,15 @@ html, body, #root {
 .tc-planner-date { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
 .tc-planner-sessions { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tc-planner-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+/* Een samengevatte reeks rustdagen: dezelfde kaartvorm als een gewone dag,
+   maar lager en als knop, zodat duidelijk is dat er iets onder zit. */
+.tc-planner-rust {
+  align-items: center; gap: 9px; padding: 7px 12px;
+  font-family: 'Inter', sans-serif; font-size: 12.5px; color: var(--text-muted);
+  cursor: pointer; text-align: left; width: 100%;
+}
+.tc-planner-rust:hover { background: var(--surface-alt); color: var(--text); }
+.tc-planner-rust .tc-planner-date { margin-left: 0; }
 .tc-planner-session {
   display: flex; align-items: flex-start; gap: 10px;
   background: var(--surface-alt); border-radius: 7px; padding: 8px 10px;

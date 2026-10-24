@@ -10,6 +10,8 @@ import KrachtTab from "../components/KrachtTab";
 import EventsTab from "../components/EventsTab";
 import SchemaTab from "../components/SchemaTab";
 import WellnessTab from "../components/WellnessTab";
+import PlannerTab from "../components/PlannerTab";
+import CardioTab from "../components/CardioTab";
 import App from "../App";
 import { NAV } from "../lib/constants";
 import * as api from "../api/client";
@@ -501,5 +503,88 @@ describe("Hersteltabel", () => {
     fireEvent.click(knop);
     expect(document.querySelectorAll("tbody tr")).toHaveLength(34);
     expect(screen.getByRole("button", { name: "Toon alleen de laatste 14 dagen" })).toBeInTheDocument();
+  });
+});
+
+describe("Rustdagen in de planner", () => {
+  // De planner toont veertien dagen vanaf vandaag, dus de testdata loopt mee
+  // met de klok in plaats van met vaste datums.
+  const overDagen = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const rit = (n) => ({
+    id: `p${n}`, date: overDagen(n), type: "Fietsen", description: "2u duurrit",
+    status: "gepland", discipline: "cardio", locked: false,
+  });
+
+  function mockPlanning(plans) {
+    vi.spyOn(api, "getPlannedRange").mockResolvedValue({
+      plans, krachttrainingen: [], evenementen: [],
+      samenvatting: { opvolgingPercentage: null },
+      volgendEvenement: null,
+    });
+  }
+
+  it("vat een reeks lege dagen samen tot één regel", async () => {
+    // Twee ritten in veertien dagen levert anders twaalf "rustdag"-regels.
+    mockPlanning([rit(0), rit(7)]);
+    render(<PlannerTab onOpenSession={() => {}} />);
+
+    const samenvattingen = await screen.findAllByTitle("Toon de losse rustdagen");
+    expect(samenvattingen).toHaveLength(2);
+    expect(samenvattingen[0]).toHaveTextContent("6 rustdagen");
+    expect(screen.queryByText("rustdag")).not.toBeInTheDocument();
+
+    fireEvent.click(samenvattingen[0]);
+    expect(screen.getAllByText("rustdag")).toHaveLength(12);
+    expect(screen.getByRole("button", { name: "Rustdagen weer samenvatten" })).toBeInTheDocument();
+  });
+
+  it("laat een losse rustdag gewoon staan", async () => {
+    // Eén dag ertussen hoort bij het ritme van de week; die samenvatten
+    // verbergt meer dan het oplevert.
+    mockPlanning([...Array(14).keys()].filter((n) => n !== 1).map(rit));
+    render(<PlannerTab onOpenSession={() => {}} />);
+
+    expect(await screen.findByText("rustdag")).toBeInTheDocument();
+    expect(screen.queryByTitle("Toon de losse rustdagen")).not.toBeInTheDocument();
+  });
+});
+
+describe("Handmatig een cardiosessie invoeren", () => {
+  const props = {
+    addCardioLog: vi.fn(), addCardioLogsBulk: vi.fn(),
+    weightLogs: [], onStravaImported: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.spyOn(api, "getStravaStatus").mockResolvedValue({ configured: false, connected: false });
+    localStorage.clear();
+  });
+
+  it("staat klaar zolang er nog niets vanzelf binnenkomt", async () => {
+    render(<CardioTab {...props} cardioLogs={[]} />);
+    expect(await screen.findByText("Cardiosessie opslaan")).toBeInTheDocument();
+  });
+
+  const dagenGeleden = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("blijft dicht zodra Strava de ritten aanlevert", async () => {
+    render(<CardioTab {...props} cardioLogs={[{ id: "a", date: dagenGeleden(2), source: "strava_sync" }]} />);
+    expect(await screen.findByText(/Strava vult dit zelf/)).toBeInTheDocument();
+    expect(screen.queryByText("Cardiosessie opslaan")).not.toBeInTheDocument();
+  });
+
+  it("staat weer klaar als er al een maand niets meer is binnengekomen", async () => {
+    // Een verlopen token laat de koppeling staan maar levert niets meer op;
+    // dan is dit formulier weer de manier waarop je een rit kwijt kunt.
+    render(<CardioTab {...props} cardioLogs={[{ id: "a", date: dagenGeleden(60), source: "strava_sync" }]} />);
+    expect(await screen.findByText("Cardiosessie opslaan")).toBeInTheDocument();
   });
 });

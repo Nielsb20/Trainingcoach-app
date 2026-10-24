@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import Papa from "papaparse";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { UploadCloud, Check, X, Loader2 } from "lucide-react";
@@ -12,6 +12,23 @@ import { mapActivitiesCsv, guessCardioType } from "../lib/csvImport";
 import { parseGpxToSession, readGpxFileAsText } from "../lib/gpxParser";
 
 export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk, weightLogs, onStravaImported }) {
+  // Komen ritten op dit moment vanzelf binnen? Dat bepaalt of het handmatige
+  // formulier hieronder standaard openstaat.
+  //
+  // De vraag is niet of de koppeling áánstaat maar of er ook echt iets uit
+  // komt: een koppeling waarvan het token verlopen is staat er nog steeds, en
+  // dan wil je dat formulier juist wél zien. Daarom de bron van wat er ligt,
+  // en alleen van de afgelopen maand — dat er vorig jaar ritten binnenkwamen
+  // zegt niets over vandaag.
+  const komtBinnenViaStrava = useMemo(() => {
+    const grens = new Date();
+    grens.setDate(grens.getDate() - 30);
+    const grensIso = grens.toISOString().slice(0, 10);
+    return cardioLogs.some(
+      (l) => typeof l.source === "string" && l.source.startsWith("strava") && l.date >= grensIso
+    );
+  }, [cardioLogs]);
+
   const [date, setDate] = useState(todayStr());
   const [type, setType] = useState(CARDIO_TYPES[0]);
   const [subType, setSubType] = useState("");
@@ -337,7 +354,19 @@ export default function CardioTab({ cardioLogs, addCardioLog, addCardioLogsBulk,
         )}
       </CollapsibleCard>
 
-      <CollapsibleCard id="cardio-handmatig" title="Losse sessie handmatig invoeren" defaultOpen>
+      {/* Open als er nog nooit een rit vanzelf is binnengekomen — dan is dit
+          formulier de manier waarop je cardio toevoegt en hoort het klaar te
+          staan. Komt alles via Strava, dan is het de zeldzaamste weg van de
+          drie op dit scherm en stond het alleen maar in de weg: een
+          formulier van twaalf velden tussen jou en de koppeling erboven.
+          Klap je hem zelf open of dicht, dan onthoudt de kaart dát en telt
+          deze standaard niet meer mee. */}
+      <CollapsibleCard
+        id="cardio-handmatig"
+        title="Losse sessie handmatig invoeren"
+        subtitle={komtBinnenViaStrava ? "zelden nodig — Strava vult dit zelf" : null}
+        defaultOpen={!komtBinnenViaStrava}
+      >
         <div className="tc-form-row">
           <div>
             <label className="tc-label">Datum</label>
