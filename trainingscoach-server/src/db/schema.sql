@@ -508,3 +508,9 @@ ALTER TABLE wellness_logs ADD COLUMN rem_sleep_min INTEGER;
 ALTER TABLE wellness_logs ADD COLUMN light_sleep_min INTEGER;
 ALTER TABLE wellness_logs ADD COLUMN awake_min INTEGER;
 ALTER TABLE wellness_logs ADD COLUMN respiration_avg REAL;
+
+-- Wat de coach per oefening voorstelt voor een geplande krachtsessie:
+-- [{naam, sets, herhalingen, gewichtKg}]. Stond eerder alleen in de vrije
+-- tekst van description, waar je het in de sportschool moest teruglezen en
+-- overtikken. Los opgeslagen kan het loggen de gewichten klaarzetten.
+ALTER TABLE planned_sessions ADD COLUMN strength_targets_json TEXT;
