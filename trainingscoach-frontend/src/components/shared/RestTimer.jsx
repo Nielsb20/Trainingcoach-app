@@ -131,8 +131,45 @@ function formatSeconds(total) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export default function RestTimer({ compact = false }) {
+/** Start de gedeelde rust met de ingestelde duur — voor het vinkje bij een set. */
+export function startRest() {
+  startTimer(state.duration);
+}
+
+export default function RestTimer({ compact = false, bar = false }) {
   const { duration, running, done, remaining } = useRestTimer();
+
+  // Onderin vastgezet tijdens het loggen. Een vinkje bij een set start de rust,
+  // dus deze balk hoeft vooral te laten zien hoe lang je nog hebt — zonder dat
+  // je naar boven moet scrollen naar een timerkaart.
+  if (bar) {
+    const verstreken = running ? 1 - remaining / duration : done ? 1 : 0;
+    return (
+      <div className={"tc-restbar" + (done ? " tc-resttimer-done" : "")} role="timer" aria-live="off">
+        <div className="tc-restbar-main">
+          <div className="tc-restbar-top">
+            <span className="tc-restbar-label">{done ? "Rust voorbij" : running ? "Rust" : "Rust na een set"}</span>
+            <span className="tc-restbar-value tc-mono">
+              {running || done ? formatSeconds(remaining) : formatSeconds(duration)}
+            </span>
+          </div>
+          <div className="tc-restbar-track"><div className="tc-restbar-fill" style={{ width: `${Math.min(100, verstreken * 100)}%` }} /></div>
+        </div>
+        <label className="tc-restbar-select">
+          <span className="tc-visually-hidden">Rusttijd</span>
+          <select className="tc-input" value={duration}
+            onChange={(e) => { const v = Number(e.target.value); setDuration(v); if (running) startTimer(v); }}>
+            {PRESETS.map((p) => <option key={p} value={p}>{p < 60 ? `${p}s` : `${p / 60} min`}</option>)}
+          </select>
+        </label>
+        {running ? (
+          <button className="tc-btn tc-btn-ghost" onClick={stopTimer}>Stop</button>
+        ) : (
+          <button className="tc-btn tc-btn-ghost" onClick={() => startTimer(duration)}>Start</button>
+        )}
+      </div>
+    );
+  }
 
   if (compact) {
     return (

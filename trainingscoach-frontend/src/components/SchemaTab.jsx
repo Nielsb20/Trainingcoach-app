@@ -5,10 +5,9 @@ import { WEEKDAYS, todayStr, formatDateNL, computeHrZones, computePowerZones, co
 import { uid } from "../lib/uiHelpers";
 import * as api from "../api/client";
 import AutomationPanel from "./AutomationPanel";
-import SchemaCoachPanel from "./SchemaCoachPanel";
 import CollapsibleCard from "./shared/CollapsibleCard";
 
-export default function SchemaTab({ schema, setSchema, onRestored }) {
+export default function SchemaTab({ schema, setSchema, onRestored, goToCoach }) {
   const [pendingImport, setPendingImport] = useState(null);
   const [importFileError, setImportFileError] = useState("");
   const [restoring, setRestoring] = useState(false);
@@ -244,16 +243,16 @@ export default function SchemaTab({ schema, setSchema, onRestored }) {
         voorstel laten doen op basis van je doelen.
       </p>
 
-      <h2 className="tc-section-title" style={{ marginTop: 0 }}>Laat de coach een schema voorstellen</h2>
-      <p className="tc-sub" style={{ marginTop: -4 }}>
-        Je hoeft het schema hieronder niet zelf te bedenken. Vertel wat je wilt bereiken en waar je
-        aan gebonden bent, dan ontwerpt de coach een weekindeling op basis daarvan én van wat je tot
-        nu toe hebt getraind. Je krijgt het als voorstel: je ziet eerst wat er zou veranderen, en
-        overnemen kun je meteen terugdraaien.
-      </p>
-      <SchemaCoachPanel onSchemaReplaced={onRestored} />
+      {/* Het schemavoorstel van de coach staat nu bij Coach; hier alleen de
+          weg erheen, zodat wie een schema zoekt het niet mist. */}
+      {goToCoach && (
+        <p className="tc-import-help" style={{ marginTop: 0 }}>
+          Liever niet zelf bedenken?{" "}
+          <button className="tc-link-btn" onClick={goToCoach}>Laat de coach een schema voorstellen</button>
+        </p>
+      )}
 
-      <h2 className="tc-section-title" style={{ marginTop: 32 }}>Je trainingsdagen</h2>
+      <h2 className="tc-section-title" style={{ marginTop: 16 }}>Je trainingsdagen</h2>
       <p className="tc-sub" style={{ marginTop: -4 }}>
         De coach plant je krachttrainingen exact op de weekdagen die je hier aanvinkt — hij verzint
         er geen eigen rotatie omheen. Geef je ook een tijdstip op, dan rekent hij met de werkelijke

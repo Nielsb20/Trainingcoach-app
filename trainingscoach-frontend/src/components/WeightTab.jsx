@@ -9,6 +9,7 @@ import { uid } from "../lib/uiHelpers";
 export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog }) {
   const [date, setDate] = useState(todayStr());
   const [weight, setWeight] = useState("");
+  const [alleRijen, setAlleRijen] = useState(false);
   const [bodyFat, setBodyFat] = useState("");
   const [notes, setNotes] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
@@ -29,6 +30,13 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
     }
   }
 
+  // De grafiek toont de trend; de tabel is om een losse meting na te kijken
+  // of weg te gooien. Drie maanden aan regels duwde het formulier eronder van
+  // het scherm.
+  const RIJEN_INGEKLAPT = 8;
+  const nieuwsteEerst = [...sorted].reverse();
+  const zichtbaar = alleRijen ? nieuwsteEerst : nieuwsteEerst.slice(0, RIJEN_INGEKLAPT);
+
   return (
     <div>
       <h1 className="tc-title">Lichaamsgewicht</h1>
@@ -46,14 +54,16 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
           {latest && (
             <div className="tc-chiprow">
               <span className="tc-hint-badge tc-badge-event">Laatste log: {latest.weight_kg} kg ({formatDateNL(latest.date)})</span>
-              {latest.body_fat_pct != null && <span className="tc-hint-badge tc-badge-event">{latest.body_fat_pct}% vet</span>}
+              {latest.body_fat_pct != null && <span className="tc-hint-badge tc-badge-event">{(Math.round(latest.body_fat_pct * 10) / 10).toFixed(1)}% vet</span>}
             </div>
           )}
           <div className="tc-chart-wrap">
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={chartData}>
                 <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
-                <XAxis dataKey="label" stroke="#8B949B" fontSize={12} />
+                {/* Zonder ondergrens voor de tussenruimte schreef recharts drie
+                    maanden aan datums over elkaar heen. */}
+                <XAxis dataKey="label" stroke="#8B949B" fontSize={11} minTickGap={28} interval="preserveStartEnd" />
                 <YAxis yAxisId="gewicht" stroke="#8C86C9" fontSize={12} unit="kg" domain={["auto", "auto"]} />
                 {hasBodyFat && <YAxis yAxisId="vet" orientation="right" stroke="#7FA65C" fontSize={12} unit="%" domain={["auto", "auto"]} />}
                 <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
@@ -68,16 +78,21 @@ export default function WeightTab({ weightLogs, addWeightLog, deleteWeightLog })
           <table className="tc-table">
             <thead><tr><th>Datum</th><th>Gewicht</th><th>Vet%</th><th></th></tr></thead>
             <tbody>
-              {[...sorted].reverse().map((w) => (
+              {zichtbaar.map((w) => (
                 <tr key={w.id}>
                   <td>{formatDateNL(w.date)}</td>
                   <td className="tc-mono">{w.weight_kg} kg</td>
-                  <td className="tc-mono">{w.body_fat_pct != null ? `${w.body_fat_pct}%` : "–"}</td>
+                  <td className="tc-mono">{w.body_fat_pct != null ? `${(Math.round(w.body_fat_pct * 10) / 10).toFixed(1)}%` : "–"}</td>
                   <td><ConfirmDeleteButton onConfirm={() => deleteWeightLog(w.id)} title="Deze meting verwijderen" /></td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {nieuwsteEerst.length > RIJEN_INGEKLAPT && (
+            <button className="tc-btn tc-btn-ghost tc-btn-sm" style={{ marginTop: 8 }} onClick={() => setAlleRijen(!alleRijen)}>
+              {alleRijen ? `Toon alleen de laatste ${RIJEN_INGEKLAPT}` : `Toon alle ${nieuwsteEerst.length} metingen`}
+            </button>
+          )}
         </>
       )}
 

@@ -1,19 +1,33 @@
-import { Dumbbell, Activity, MessageCircle, History, Settings, Flag, Scale, Sunrise, Sun, Moon, HeartPulse, CalendarDays } from "lucide-react";
+import { Dumbbell, Activity, MessageCircle, Settings, Sunrise, Sun, Moon, CalendarDays, Home, Plus, TrendingUp } from "lucide-react";
 
-// Analyse zat hier als eigen tabblad, naast Geschiedenis — twee schermen die
-// allebei terugkijken op dezelfde sessies, en die daardoor voortdurend op
-// elkaar leken. Het is nu één tabblad met subtabs: Kracht, Cardio, Belasting,
-// Analyse.
+// Negen tabbladen naast elkaar waren er te veel: op een telefoon twee rijen
+// pictogrammen bovenaan, en wat je dagelijks doet (loggen, kijken wat er
+// vandaag staat) stond tussen wat je eens per maand aanraakt (schema,
+// evenementen, koppelingen). Nu vijf onderdelen voor elke dag, en de rest
+// onder Instellingen.
+//
+//   Vandaag     — nieuw: herstel, training van vandaag, laatste coachadvies
+//   Planning    — ongewijzigd
+//   Loggen      — kracht (meestal) en cardio
+//   Voortgang   — was Geschiedenis, met Gewicht en Herstel erbij
+//   Coach       — met het schemavoorstel, dat eerst onder Schema zat
+//   Instellingen — Schema en Evenementen
 export const NAV = [
-  { id: "schema", label: "Schema", icon: Settings },
-  { id: "kracht", label: "Kracht loggen", icon: Dumbbell },
-  { id: "cardio", label: "Cardio loggen", icon: Activity },
-  { id: "gewicht", label: "Gewicht", icon: Scale },
-  { id: "herstel", label: "Herstel", icon: HeartPulse },
+  { id: "vandaag", label: "Vandaag", icon: Home },
   { id: "planning", label: "Planning", icon: CalendarDays },
-  { id: "evenementen", label: "Evenementen", icon: Flag },
-  { id: "geschiedenis", label: "Geschiedenis", icon: History },
+  { id: "loggen", label: "Loggen", icon: Plus, primary: true },
+  { id: "voortgang", label: "Voortgang", icon: TrendingUp },
   { id: "coach", label: "Coach", icon: MessageCircle },
+];
+
+export const SETTINGS_NAV = { id: "instellingen", label: "Instellingen", icon: Settings };
+
+// Wat er onder Loggen valt. Gewicht en herstel komen meestal vanzelf binnen
+// (weegschaal, horloge) en staan daarom bij Voortgang, met het handmatige
+// formulier onderaan.
+export const LOG_KINDS = [
+  { id: "kracht", label: "Kracht", icon: Dumbbell },
+  { id: "cardio", label: "Cardio", icon: Activity },
 ];
 
 export const TIME_OF_DAY = [

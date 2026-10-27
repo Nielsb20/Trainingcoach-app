@@ -13,6 +13,7 @@ import WellnessTab from "../components/WellnessTab";
 import PlannerTab from "../components/PlannerTab";
 import CardioTab from "../components/CardioTab";
 import App from "../App";
+import { herstelOverzicht } from "../lib/recovery";
 import { NAV } from "../lib/constants";
 import * as api from "../api/client";
 
@@ -176,6 +177,40 @@ describe("KrachtTab", () => {
     const entry = addWorkoutLog.mock.calls[0][0];
     expect(entry.exercises).toHaveLength(1);
     expect(entry.exercises[0].sets).toEqual([{ weight: 100, reps: 5 }]);
+  });
+
+  it("zet de gewichten van de coach klaar en slaat alleen afgevinkte sets op", async () => {
+    api.getPlannedSessions.mockResolvedValue({
+      plans: [{
+        id: "p1", date: new Date().toISOString().slice(0, 10), type: "Dag A",
+        description: "Squat 3x5 op 102,5 kg", status: "gepland", discipline: "kracht",
+        krachtDoelen: [{ naam: "Squat", sets: 3, herhalingen: 5, gewichtKg: 102.5 }],
+      }],
+    });
+    const addWorkoutLog = vi.fn().mockResolvedValue(true);
+    render(<KrachtTab schema={schema} workoutLogs={[]} addWorkoutLog={addWorkoutLog} goToSchema={vi.fn()} />);
+
+    // Drie sets volgens de coach, niet de twee uit het schema, en echt ingevuld.
+    await waitFor(() => expect(screen.getAllByLabelText(/Squat set \d gewicht/)).toHaveLength(3));
+    expect(screen.getByLabelText("Squat set 1 gewicht")).toHaveValue(102.5);
+    expect(screen.getByLabelText("Squat set 1 herhalingen")).toHaveValue(5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Squat set 1 gedaan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Squat set 2 gedaan" }));
+    fireEvent.click(screen.getByRole("button", { name: /Training opslaan/ }));
+
+    await waitFor(() => expect(addWorkoutLog).toHaveBeenCalled());
+    // Set 3 stond alleen klaar en is niet getild: die hoort niet in het log.
+    expect(addWorkoutLog.mock.calls[0][0].exercises[0].sets).toEqual([
+      { weight: 102.5, reps: 5 }, { weight: 102.5, reps: 5 },
+    ]);
+  });
+
+  it("valt zonder coachadvies terug op de vorige keer", async () => {
+    const vorige = [{ id: "w1", date: "2026-10-01", exercises: [{ name: "Squat", sets: [{ weight: 95, reps: 5 }, { weight: 97.5, reps: 4 }] }] }];
+    render(<KrachtTab schema={schema} workoutLogs={vorige} addWorkoutLog={vi.fn()} goToSchema={vi.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText("Squat set 2 gewicht")).toHaveValue(97.5));
+    expect(screen.getByLabelText("Squat set 1 gewicht")).toHaveValue(95);
   });
 });
 
@@ -465,9 +500,17 @@ describe("Navigatie", () => {
     vi.spyOn(api, "getGoals").mockResolvedValue({});
     vi.spyOn(api, "getAutomation").mockResolvedValue({});
 
+    vi.spyOn(api, "getPlannedRange").mockResolvedValue({ plans: [], krachttrainingen: [], evenementen: [] });
+    vi.spyOn(api, "getWellnessLogs").mockResolvedValue([]);
+
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Schema" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "Gewicht" })).not.toHaveAttribute("aria-current");
+    // De app opent op Vandaag, niet meer op Schema.
+    expect(await screen.findByRole("button", { name: "Vandaag" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Instellingen" })).not.toHaveAttribute("aria-current");
+
+    fireEvent.click(screen.getByRole("button", { name: "Instellingen" }));
+    expect(screen.getByRole("button", { name: "Instellingen" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("tab", { name: "Schema en profiel" })).toHaveAttribute("aria-selected", "true");
   });
 });
 
@@ -489,7 +532,7 @@ describe("Hersteltabel", () => {
     expect(screen.queryByText(/12\.2999/)).not.toBeInTheDocument();
   });
 
-  it("toont standaard twee weken en de rest pas op verzoek", async () => {
+  it("toont standaard een week en de rest pas op verzoek", async () => {
     const dagen = Array.from({ length: 34 }, (_, i) =>
       dag(`2026-09-${String(i + 1).padStart(2, "0")}`)
     );
@@ -498,11 +541,11 @@ describe("Hersteltabel", () => {
 
     const knop = await screen.findByRole("button", { name: "Toon alle 34 dagen" });
     // Honderdtwintig regels openklappen duwt alles eronder van het scherm af.
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(14);
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(7);
 
     fireEvent.click(knop);
     expect(document.querySelectorAll("tbody tr")).toHaveLength(34);
-    expect(screen.getByRole("button", { name: "Toon alleen de laatste 14 dagen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Toon alleen de laatste 7 dagen" })).toBeInTheDocument();
   });
 });
 
@@ -586,5 +629,45 @@ describe("Handmatig een cardiosessie invoeren", () => {
     // dan is dit formulier weer de manier waarop je een rit kwijt kunt.
     render(<CardioTab {...props} cardioLogs={[{ id: "a", date: dagenGeleden(60), source: "strava_sync" }]} />);
     expect(await screen.findByText("Cardiosessie opslaan")).toBeInTheDocument();
+  });
+});
+
+describe("Herstelsignaal", () => {
+  const reeks = (n, extra = () => ({})) =>
+    Array.from({ length: n }, (_, i) => ({
+      date: `2026-10-${String(i + 1).padStart(2, "0")}`,
+      sleepingHr: 48 + (i % 3), hrvMs: 60 + (i % 4), sleepMinutes: 450, ...extra(i, n),
+    }));
+
+  it("ziet een forse uitschieter in één nacht", () => {
+    const o = herstelOverzicht(reeks(25, (i, n) => (i === n - 1 ? { sleepingHr: 60, hrvMs: 45 } : {})));
+    expect(o.signalen.map((t) => t.id).sort()).toEqual(["hartslag", "hrv"]);
+    expect(o.tegels.find((t) => t.id === "hartslag").label).toBe("Nachthartslag");
+  });
+
+  it("blijft rustig bij een normale nacht", () => {
+    expect(herstelOverzicht(reeks(25)).signalen).toHaveLength(0);
+  });
+});
+
+describe("Afvinken in de planner", () => {
+  it("vinkt af met één knop en zet de rest achter het menu", async () => {
+    const vandaag = new Date().toISOString().slice(0, 10);
+    vi.spyOn(api, "getPlannedRange").mockResolvedValue({
+      plans: [{ id: "p1", date: vandaag, type: "Fietsen", description: "duurrit", status: "gepland", discipline: "cardio", locked: false }],
+      krachttrainingen: [], evenementen: [], volgendEvenement: null,
+      samenvatting: { opvolgingPercentage: null },
+    });
+    const update = vi.spyOn(api, "updatePlannedSession").mockResolvedValue({});
+    render(<PlannerTab onOpenSession={vi.fn()} />);
+
+    await screen.findByRole("button", { name: "Fietsen op gedaan zetten" });
+    expect(screen.queryByRole("menuitem", { name: /Overslaan/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Meer acties voor Fietsen" }));
+    expect(screen.getByRole("menuitem", { name: /Overslaan/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fietsen op gedaan zetten" }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith("p1", "gedaan"));
   });
 });
