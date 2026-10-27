@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Plus, Loader2 } from "lucide-react";
 import ConfirmDeleteButton from "./shared/ConfirmDeleteButton";
 import CollapsibleCard from "./shared/CollapsibleCard";
+import HerstelTegels from "./shared/HerstelTegels";
 import * as api from "../api/client";
 import { todayStr, formatDateNL } from "../lib/calculations";
+import { herstelOverzicht } from "../lib/recovery";
 
 /**
  * Daily recovery metrics. Manual entry is the primary path: the Garmin
@@ -23,10 +24,8 @@ export default function WellnessTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
-  // De grafiek erboven gaat over de hele reeks; de tabel is om een losse dag
-  // na te kijken of weg te gooien. Honderdtwintig regels daarvoor openklappen
-  // maakt van elke andere knop op dit scherm iets wat je eerst voorbij moet
-  // scrollen.
+  // De tegels erboven gaan over de trend; de tabel is om een losse dag na te
+  // kijken of weg te gooien. Een week is genoeg om mee te beginnen.
   const [alleRijen, setAlleRijen] = useState(false);
 
   const [date, setDate] = useState(todayStr());
@@ -80,55 +79,17 @@ export default function WellnessTab() {
     }
   }
 
-  const chartData = useMemo(
-    () =>
-      logs.map((l) => ({
-        label: formatDateNL(l.date),
-        nachthartslag: l.sleepingHr,
-        rusthartslag: l.restingHr,
-        ademhaling: l.respirationAvg,
-        diepeSlaapUren: l.deepSleepMin ? Math.round((l.deepSleepMin / 60) * 10) / 10 : null,
-        hrv: l.hrvMs,
-        slaapUren: l.sleepMinutes ? Math.round((l.sleepMinutes / 60) * 10) / 10 : null,
-      })),
-    [logs]
-  );
-
-  const RIJEN_INGEKLAPT = 14;
+  const RIJEN_INGEKLAPT = 7;
   const nieuwsteEerst = useMemo(() => [...logs].reverse(), [logs]);
   const zichtbareLogs = alleRijen ? nieuwsteEerst : nieuwsteEerst.slice(0, RIJEN_INGEKLAPT);
 
-  const hasHrv = logs.some((l) => l.hrvMs !== null);
-  const hasSleep = logs.some((l) => l.sleepMinutes !== null);
   const hasNacht = logs.some((l) => l.sleepingHr !== null && l.sleepingHr !== undefined);
   // Een band die slaapfasen meet laat die kolommen zien; een ouder apparaat
   // levert ze niet en dan hoort er ook geen lege kolom te staan.
   const hasFasen = logs.some((l) => l.deepSleepMin !== null && l.deepSleepMin !== undefined);
   const hasAdem = logs.some((l) => l.respirationAvg !== null && l.respirationAvg !== undefined);
 
-  // A 7-day mean versus the three weeks before it — the same comparison the
-  // coach makes, shown here so the number on screen matches the advice.
-  const trend = useMemo(() => {
-    if (logs.length < 8) return null;
-    const sorted = [...logs].sort((a, b) => (a.date > b.date ? -1 : 1));
-    const avg = (rows, key) => {
-      const v = rows.map((r) => r[key]).filter((x) => x !== null && x !== undefined);
-      return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : null;
-    };
-    const recent = sorted.slice(0, 7);
-    const base = sorted.slice(7, 28);
-    if (!base.length) return null;
-    // De nachtwaarde als die er is: die ligt vast zodra je wakker bent,
-    // terwijl de dagwaarde van het horloge gedurende de dag nog kan zakken.
-    const nachtNu = avg(recent, "sleepingHr");
-    return {
-      veld: nachtNu !== null ? "nacht" : "dag",
-      rustNu: nachtNu !== null ? nachtNu : avg(recent, "restingHr"),
-      rustBasis: nachtNu !== null ? avg(base, "sleepingHr") : avg(base, "restingHr"),
-      hrvNu: avg(recent, "hrvMs"),
-      hrvBasis: avg(base, "hrvMs"),
-    };
-  }, [logs]);
+  const overzicht = useMemo(() => herstelOverzicht(logs), [logs]);
 
   if (loading) {
     return (
@@ -142,35 +103,10 @@ export default function WellnessTab() {
     <div>
       <h1 className="tc-title">Herstel</h1>
       <p className="tc-sub">
-        Hartslag in rust, HRV en slaap. De coach vergelijkt deze waarden met je eigen basislijn — een
-        verhoogde hartslag of verlaagde HRV is een signaal om een zware training uit te stellen.
+        Je laatste nacht tegen je eigen normale bereik. Dezelfde vergelijking maakt de coach.
       </p>
-      {hasNacht && (
-        <p className="tc-import-help" style={{ marginTop: -6 }}>
-          <strong>Nachthartslag</strong> is het gemiddelde over je slaapvenster: dat getal ligt vast
-          zodra je wakker bent. De <strong>rusthartslag</strong> ernaast is de dagwaarde van je horloge
-          — de laagste aanhoudende hartslag over het hele etmaal — en die kan 's avonds lager uitvallen
-          dan 's ochtends omdat je overdag een uur stil hebt gezeten. Voor het volgen van herstel telt
-          de nachtwaarde; de coach gebruikt die ook.
-        </p>
-      )}
 
       {error && <div className="tc-error"><span>{error}</span></div>}
-
-      {trend && (
-        <div className="tc-chiprow">
-          {trend.rustNu !== null && trend.rustBasis !== null && (
-            <span className={"tc-hint-badge " + (trend.rustNu > trend.rustBasis + 5 ? "tc-badge-warning" : "tc-badge-cardio")}>
-              {trend.veld === "nacht" ? "Nachthartslag" : "Rusthartslag (dagwaarde)"}: {trend.rustNu} nu vs. {trend.rustBasis} basislijn
-            </span>
-          )}
-          {trend.hrvNu !== null && trend.hrvBasis !== null && (
-            <span className={"tc-hint-badge " + (trend.hrvNu < trend.hrvBasis * 0.9 ? "tc-badge-warning" : "tc-badge-cardio")}>
-              HRV: {trend.hrvNu} nu vs. {trend.hrvBasis} basislijn
-            </span>
-          )}
-        </div>
-      )}
 
       {logs.length === 0 ? (
         <div className="tc-empty">
@@ -182,29 +118,15 @@ export default function WellnessTab() {
         </div>
       ) : (
         <>
-          <div className="tc-chart-wrap">
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={chartData} margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#2E363D" strokeDasharray="3 3" />
-                {/* Een maand aan dagen levert meer datums op dan er naast
-                    elkaar passen; zonder ondergrens voor de tussenruimte
-                    schrijft recharts ze over elkaar heen tot één onleesbare
-                    streep. Nu laat hij er net zoveel staan als passen. */}
-                <XAxis dataKey="label" stroke="#8B949B" fontSize={11} minTickGap={28} interval="preserveStartEnd" />
-                <YAxis yAxisId="hr" stroke="#C97A3F" fontSize={12} domain={["auto", "auto"]} />
-                {(hasHrv || hasSleep) && <YAxis yAxisId="other" orientation="right" stroke="#4FA8A0" fontSize={12} domain={["auto", "auto"]} />}
-                <Tooltip contentStyle={{ background: "#1C2227", border: "1px solid #2E363D", color: "#E8E6E1" }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {hasNacht && <Line yAxisId="hr" type="monotone" dataKey="nachthartslag" stroke="#C97A3F" strokeWidth={2} dot={false} name="Nachthartslag (bpm)" connectNulls />}
-                <Line yAxisId="hr" type="monotone" dataKey="rusthartslag" stroke="#8B949B" strokeWidth={hasNacht ? 1.5 : 2} strokeDasharray={hasNacht ? "4 3" : undefined} dot={false} name={hasNacht ? "Rusthartslag, dagwaarde (bpm)" : "Rusthartslag (bpm)"} connectNulls />
-                {hasHrv && <Line yAxisId="other" type="monotone" dataKey="hrv" stroke="#4FA8A0" strokeWidth={2} dot={false} name="HRV (ms)" connectNulls />}
-                {hasSleep && <Line yAxisId="other" type="monotone" dataKey="slaapUren" stroke="#8C86C9" strokeWidth={2} dot={false} strokeDasharray="4 3" name="Slaap (uren)" connectNulls />}
-                {hasFasen && <Line yAxisId="other" type="monotone" dataKey="diepeSlaapUren" stroke="#5B8FBF" strokeWidth={2} dot={false} name="Diepe slaap (uren)" connectNulls />}
-                {hasAdem && <Line yAxisId="other" type="monotone" dataKey="ademhaling" stroke="#C97A3F" strokeWidth={1.5} dot={false} strokeDasharray="2 2" name="Ademhaling (/min)" connectNulls />}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {overzicht && <HerstelTegels overzicht={overzicht} />}
+          {hasNacht && (
+            <p className="tc-import-help">
+              Nachthartslag is het gemiddelde over je slaapvenster en ligt vast zodra je wakker bent;
+              rust-HR is de dagwaarde van je horloge en kan later op de dag nog zakken.
+            </p>
+          )}
 
+          <div className="tc-table-scroll">
           <table className="tc-table">
             <thead><tr><th>Datum</th>{hasNacht && <th>Nacht-HR</th>}<th>Rust-HR</th><th>HRV</th>{hasAdem && <th>Adem</th>}<th>Slaap</th>{hasFasen && <th>Diep</th>}{hasFasen && <th>REM</th>}<th>Score</th><th>Bron</th><th></th></tr></thead>
             <tbody>
@@ -225,6 +147,7 @@ export default function WellnessTab() {
               ))}
             </tbody>
           </table>
+          </div>
           {nieuwsteEerst.length > RIJEN_INGEKLAPT && (
             <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setAlleRijen(!alleRijen)}>
               {alleRijen

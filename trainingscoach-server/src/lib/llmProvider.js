@@ -77,8 +77,24 @@ const COACH_RESPONSE_SCHEMA = {
           dag: { type: "STRING" },
           schemaDag: { type: "STRING" },
           invulling: { type: "STRING" },
+          // Dezelfde getallen als in de invulling, maar los: daarmee zet het
+          // krachtloggen de gewichten klaar in plaats van dat je ze in de
+          // sportschool uit een zin moet overtikken.
+          oefeningen: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                naam: { type: "STRING" },
+                sets: { type: "NUMBER", nullable: true },
+                herhalingen: { type: "NUMBER", nullable: true },
+                gewichtKg: { type: "NUMBER", nullable: true },
+              },
+              required: ["naam"],
+            },
+          },
         },
-        required: ["dag", "schemaDag", "invulling"],
+        required: ["dag", "schemaDag", "invulling", "oefeningen"],
       },
     },
   },

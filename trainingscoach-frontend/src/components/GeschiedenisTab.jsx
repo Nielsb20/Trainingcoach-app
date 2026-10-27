@@ -6,9 +6,19 @@ import { formatDateNL, computeAvgSpeedKmh, computeHrZones, computeTrainingLoadSe
 import { timeOfDayLabel } from "../lib/uiHelpers";
 import WorkoutLogEditor from "./WorkoutLogEditor";
 import AnalyseTab from "./AnalyseTab";
+import WeightTab from "./WeightTab";
+import WellnessTab from "./WellnessTab";
 import * as api from "../api/client";
 
-export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession }) {
+/**
+ * Voortgang: alles waar je op terugkijkt, op één plek.
+ *
+ * Gewicht en Herstel waren eigen tabbladen in de hoofdnavigatie, naast deze.
+ * Allemaal schermen om terug te kijken, en de meetwaarden komen bijna altijd
+ * vanzelf binnen (weegschaal, horloge) — het handmatige formulier staat
+ * onderaan elk scherm voor de uitzondering.
+ */
+export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession, addWeightLog, deleteWeightLog }) {
   const [sub, setSub] = useState("kracht");
   const [expandedProfileId, setExpandedProfileId] = useState(null);
   const [isolatedSeries, setIsolatedSeries] = useState(null);
@@ -100,12 +110,14 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
 
   return (
     <div>
-      <h1 className="tc-title">Geschiedenis &amp; progressie</h1>
+      <h1 className="tc-title">Voortgang</h1>
       <div className="tc-subtabs">
         <button className={"tc-subtab" + (sub === "kracht" ? " active-strength" : "")} onClick={() => setSub("kracht")}>Kracht</button>
         <button className={"tc-subtab" + (sub === "cardio" ? " active-cardio" : "")} onClick={() => setSub("cardio")}>Cardio</button>
         <button className={"tc-subtab" + (sub === "belasting" ? " active-event" : "")} onClick={() => setSub("belasting")}>Belasting</button>
         <button className={"tc-subtab" + (sub === "analyse" ? " active-cardio" : "")} onClick={() => setSub("analyse")}>Analyse</button>
+        <button className={"tc-subtab" + (sub === "gewicht" ? " active-event" : "")} onClick={() => setSub("gewicht")}>Gewicht</button>
+        <button className={"tc-subtab" + (sub === "herstel" ? " active-cardio" : "")} onClick={() => setSub("herstel")}>Herstel</button>
       </div>
 
       {sub === "kracht" && (
@@ -381,6 +393,16 @@ export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weigh
       )}
 
       {sub === "analyse" && <AnalyseTab embedded />}
+      {sub === "gewicht" && (
+        <div className="tc-embedded">
+          <WeightTab weightLogs={weightLogs} addWeightLog={addWeightLog} deleteWeightLog={deleteWeightLog} />
+        </div>
+      )}
+      {sub === "herstel" && (
+        <div className="tc-embedded">
+          <WellnessTab />
+        </div>
+      )}
 
       {editingLog && (
         <WorkoutLogEditor

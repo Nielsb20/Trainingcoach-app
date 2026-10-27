@@ -2,12 +2,13 @@ import { useState, useMemo } from "react";
 import { Send, Loader2, Trash2, CalendarPlus } from "lucide-react";
 import { askCoach as apiAskCoach, createPlanFromCoach } from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
+import SchemaCoachPanel from "./SchemaCoachPanel";
 import {
   todayStr, daysUntil, computeHrZones, computeTrainingLoadSeries,
   computeCardioHistorySummary, computeStrengthHistorySummary, computeWeeklyStrengthLoad,
 } from "../lib/calculations";
 
-export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weightLogs, coachHistory, onCoachAnswered, deleteCoachEntry }) {
+export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weightLogs, coachHistory, onCoachAnswered, deleteCoachEntry, onSchemaReplaced }) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -79,11 +80,10 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
 
   return (
     <div>
-      <h1 className="tc-title">Coach feedback</h1>
+      <h1 className="tc-title">Coach</h1>
       <p className="tc-sub">
-        De coach analyseert je meest recente kracht- en cardiologs en stelt concrete trainingen voor
-        op je vaste momenten. Hij kent ook jullie gesprekken van de afgelopen weken, dus een
-        vervolgvraag als "en als ik dat naar woensdag verplaats?" hoeft je niet opnieuw uit te leggen.
+        Hij kent je logs, je herstel en jullie gesprekken van de afgelopen weken, dus een vervolgvraag
+        hoeft je niet opnieuw uit te leggen.
       </p>
 
       {!hasData && (
@@ -200,8 +200,29 @@ export default function CoachTab({ schema, workoutLogs, cardioLogs, events, weig
       <div className="tc-feedback-list">
         {coachHistory.map((f, i) => <FeedbackCard key={f.id} entry={f} defaultOpen={i === 0} onDelete={() => deleteCoachEntry(f.id)} />)}
       </div>
+
+      {/* Stond bovenaan Schema, boven het schema zelf. Een nieuw schema vraag
+          je een paar keer per jaar aan; het is een gesprek met de coach, dus
+          het hoort hier, en ingeklapt. */}
+      <div style={{ marginTop: 24 }}>
+        <CollapsibleCard id="coach-schemavoorstel" title="Laat de coach een schema voorstellen"
+          subtitle="op basis van je doelen">
+          <p className="tc-import-help" style={{ marginTop: 0 }}>
+            Vertel wat je wilt bereiken en waar je aan gebonden bent. Je krijgt het als voorstel: je ziet
+            eerst wat er zou veranderen, en overnemen kun je meteen terugdraaien.
+          </p>
+          <SchemaCoachPanel onSchemaReplaced={onSchemaReplaced} />
+        </CollapsibleCard>
+      </div>
     </div>
   );
+}
+
+/** "Bench press 4×6 · 92,5 kg" — wat het loggen straks klaarzet. */
+function doelTekst(o) {
+  const schema = o.sets && o.herhalingen ? ` ${o.sets}×${o.herhalingen}` : "";
+  const gewicht = o.gewichtKg !== null && o.gewichtKg !== undefined ? ` ${String(o.gewichtKg).replace(".", ",")} kg` : "";
+  return `${o.naam}${schema}${gewicht}`;
 }
 
 function FeedbackCard({ entry, defaultOpen, onDelete }) {
@@ -299,7 +320,14 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
                   <div className="tc-proposal-row" key={i}>
                     <span className="tc-hint-badge tc-badge-cardio">{p.dag}</span>
                     <span className="tc-proposal-type">{p.type}</span>
-                    <span className="tc-proposal-invulling">{p.invulling}</span>
+                    <span className="tc-proposal-invulling">
+                      {p.invulling}
+                      {Array.isArray(p.oefeningen) && p.oefeningen.length > 0 && (
+                        <span className="tc-proposal-targets tc-mono">
+                          {p.oefeningen.map((o) => doelTekst(o)).join(" · ")}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -314,7 +342,14 @@ function FeedbackCard({ entry, defaultOpen, onDelete }) {
                   <div className="tc-proposal-row" key={i}>
                     <span className="tc-hint-badge tc-badge-strength">{p.dag}</span>
                     <span className="tc-proposal-type">{p.schemaDag}</span>
-                    <span className="tc-proposal-invulling">{p.invulling}</span>
+                    <span className="tc-proposal-invulling">
+                      {p.invulling}
+                      {Array.isArray(p.oefeningen) && p.oefeningen.length > 0 && (
+                        <span className="tc-proposal-targets tc-mono">
+                          {p.oefeningen.map((o) => doelTekst(o)).join(" · ")}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>

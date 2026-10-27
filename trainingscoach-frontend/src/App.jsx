@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Loader2, RefreshCw, X } from "lucide-react";
 
-import { NAV } from "./lib/constants";
+import { NAV, SETTINGS_NAV, LOG_KINDS } from "./lib/constants";
 import * as api from "./api/client";
 
 import ErrorBoundary from "./components/shared/ErrorBoundary";
@@ -16,18 +16,18 @@ import KrachtTab from "./components/KrachtTab";
  * from wifi that is the whole wait. Splitting per tab means you only fetch the
  * charts once you ask for one.
  *
- * Schema and Kracht stay eager: Schema is where the app opens, and Kracht is
- * what you reach for mid-workout, where a loading flash is most annoying and a
- * flaky connection most likely.
+ * Schema and Kracht stay eager: Kracht is what you reach for mid-workout, where
+ * a loading flash is most annoying and a flaky connection most likely, and
+ * Schema is small. Vandaag is where the app opens, but it only draws cards and
+ * no charts, so its chunk is tiny.
  */
 const CardioTab = lazy(() => import("./components/CardioTab"));
-const WeightTab = lazy(() => import("./components/WeightTab"));
 const EventsTab = lazy(() => import("./components/EventsTab"));
 const GeschiedenisTab = lazy(() => import("./components/GeschiedenisTab"));
 const CoachTab = lazy(() => import("./components/CoachTab"));
-const WellnessTab = lazy(() => import("./components/WellnessTab"));
 const SessionDetail = lazy(() => import("./components/SessionDetail"));
 const PlannerTab = lazy(() => import("./components/PlannerTab"));
+const TodayTab = lazy(() => import("./components/TodayTab"));
 
 function TabLoading() {
   return (
@@ -41,7 +41,12 @@ function TabLoading() {
 const EMPTY_SCHEMA = { days: [], cardioDays: [], profile: {} };
 
 export default function App() {
-  const [tab, setTab] = useState("schema");
+  // De app opent op Vandaag: wat staat er, hoe is je herstel, wat zei de
+  // coach. Hij opende op Schema, en dat is een scherm dat je eens per maand
+  // aanpast.
+  const [tab, setTab] = useState("vandaag");
+  const [logKind, setLogKind] = useState("kracht");
+  const [settingsPage, setSettingsPage] = useState("schema");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -234,39 +239,54 @@ export default function App() {
     );
   }
 
+  function openLog(kind) {
+    setLogKind(kind);
+    setTab("loggen");
+  }
+
+  // Een functie en geen eigen component: binnen App gedefinieerd zou React
+  // elke knop bij iedere render als nieuw onderdeel zien en opnieuw opbouwen.
+  function navButton(item, className = "") {
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.id}
+        className={"tc-navitem" + (item.primary ? " tc-navitem-primary" : "") + (tab === item.id ? " active" : "") + className}
+        onClick={() => setTab(item.id)}
+        // Het label staat er als tekst naast, maar een naam op de knop
+        // zelf overleeft het ook als de tekst om ruimte wegvalt — en
+        // dat is precies wanneer je hem het hardst nodig hebt.
+        title={item.label}
+        aria-label={item.label}
+        aria-current={tab === item.id ? "page" : undefined}
+      >
+        <span className="tc-navicon"><Icon size={item.primary ? 20 : 17} /></span>
+        <span className="tc-navlabel">{item.label}</span>
+        {item.id === "planning" && pendingProposals > 0 && (
+          <span className="tc-nav-badge">{pendingProposals}</span>
+        )}
+      </button>
+    );
+  }
+
   return (
     <div className="tc-app">
-      <nav className="tc-sidebar">
+      {/* Eén navigatie voor beide schermformaten. Op een telefoon zet de CSS
+          de vijf onderdelen als balk onderin, binnen bereik van je duim; het
+          merkje, Instellingen en verversen blijven bovenaan. Twee aparte
+          menu's zouden elke knop dubbel in de pagina zetten. */}
+      <nav className="tc-sidebar" aria-label="Hoofdmenu">
         <div className="tc-brand">
           <span className="tc-brand-mark">TC</span>
           <span className="tc-brand-name">Trainingscoach</span>
         </div>
         <div className="tc-navlist">
-          {NAV.map((n) => {
-            const Icon = n.icon;
-            return (
-              <button
-                key={n.id}
-                className={"tc-navitem" + (tab === n.id ? " active" : "")}
-                onClick={() => setTab(n.id)}
-                // Het label staat er als tekst naast, maar een naam op de knop
-                // zelf overleeft het ook als de tekst om ruimte wegvalt — en
-                // dat is precies wanneer je hem het hardst nodig hebt.
-                title={n.label}
-                aria-label={n.label}
-                aria-current={tab === n.id ? "page" : undefined}
-              >
-                <Icon size={17} />
-                <span>{n.label}</span>
-                {n.id === "planning" && pendingProposals > 0 && (
-                  <span className="tc-nav-badge">{pendingProposals}</span>
-                )}
-              </button>
-            );
-          })}
+          {NAV.map((n) => navButton(n))}
         </div>
         <div className="tc-sidebar-footer">
-          <button className="tc-navitem tc-refresh-btn" onClick={handleRefresh} disabled={refreshing} title="Gegevens opnieuw ophalen">
+          {navButton(SETTINGS_NAV, " tc-settings-btn")}
+          <button className="tc-navitem tc-refresh-btn" onClick={handleRefresh} disabled={refreshing}
+            title="Gegevens opnieuw ophalen" aria-label="Ververs gegevens">
             <RefreshCw size={16} className={refreshing ? "spin" : ""} />
             <span>{refreshing ? "Verversen…" : "Ververs gegevens"}</span>
           </button>
@@ -290,7 +310,7 @@ export default function App() {
         {actionError && (
           <div className="tc-savebanner">
             <span>⚠️ {actionError}</span>
-            <button className="tc-icon-btn" onClick={() => setActionError("")}>
+            <button className="tc-icon-btn" onClick={() => setActionError("")} aria-label="Melding sluiten">
               <X size={14} />
             </button>
           </div>
@@ -298,30 +318,46 @@ export default function App() {
 
         {/* resetKey = het tabblad: overstappen geeft een nieuwe kans, want de
             fout zat vrijwel zeker in het scherm dat je net verliet. */}
-        <ErrorBoundary resetKey={tab}>
+        <ErrorBoundary resetKey={tab + logKind + settingsPage}>
         <Suspense fallback={<TabLoading />}>
-        {tab === "schema" && <SchemaTab schema={schema} setSchema={setSchema} onRestored={loadAll} />}
-        {tab === "kracht" && (
-          <KrachtTab schema={schema} workoutLogs={workoutLogs} addWorkoutLog={addWorkoutLog} goToSchema={() => setTab("schema")} />
-        )}
-        {tab === "cardio" && (
-          <CardioTab
+        {tab === "vandaag" && (
+          <TodayTab
+            schema={schema}
             cardioLogs={cardioLogs}
-            addCardioLog={addCardioLog}
-            addCardioLogsBulk={addCardioLogsBulk}
-            weightLogs={weightLogs}
-            onStravaImported={refreshCardioLogs}
+            events={events}
+            coachHistory={coachHistory}
+            onNavigate={setTab}
+            onStartStrength={() => openLog("kracht")}
           />
         )}
-        {tab === "gewicht" && (
-          <WeightTab weightLogs={weightLogs} addWeightLog={addWeightLog} deleteWeightLog={deleteWeightLog} />
-        )}
-        {tab === "herstel" && <WellnessTab />}
         {tab === "planning" && <PlannerTab onOpenSession={setDetailSessionId} />}
-        {tab === "evenementen" && (
-          <EventsTab events={events} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} />
+        {tab === "loggen" && (
+          <>
+            <div className="tc-subtabs" role="tablist" aria-label="Wat wil je loggen">
+              {LOG_KINDS.map((k) => (
+                <button key={k.id} role="tab" aria-selected={logKind === k.id}
+                  className={"tc-subtab" + (logKind === k.id ? (k.id === "kracht" ? " active-strength" : " active-cardio") : "")}
+                  onClick={() => setLogKind(k.id)}>
+                  {k.label}
+                </button>
+              ))}
+            </div>
+            {logKind === "kracht" && (
+              <KrachtTab schema={schema} workoutLogs={workoutLogs} addWorkoutLog={addWorkoutLog}
+                goToSchema={() => { setSettingsPage("schema"); setTab("instellingen"); }} />
+            )}
+            {logKind === "cardio" && (
+              <CardioTab
+                cardioLogs={cardioLogs}
+                addCardioLog={addCardioLog}
+                addCardioLogsBulk={addCardioLogsBulk}
+                weightLogs={weightLogs}
+                onStravaImported={refreshCardioLogs}
+              />
+            )}
+          </>
         )}
-        {tab === "geschiedenis" && (
+        {tab === "voortgang" && (
           <GeschiedenisTab
             schema={schema}
             workoutLogs={workoutLogs}
@@ -331,6 +367,8 @@ export default function App() {
             deleteWorkoutLog={deleteWorkoutLog}
             deleteCardioLog={deleteCardioLog}
             onOpenSession={setDetailSessionId}
+            addWeightLog={addWeightLog}
+            deleteWeightLog={deleteWeightLog}
           />
         )}
         {tab === "coach" && (
@@ -343,7 +381,29 @@ export default function App() {
             coachHistory={coachHistory}
             onCoachAnswered={onCoachAnswered}
             deleteCoachEntry={deleteCoachEntry}
+            onSchemaReplaced={loadAll}
           />
+        )}
+        {tab === "instellingen" && (
+          <>
+            <h1 className="tc-title">Instellingen</h1>
+            <div className="tc-subtabs" role="tablist" aria-label="Instellingen">
+              <button role="tab" aria-selected={settingsPage === "schema"}
+                className={"tc-subtab" + (settingsPage === "schema" ? " active-strength" : "")}
+                onClick={() => setSettingsPage("schema")}>Schema en profiel</button>
+              <button role="tab" aria-selected={settingsPage === "evenementen"}
+                className={"tc-subtab" + (settingsPage === "evenementen" ? " active-event" : "")}
+                onClick={() => setSettingsPage("evenementen")}>Evenementen</button>
+            </div>
+            <div className="tc-embedded">
+              {settingsPage === "schema" && (
+                <SchemaTab schema={schema} setSchema={setSchema} onRestored={loadAll} goToCoach={() => setTab("coach")} />
+              )}
+              {settingsPage === "evenementen" && (
+                <EventsTab events={events} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} />
+              )}
+            </div>
+          </>
         )}
         </Suspense>
         </ErrorBoundary>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy, Moon } from "lucide-react";
+import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy, Moon, MoreVertical, FileDown, SkipForward, RotateCcw } from "lucide-react";
 import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import WorkoutFilePanel from "./shared/WorkoutFilePanel";
@@ -33,6 +33,12 @@ export default function PlannerTab({ onOpenSession }) {
   const [showAdd, setShowAdd] = useState(false);
   const [fillMessage, setFillMessage] = useState("");
   const [movingId, setMovingId] = useState(null);
+  // Per sessie stonden er vijf knoppen naast elkaar (gedaan, overslaan,
+  // verplaatsen, vastzetten, verwijderen) plus een blok voor het
+  // trainingsbestand. Nu is afvinken de enige knop in beeld en staat de rest
+  // achter het menu: dat zijn de handelingen die je zelden doet.
+  const [menuId, setMenuId] = useState(null);
+  const [fileId, setFileId] = useState(null);
   // Offset in 2-week blocks from today. The coach happily plans three weeks
   // out, so a fixed window would hide part of its own advice.
   const [blockOffset, setBlockOffset] = useState(0);
@@ -156,9 +162,7 @@ export default function PlannerTab({ onOpenSession }) {
     <div>
       <h1 className="tc-title">Planning</h1>
       <p className="tc-sub">
-        Je trainingsweek: cardiovoorstellen van de coach én je gelogde krachttrainingen. Uitgevoerde
-        cardiosessies worden automatisch afgevinkt. De coach houdt bij het plannen rekening met je
-        krachttraining — geen zware rit de dag na een beendag.
+        Uitgevoerde sessies worden vanzelf afgevinkt zodra ze binnenkomen.
       </p>
 
       {error && <div className="tc-error"><span>{error}</span></div>}
@@ -173,8 +177,8 @@ export default function PlannerTab({ onOpenSession }) {
       )}
 
       <div className="tc-planner-nav">
-        <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset - 1)}>
-          <ChevronLeft size={14} /> Vorige
+        <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset - 1)} aria-label="Vorige twee weken">
+          <ChevronLeft size={14} /> <span className="tc-hide-narrow">Vorige</span>
         </button>
         <span className="tc-planner-range">
           {formatDateNL(isoOf(rangeStart))} — {formatDateNL(isoOf(rangeEnd))}
@@ -183,8 +187,8 @@ export default function PlannerTab({ onOpenSession }) {
               onClick={() => setBlockOffset(0)}>naar vandaag</button>
           )}
         </span>
-        <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset + 1)}>
-          Volgende <ChevronRight size={14} />
+        <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setBlockOffset(blockOffset + 1)} aria-label="Volgende twee weken">
+          <span className="tc-hide-narrow">Volgende</span> <ChevronRight size={14} />
         </button>
       </div>
 
@@ -380,7 +384,15 @@ export default function PlannerTab({ onOpenSession }) {
                       {/* Alleen voor een training die nog moet gebeuren: een
                           bestand voor een rit van vorige week maken heeft geen
                           zin, en kracht gaat niet in een trainer. */}
-                      {p.discipline !== "kracht" && p.status === "gepland" && (
+                      {p.discipline === "kracht" && Array.isArray(p.krachtDoelen) && p.status === "gepland" && (
+                        <span className="tc-planner-targets tc-mono">
+                          {p.krachtDoelen.map((d) => `${d.naam}${d.gewichtKg != null ? ` ${String(d.gewichtKg).replace(".", ",")} kg` : ""}`).join(" · ")}
+                        </span>
+                      )}
+                      {p.discipline !== "kracht" && p.status === "gepland" && p.structuur && fileId !== p.id && (
+                        <span className="tc-planner-moment" style={{ marginLeft: 0, alignSelf: "flex-start" }}>trainingsbestand klaar</span>
+                      )}
+                      {p.discipline !== "kracht" && p.status === "gepland" && fileId === p.id && (
                         <WorkoutFilePanel plan={p} onChanged={load} />
                       )}
 
@@ -447,53 +459,69 @@ export default function PlannerTab({ onOpenSession }) {
                     </div>
                     <div className="tc-planned-actions">
                       {p.status === "gepland" && (
-                        <>
-                          <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
-                            onClick={() => act(() => api.updatePlannedSession(p.id, "gedaan"))}>Gedaan</button>
-                          {/* Deliberately available before the day is over: deciding in the
-                              morning that a session isn't happening is normal, and waiting
-                              for the automatic sweep at midnight helps nobody. */}
-                          <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
-                            title="Deze training gaat niet door"
-                            onClick={() => act(() => api.updatePlannedSession(p.id, "overgeslagen"))}>
-                            Overslaan
-                          </button>
-                          <button className="tc-icon-btn" disabled={busy} title="Verplaatsen naar een andere dag"
-                            onClick={() => setMovingId(movingId === p.id ? null : p.id)}>
-                            <CalendarClock size={13} />
-                          </button>
-                          <button className="tc-icon-btn" disabled={busy}
-                            title={p.locked ? "Vaste afspraak — coach laat deze met rust" : "Vastzetten: coach mag deze niet wijzigen"}
-                            onClick={() => act(() => api.lockPlannedSession(p.id, !p.locked))}>
-                            {p.locked ? <Lock size={13} style={{ color: "var(--strength)" }} /> : <Unlock size={13} />}
-                          </button>
-                        </>
-                      )}
-
-                      {/* Alsnog afvinken, ook als de dag allang voorbij is.
-                          "Ongedaan maken" zet hem terug op gepland, en dan zet
-                          de automaat hem meteen weer op overgeslagen omdat er
-                          niets gelogd is — zonder deze knop kom je daar dus
-                          niet uit. */}
-                      {p.status === "overgeslagen" && (
-                        <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
-                          title="Deze training heb ik toch gedaan"
+                        <button className="tc-done-btn" disabled={busy}
+                          aria-label={`${p.type} op gedaan zetten`} title="Gedaan"
                           onClick={() => act(() => api.updatePlannedSession(p.id, "gedaan"))}>
-                          Toch gedaan
+                          <Check size={18} strokeWidth={3} />
                         </button>
                       )}
-
-                      {/* A wrong call should be correctable — an accidental "overslaan"
-                          otherwise sticks around in your adherence figures. */}
-                      {(p.status === "gedaan" || p.status === "overgeslagen") && (
-                        <button className="tc-btn tc-btn-ghost tc-btn-sm" disabled={busy}
-                          title="Terugzetten naar gepland"
-                          onClick={() => act(() => api.updatePlannedSession(p.id, "gepland"))}>
-                          Ongedaan maken
-                        </button>
+                      {p.status === "gepland" && p.locked && (
+                        <Lock size={14} className="tc-planner-lock" aria-label="Vaste afspraak" />
                       )}
-                      <button className="tc-icon-btn" disabled={busy}
-                        onClick={() => act(() => api.deletePlannedSession(p.id))}><Trash2 size={13} /></button>
+                      <div className="tc-menu-wrap">
+                        <button className="tc-menu-btn" disabled={busy}
+                          aria-label={`Meer acties voor ${p.type}`} aria-expanded={menuId === p.id}
+                          onClick={() => setMenuId(menuId === p.id ? null : p.id)}>
+                          <MoreVertical size={18} />
+                        </button>
+                        {menuId === p.id && (
+                          <div className="tc-menu" role="menu">
+                            {p.status === "gepland" && (
+                              <>
+                                {/* Deliberately available before the day is over: deciding in the
+                                    morning that a session isn't happening is normal, and waiting
+                                    for the automatic sweep at midnight helps nobody. */}
+                                <button role="menuitem" onClick={() => { setMenuId(null); act(() => api.updatePlannedSession(p.id, "overgeslagen")); }}>
+                                  <SkipForward size={15} /> Overslaan
+                                </button>
+                                <button role="menuitem" onClick={() => { setMenuId(null); setMovingId(p.id); }}>
+                                  <CalendarClock size={15} /> Verplaatsen
+                                </button>
+                                <button role="menuitem" onClick={() => { setMenuId(null); act(() => api.lockPlannedSession(p.id, !p.locked)); }}>
+                                  {p.locked ? <Unlock size={15} /> : <Lock size={15} />}
+                                  {p.locked ? " Losmaken (coach mag wijzigen)" : " Vastzetten (coach laat staan)"}
+                                </button>
+                                {p.discipline !== "kracht" && (
+                                  <button role="menuitem" onClick={() => { setMenuId(null); setFileId(fileId === p.id ? null : p.id); }}>
+                                    <FileDown size={15} /> Trainingsbestand
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {/* Alsnog afvinken, ook als de dag allang voorbij is.
+                                "Ongedaan maken" zet hem terug op gepland, en dan zet
+                                de automaat hem meteen weer op overgeslagen omdat er
+                                niets gelogd is — zonder deze knop kom je daar dus
+                                niet uit. */}
+                            {p.status === "overgeslagen" && (
+                              <button role="menuitem" onClick={() => { setMenuId(null); act(() => api.updatePlannedSession(p.id, "gedaan")); }}>
+                                <Check size={15} /> Toch gedaan
+                              </button>
+                            )}
+                            {/* A wrong call should be correctable — an accidental "overslaan"
+                                otherwise sticks around in your adherence figures. */}
+                            {(p.status === "gedaan" || p.status === "overgeslagen") && (
+                              <button role="menuitem" onClick={() => { setMenuId(null); act(() => api.updatePlannedSession(p.id, "gepland")); }}>
+                                <RotateCcw size={15} /> Ongedaan maken
+                              </button>
+                            )}
+                            <button role="menuitem" className="tc-menu-danger"
+                              onClick={() => { setMenuId(null); act(() => api.deletePlannedSession(p.id)); }}>
+                              <Trash2 size={15} /> Verwijderen
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

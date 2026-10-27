@@ -13,6 +13,7 @@ const express = require("express");
 const { db } = require("../db/db");
 const calc = require("../lib/calculations");
 const { normalizeStructure, renderWorkoutFile, describeStructure } = require("../lib/workoutFile");
+const { normalizeStrengthTargets } = require("../lib/strengthTargets");
 
 const router = express.Router();
 
@@ -51,6 +52,9 @@ function serialize(row) {
     // trainingsbestand voor de indoortrainer van gemaakt worden.
     structuur: row.structure_json ? JSON.parse(row.structure_json) : null,
     structuurBron: row.structure_source || null,
+    // Per oefening wat de coach voorstelt, voor een krachtsessie. Het
+    // krachtloggen zet hiermee de gewichten klaar.
+    krachtDoelen: row.strength_targets_json ? JSON.parse(row.strength_targets_json) : null,
     discipline: row.discipline || 'cardio',
     movedFrom: row.moved_from,
     timeOfDay: row.time_of_day,
@@ -466,9 +470,15 @@ function createProposalsFromCoachEntry(coachEntryId) {
   const insert = db.prepare(
     `INSERT INTO planned_sessions
        (id, date, weekday, type, description, source_coach_entry_id, status, replaces_id, discipline,
-        sub_type, surface, structure_json, structure_source)
-     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?, ?, ?, ?, ?)`
+        sub_type, surface, structure_json, structure_source, strength_targets_json)
+     VALUES (?, ?, ?, ?, ?, ?, 'voorgesteld', ?, ?, ?, ?, ?, ?, ?)`
   );
+  // De oefeningen per schemadag, om de getallen van de coach tegen te houden.
+  const schemaOefeningen = new Map();
+  for (const d of db.prepare("SELECT id, name FROM schema_days").all()) {
+    const namen = db.prepare("SELECT name FROM schema_exercises WHERE day_id = ? ORDER BY sort_order").all(d.id).map((e) => e.name);
+    schemaOefeningen.set(d.name.trim().toLowerCase(), namen);
+  }
   // Conflicts are per discipline: a strength session and a ride on the same
   // day is a normal double day, not a clash.
   const existingOnDate = db.prepare(
@@ -520,9 +530,13 @@ function createProposalsFromCoachEntry(coachEntryId) {
     const subType = veiligeOndersoort(p.fiets ?? p.subType, p.label);
     const surface = veiligeOndergrond(p.ondergrond ?? p.surface, p.label);
     const structuur = p.discipline === "cardio" ? normalizeStructure(p.blokken) : null;
+    const krachtDoelen = p.discipline === "kracht"
+      ? normalizeStrengthTargets(p.oefeningen, schemaOefeningen.get(String(p.schemaDag || "").trim().toLowerCase()))
+      : null;
     insert.run(id, date, p.dag || null, p.label || "Anders", p.invulling || "", coachEntryId,
                existing ? existing.id : null, p.discipline,
-               subType, surface, structuur ? JSON.stringify(structuur) : null, structuur ? "coach" : null);
+               subType, surface, structuur ? JSON.stringify(structuur) : null, structuur ? "coach" : null,
+               krachtDoelen ? JSON.stringify(krachtDoelen) : null);
 
     created.push({
       id,
@@ -533,6 +547,7 @@ function createProposalsFromCoachEntry(coachEntryId) {
       subType,
       surface,
       structuur,
+      krachtDoelen,
       soort: existing ? "wijziging" : "nieuw",
       vervangt: existing
         ? { id: existing.id, type: existing.type, description: existing.description }

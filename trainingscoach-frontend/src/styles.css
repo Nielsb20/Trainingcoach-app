@@ -51,7 +51,11 @@
    alles eronder stonden deels buiten beeld en je moest zijwaarts scrollen om
    een titel te lezen. Met min-width:0 krimpt de kolom wel, en schuift alleen
    de tabel zelf binnen zijn eigen overflow. */
-.tc-main { flex:1; min-width:0; padding: 26px 32px 60px; overflow-y:auto; max-width: 880px; margin: 0 auto; }
+.tc-main { flex:1; min-width:0; padding: 26px 32px 60px; max-width: 880px; margin: 0 auto; }
+/* clip in plaats van een eigen scrollvak: een scrollvak hier maakte dat de
+   rustbalk bij het krachtloggen niet onderin bleef staan (sticky werkt alleen
+   ten opzichte van het vak dat echt scrolt, en dat is de pagina). */
+.tc-main { overflow-x: clip; }
 .tc-savebanner { display:flex; align-items:flex-start; gap:12px; background: rgba(184,92,92,0.14); border:1px solid #B85C5C; color:#E8C9C9; border-radius:9px; padding:12px 14px; margin-bottom:18px; font-size:13px; line-height:1.5; }
 .tc-savebanner span:first-child { flex:1; }
 .tc-backup-card { border-color: var(--border); }
@@ -240,25 +244,40 @@
 @media (max-width: 760px) {
   .tc-app { flex-direction: column; }
   .tc-sidebar { width:100%; flex-direction:row; align-items:center; padding: 10px 10px; gap: 10px; flex-wrap:wrap; }
-  .tc-brand-name { display:none; } /* het TC-blokje zegt genoeg, de ruimte is voor de tabs */
-  /* De tabs krijgen hun eigen regels onder het merkje en de verversknop. Lieten
-     we ze op dezelfde regel beginnen, dan vulden ze de ruimte eromheen op en
-     stond het merkje ergens halverwege tussen de tabs in. */
-  .tc-navlist { flex-direction:row; flex-wrap:wrap; gap:3px; flex-basis:100%; order:3; justify-content:space-between; }
-  .tc-navitem {
-    flex-direction:column; gap:3px; align-items:center; text-align:center;
-    padding:6px 8px; min-width:58px; font-size:11px; line-height:1.1;
+  /* Op een telefoon gaan de vijf onderdelen naar een balk onderin, binnen
+     bereik van je duim. Bovenaan blijven alleen het merkje, Instellingen en
+     verversen: dat kostte eerst twee rijen pictogrammen, ~150 pixels van een
+     scherm van 844. */
+  .tc-navlist {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 6px 4px calc(8px + env(safe-area-inset-bottom));
   }
+  .tc-navlist .tc-navitem {
+    flex-direction:column; gap:3px; align-items:center; justify-content:center; text-align:center;
+    padding:6px 2px; min-height: 52px; font-size:11px; line-height:1.1; background: transparent;
+  }
+  .tc-navlist .tc-navitem.active { background: transparent; }
+  .tc-navlist .tc-navitem-primary .tc-navlabel { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  .tc-navlist .tc-navitem-primary .tc-navicon {
+    width: 48px; height: 48px; border-radius: 24px; background: var(--strength); color: #14181C;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tc-navlist .tc-navitem-primary.active .tc-navicon { box-shadow: 0 0 0 3px var(--strength-dim); }
   /* Het telbolletje hangt bij het pictogram in plaats van aan het eind van de
      regel: in een kolom zou margin-left:auto hem onder het label duwen. */
   .tc-navitem { position:relative; }
-  .tc-nav-badge { position:absolute; top:2px; right:2px; margin-left:0; padding:0 5px; font-size:10px; }
+  .tc-nav-badge { position:absolute; top:2px; right:calc(50% - 22px); margin-left:0; padding:0 5px; font-size:10px; }
+  .tc-settings-btn { padding: 8px; }
+  .tc-settings-btn .tc-navlabel { display:none; }
+  .tc-brand-name { display:inline; }
   /* Breedte expliciet, anders rekt de kolom op tot de breedste tabel erin.
      Naast elkaar (desktop) vangt min-width:0 dat af, maar onder elkaar is
      breedte de dwarsrichting: dan bepaalt de breedste inhoud hoe breed de
      flexregel wordt en stretcht .tc-main gewoon mee tot 679px op een scherm
      van 390. Met een vaste 100% schuift alleen de tabel nog. */
-  .tc-main { padding: 18px 16px 50px; width: 100%; }
+  .tc-main { padding: 14px 16px 110px; width: 100%; }
   .tc-sidebar-footer { margin-top: 0; margin-left: auto; flex-direction:row; align-items:center; border-top:none; padding-top:0; }
   .tc-refresh-btn { width: auto; }
   .tc-refresh-btn span { display:none; } /* het ronde pijltje is eenduidig genoeg */
@@ -495,3 +514,181 @@ html, body, #root {
 .tc-ex-move { display:flex; flex-direction:column; gap:0; flex-shrink:0; }
 .tc-ex-move .tc-icon-btn { padding:1px 3px; }
 .tc-ex-move .tc-icon-btn:disabled { opacity:0.25; cursor:default; }
+
+
+/* ------------------------------------------------------------------ */
+/* Navigatie: Instellingen onderaan de zijbalk, los van de vijf onderdelen. */
+.tc-navicon { display:inline-flex; }
+.tc-navitem-primary.active { background: var(--strength-dim); }
+.tc-link-btn { background:none; border:none; padding:0; color: var(--strength); font: inherit; font-weight:600; cursor:pointer; text-decoration: underline; text-underline-offset: 2px; }
+.tc-visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.tc-subtabs { flex-wrap: wrap; }
+.tc-btn-lg { padding: 13px 18px; font-size: 15px; justify-content: center; }
+
+/* Een scherm dat onder een ander onderdeel hangt (Gewicht onder Voortgang,
+   Schema onder Instellingen) toont zijn eigen grote titel niet nog eens: de
+   titel en de subtabs erboven zeggen al waar je bent. */
+.tc-embedded > div > .tc-title { display: none; }
+.tc-embedded > div > .tc-title + .tc-sub { margin-top: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Vandaag */
+.tc-today { display:flex; flex-direction:column; gap:12px; max-width: 640px; }
+.tc-today .tc-title { margin-bottom: 4px; }
+.tc-today-date { margin:0; font-family:'JetBrains Mono', monospace; font-size:12px; color: var(--text-muted); }
+.tc-today-alert {
+  display:flex; gap:12px; align-items:flex-start; text-align:left; width:100%;
+  background: rgba(201,122,63,0.12); border:1px solid #6B4A2A; border-radius:12px; padding:14px;
+  color: var(--text); font: inherit; cursor:pointer;
+}
+.tc-today-alert-dot { width:10px; height:10px; border-radius:5px; background: var(--strength); margin-top:5px; flex-shrink:0; }
+.tc-today-alert strong { display:block; font-size:15px; margin-bottom:3px; }
+.tc-today-alert-text { font-size:13px; color:#D8CFC4; line-height:1.45; }
+.tc-today-card {
+  display:flex; flex-direction:column; gap:8px; text-align:left; width:100%;
+  background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px;
+  color: var(--text); font: inherit;
+}
+button.tc-today-card { cursor:pointer; }
+button.tc-today-card:hover, .tc-today-row:hover, .tc-today-week:hover { border-color: #3E474F; }
+.tc-today-card-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.tc-today-card-title { font-family:'Oswald',sans-serif; font-size:16px; font-weight:500; }
+.tc-today-meta { font-size:11.5px; color: var(--text-muted); letter-spacing: 0.3px; }
+.tc-today-session-title { display:flex; align-items:center; gap:8px; font-family:'Oswald',sans-serif; font-size:24px; font-weight:700; }
+.tc-today-session-desc { font-size:13.5px; color: #C8C6C1; line-height:1.5; }
+.tc-today-targets { font-size:12px; color: var(--strength); line-height:1.6; }
+.tc-today-coach-text { font-size:13.5px; line-height:1.55; color:#D5D3CE; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.tc-today-link { font-size:13px; font-weight:600; color: var(--strength); }
+.tc-today-row {
+  display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; text-align:left;
+  background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 16px;
+  color: var(--text); font: inherit;
+}
+button.tc-today-row { cursor:pointer; }
+.tc-today-proposals { border-color: #4B4780; background: #1E2333; font-size:13.5px; }
+.tc-today-event { display:flex; gap:10px; align-items:flex-start; }
+.tc-today-event > span { display:flex; flex-direction:column; gap:2px; }
+.tc-today-countdown { display:flex; flex-direction:column; align-items:flex-end; }
+.tc-today-countdown .tc-mono { font-size:20px; font-weight:600; color: #ABA6E0; }
+.tc-today-stats { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; }
+.tc-today-stat { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+.tc-today-stat-label { font-size:11.5px; color: var(--text-muted); }
+.tc-today-stat-value { font-size:20px; font-weight:600; }
+.tc-today-stat-sub { font-size:11.5px; color: var(--text-muted); }
+.tc-today-block { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; }
+.tc-today-week {
+  display:flex; flex-direction:column; gap:8px; width:100%; text-align:left; cursor:pointer;
+  background: transparent; border:1px solid transparent; border-radius:12px; padding:4px 0; color: var(--text); font: inherit;
+}
+.tc-today-week-grid { display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap:5px; }
+.tc-today-day { display:flex; flex-direction:column; align-items:center; gap:5px; }
+.tc-today-day-name { font-size:11.5px; color: var(--text-muted); }
+.tc-today-day-now .tc-today-day-name { color: var(--text); font-weight:700; }
+.tc-today-day-bar { width:100%; height:7px; border-radius:4px; background: var(--border); }
+.tc-today-day-now .tc-today-day-bar { outline: 2px solid var(--text); outline-offset: 2px; }
+.tc-bar-kracht { background: rgba(201,122,63,0.4); }
+.tc-bar-cardio { background: rgba(79,168,160,0.4); }
+.tc-bar-kracht.tc-bar-done { background: var(--strength); }
+.tc-bar-cardio.tc-bar-done { background: var(--cardio); }
+
+/* ------------------------------------------------------------------ */
+/* Herstel als tegels (zie shared/HerstelTegels.jsx) */
+.tc-recovery { margin-bottom: 14px; }
+.tc-today .tc-recovery { margin-bottom: 0; }
+.tc-recovery-caption { font-size:12.5px; color: var(--text-muted); margin: 0 0 8px; }
+.tc-recovery-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
+.tc-recovery-compact { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.tc-recovery-tile { background: var(--surface-alt); border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.tc-recovery-flag { border-color: #6B4A2A; background: rgba(201,122,63,0.08); }
+.tc-recovery-label { font-size:12px; color: var(--text-muted); }
+.tc-recovery-value { display:flex; align-items:baseline; gap:5px; }
+.tc-recovery-value .tc-mono { font-size:22px; font-weight:600; }
+.tc-recovery-unit { font-size:12px; color: var(--text-muted); }
+.tc-recovery-diff { font-size:12px; color: var(--text-muted); }
+.tc-recovery-flag .tc-recovery-diff { color: #E39A5E; font-weight:600; }
+.tc-sparkline { display:block; margin-top:4px; }
+.tc-recovery-legend { display:flex; align-items:center; gap:8px; font-size:12px; color: var(--text-muted); margin: 8px 0 0; }
+.tc-recovery-swatch { width:18px; height:8px; border-radius:2px; background: var(--border); }
+.tc-table-scroll { overflow-x:auto; }
+
+/* ------------------------------------------------------------------ */
+/* Kracht loggen: één rij per set, afvinken met één tik. */
+.tc-kracht { padding-bottom: 90px; }
+.tc-advice-card { border-color: var(--strength); }
+.tc-ex-card .tc-card-head { margin-bottom: 4px; }
+.tc-ex-target { font-size:12px; color: var(--text-muted); }
+.tc-ex-source { font-size:12.5px; color: #D8CFC4; background: rgba(201,122,63,0.10); border-radius:8px; padding:8px 10px; margin: 6px 0 10px; line-height:1.45; }
+.tc-ex-source strong { color: var(--strength); }
+.tc-set-grid { display:grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) 48px 28px; gap:8px; align-items:center; margin-bottom:10px; }
+.tc-set-head { font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--text-muted); text-transform: uppercase; }
+.tc-set-grid .tc-set-idx { width:auto; font-size:14px; color: var(--text-muted); }
+.tc-set-idx-done { color: var(--cardio) !important; }
+.tc-set-input { height:44px; font-size:16px; padding: 0 10px; }
+.tc-set-done { border-color: rgba(79,168,160,0.5); background: var(--cardio-dim); }
+.tc-set-check {
+  width:48px; height:44px; border-radius:8px; border:1px solid #4A545C; background: var(--surface-alt);
+  color: var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.tc-set-check:disabled { opacity:0.4; cursor:not-allowed; }
+.tc-set-check-on { background: var(--cardio); border-color: var(--cardio); color:#0F1A19; }
+.tc-set-remove { justify-content:center; }
+
+/* Rust onderin vastgezet terwijl je logt. */
+.tc-restbar {
+  position: sticky; bottom: 0; z-index: 20; margin: 16px -4px 0;
+  display:flex; align-items:center; gap:10px;
+  background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px;
+  box-shadow: 0 -6px 18px rgba(0,0,0,0.35);
+}
+.tc-restbar-main { flex:1; display:flex; flex-direction:column; gap:6px; min-width:0; }
+.tc-restbar-top { display:flex; justify-content:space-between; align-items:baseline; }
+.tc-restbar-label { font-size:12px; color: var(--text-muted); }
+.tc-restbar-value { font-size:22px; font-weight:600; }
+.tc-restbar-track { height:6px; border-radius:3px; background: var(--border); overflow:hidden; }
+.tc-restbar-fill { height:6px; background: var(--cardio); transition: width 0.25s linear; }
+.tc-restbar.tc-resttimer-done { border-color: var(--strength); }
+.tc-restbar.tc-resttimer-done .tc-restbar-fill { background: var(--strength); }
+.tc-restbar-select select { width:auto; height:40px; }
+.tc-restbar .tc-btn { height:40px; }
+@media (max-width: 760px) {
+  /* Boven de navigatiebalk, niet erachter. */
+  .tc-restbar { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Planning: afvinken in beeld, de rest achter het menu. */
+.tc-done-btn {
+  width:44px; height:44px; border-radius:22px; border:2px solid #4A545C; background: transparent;
+  color: transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+}
+.tc-done-btn:hover { border-color: var(--cardio); color: var(--cardio); }
+.tc-menu-wrap { position: relative; }
+.tc-menu-btn { width:36px; height:44px; border:none; background:transparent; color: var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:8px; }
+.tc-menu-btn:hover { background: var(--surface-alt); color: var(--text); }
+.tc-menu {
+  position:absolute; right:0; top:46px; z-index:25; min-width: 240px;
+  background: var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:6px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45); display:flex; flex-direction:column;
+}
+.tc-menu button {
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:none;
+  color: var(--text); font: inherit; font-size:14px; padding:11px 12px; border-radius:7px; cursor:pointer;
+}
+.tc-menu button:hover { background: var(--surface); }
+.tc-menu .tc-menu-danger { color:#D08585; }
+.tc-planner-lock { color: var(--strength); flex-shrink:0; }
+.tc-planner-targets { font-size:11.5px; color: var(--strength); margin-top:3px; line-height:1.5; }
+.tc-planned-actions { align-items:center; }
+.tc-proposal-targets { display:block; font-size:11.5px; color: var(--strength); margin-top:4px; }
+@media (max-width: 620px) {
+  /* Met alleen een rondje en een menu passen de acties weer naast de tekst. */
+  .tc-planner-session { grid-template-columns: auto 1fr auto; grid-template-areas: "icon info actions"; }
+  .tc-planner-session .tc-planned-actions { width:auto; flex-wrap:nowrap; }
+  .tc-planner-daylabel .tc-planner-weekday { font-size: 15px; }
+}
+
+@media (max-width: 620px) {
+  .tc-hide-narrow { display:none; }
+  .tc-planner-nav { flex-wrap: nowrap; }
+  .tc-planner-nav .tc-btn-sm { padding: 10px 12px; }
+}
