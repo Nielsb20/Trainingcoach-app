@@ -570,12 +570,30 @@ button.tc-today-row { cursor:pointer; }
 .tc-today-event > span { display:flex; flex-direction:column; gap:2px; }
 .tc-today-countdown { display:flex; flex-direction:column; align-items:flex-end; }
 .tc-today-countdown .tc-mono { font-size:20px; font-weight:600; color: #ABA6E0; }
-.tc-today-stats { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; }
+.tc-today-stats {
+  display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; width:100%;
+  background:none; border:none; padding:0; color: var(--text); font: inherit; text-align:left; cursor:pointer;
+}
+.tc-today-stats:hover .tc-today-stat { border-color: #3E474F; }
 .tc-today-stat { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:3px; min-width:0; }
 .tc-today-stat-label { font-size:11.5px; color: var(--text-muted); }
 .tc-today-stat-value { font-size:20px; font-weight:600; }
 .tc-today-stat-sub { font-size:11.5px; color: var(--text-muted); }
-.tc-today-block { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; }
+.tc-today-block {
+  display:block; width:100%; text-align:left; cursor:pointer; color: var(--text); font: inherit;
+  background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px;
+}
+.tc-today-block:hover { border-color: #3E474F; }
+/* Het klikbare deel van een sessiekaart; de startknop staat er los onder. */
+.tc-today-card-link {
+  display:flex; flex-direction:column; gap:8px; width:100%; text-align:left; cursor:pointer;
+  background:none; border:none; padding:0; color: inherit; font: inherit;
+}
+.tc-today-card-link:hover .tc-today-session-title { color: var(--strength); }
+.tc-today-stats:focus-visible, .tc-today-block:focus-visible, .tc-today-card-link:focus-visible,
+.tc-today-row:focus-visible, .tc-today-card:focus-visible, .tc-today-week:focus-visible {
+  outline: 2px solid var(--strength); outline-offset: 2px;
+}
 .tc-today-week {
   display:flex; flex-direction:column; gap:8px; width:100%; text-align:left; cursor:pointer;
   background: transparent; border:1px solid transparent; border-radius:12px; padding:4px 0; color: var(--text); font: inherit;
