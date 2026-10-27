@@ -86,7 +86,7 @@ export default function TodayTab({ schema, cardioLogs, events, coachHistory, onN
       <h1 className="tc-title">Vandaag</h1>
 
       {herstel && herstel.signalen.length > 0 && (
-        <button className="tc-today-alert" onClick={() => onNavigate("voortgang")}>
+        <button className="tc-today-alert" onClick={() => onNavigate("voortgang", "herstel")}>
           <span className="tc-today-alert-dot" aria-hidden="true" />
           <span>
             <strong>Herstel: doe vandaag rustig aan</strong>
@@ -118,31 +118,33 @@ export default function TodayTab({ schema, cardioLogs, events, coachHistory, onN
       )}
 
       {belasting && (
-        <div className="tc-today-stats">
-          <div className="tc-today-stat">
+        <button className="tc-today-stats" onClick={() => onNavigate("voortgang", "belasting")}
+          aria-label={`Fitheid ${Math.round(belasting.ctl)}, vermoeidheid ${Math.round(belasting.atl)}, vorm ${Math.round(belasting.tsb)}: open de belasting`}>
+          <span className="tc-today-stat">
             <span className="tc-today-stat-label">Fitheid</span>
             <span className="tc-today-stat-value tc-mono">{Math.round(belasting.ctl)}</span>
             <span className="tc-today-stat-sub">
               {belasting.ctlDelta === null ? "CTL" : `${belasting.ctlDelta >= 0 ? "+" : "−"}${Math.abs(belasting.ctlDelta)} in 4 wk`}
             </span>
-          </div>
-          <div className="tc-today-stat">
+          </span>
+          <span className="tc-today-stat">
             <span className="tc-today-stat-label">Vermoeidheid</span>
             <span className="tc-today-stat-value tc-mono">{Math.round(belasting.atl)}</span>
             <span className="tc-today-stat-sub">ATL, 7 dagen</span>
-          </div>
-          <div className="tc-today-stat">
+          </span>
+          <span className="tc-today-stat">
             <span className="tc-today-stat-label">Vorm</span>
             <span className="tc-today-stat-value tc-mono">{belasting.tsb > 0 ? "+" : ""}{Math.round(belasting.tsb)}</span>
             <span className="tc-today-stat-sub">{vorm}</span>
-          </div>
-        </div>
+          </span>
+        </button>
       )}
 
       {herstel && (
-        <div className="tc-today-block">
+        <button className="tc-today-block" onClick={() => onNavigate("voortgang", "herstel")}
+          aria-label="Herstel van vannacht, open het overzicht">
           <HerstelTegels overzicht={herstel} compact />
-        </div>
+        </button>
       )}
 
       {coach && (coach.analyse || coach.rawFeedback) && (
@@ -159,7 +161,7 @@ export default function TodayTab({ schema, cardioLogs, events, coachHistory, onN
       )}
 
       {volgendEvenement && (
-        <div className="tc-today-row">
+        <button className="tc-today-row" onClick={() => onNavigate("instellingen", "evenementen")}>
           <span className="tc-today-event">
             <Flag size={15} style={{ color: "var(--event)" }} aria-hidden="true" />
             <span>
@@ -173,7 +175,7 @@ export default function TodayTab({ schema, cardioLogs, events, coachHistory, onN
             <span className="tc-mono">{daysUntil(volgendEvenement.date)}</span>
             <span className="tc-today-meta">dagen</span>
           </span>
-        </div>
+        </button>
       )}
 
       <WeekStrook week={week} vandaag={vandaag} plans={plans} planning={planning} cardioLogs={cardioLogs}
@@ -198,8 +200,14 @@ function TrainingVanVandaag({ sessies, krachtGelogd, onStartStrength, onNavigate
         const kracht = p.discipline === "kracht";
         const gedaan = p.status === "gedaan" || (kracht && krachtGelogd.length > 0);
         const doelen = kracht && Array.isArray(p.krachtDoelen) ? p.krachtDoelen : null;
+        // Kracht opent het loggen (met de gewichten van de coach al ingevuld),
+        // gedane kracht de voortgang, cardio de planning waar het bestand staat.
+        const open = kracht
+          ? (gedaan ? () => onNavigate("voortgang", "kracht") : onStartStrength)
+          : () => onNavigate("planning");
         return (
           <div className="tc-today-card tc-today-session" key={p.id}>
+            <button className="tc-today-card-link" onClick={open}>
             <span className="tc-today-card-head">
               <span className="tc-today-meta tc-mono">
                 {gedaan ? "GEDAAN" : "GEPLAND"}{p.timeOfDay ? ` · ${p.timeOfDay.toUpperCase()}` : ""}
@@ -218,6 +226,7 @@ function TrainingVanVandaag({ sessies, krachtGelogd, onStartStrength, onNavigate
                 {doelen.map((d) => `${d.naam}${d.gewichtKg != null ? ` ${String(d.gewichtKg).replace(".", ",")} kg` : ""}`).join(" · ")}
               </span>
             )}
+            </button>
             {kracht && !gedaan && (
               <button className="tc-btn tc-btn-strength tc-btn-lg" onClick={onStartStrength}>
                 Start training
@@ -227,10 +236,10 @@ function TrainingVanVandaag({ sessies, krachtGelogd, onStartStrength, onNavigate
         );
       })}
       {sessies.length === 0 && krachtGelogd.map((k) => (
-        <div className="tc-today-card tc-today-session" key={k.id}>
+        <button className="tc-today-card tc-today-session" key={k.id} onClick={() => onNavigate("voortgang", "kracht")}>
           <span className="tc-today-meta tc-mono">GEDAAN</span>
           <span className="tc-today-session-title"><Dumbbell size={18} aria-hidden="true" />{k.dayName || "Krachttraining"}</span>
-        </div>
+        </button>
       ))}
     </>
   );

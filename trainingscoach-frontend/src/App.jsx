@@ -47,6 +47,7 @@ export default function App() {
   const [tab, setTab] = useState("vandaag");
   const [logKind, setLogKind] = useState("kracht");
   const [settingsPage, setSettingsPage] = useState("schema");
+  const [voortgangSub, setVoortgangSub] = useState("kracht");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -244,6 +245,15 @@ export default function App() {
     setTab("loggen");
   }
 
+  // Vanaf Vandaag meteen naar het juiste onderdeel, niet alleen het tabblad:
+  // wie op de hersteltegels tikt wil Herstel zien, niet eerst Kracht.
+  function navigeer(naar, onderdeel) {
+    if (onderdeel && naar === "voortgang") setVoortgangSub(onderdeel);
+    if (onderdeel && naar === "instellingen") setSettingsPage(onderdeel);
+    if (onderdeel && naar === "loggen") setLogKind(onderdeel);
+    setTab(naar);
+  }
+
   // Een functie en geen eigen component: binnen App gedefinieerd zou React
   // elke knop bij iedere render als nieuw onderdeel zien en opnieuw opbouwen.
   function navButton(item, className = "") {
@@ -318,7 +328,7 @@ export default function App() {
 
         {/* resetKey = het tabblad: overstappen geeft een nieuwe kans, want de
             fout zat vrijwel zeker in het scherm dat je net verliet. */}
-        <ErrorBoundary resetKey={tab + logKind + settingsPage}>
+        <ErrorBoundary resetKey={tab + logKind + settingsPage + voortgangSub}>
         <Suspense fallback={<TabLoading />}>
         {tab === "vandaag" && (
           <TodayTab
@@ -326,7 +336,7 @@ export default function App() {
             cardioLogs={cardioLogs}
             events={events}
             coachHistory={coachHistory}
-            onNavigate={setTab}
+            onNavigate={navigeer}
             onStartStrength={() => openLog("kracht")}
           />
         )}
@@ -369,6 +379,8 @@ export default function App() {
             onOpenSession={setDetailSessionId}
             addWeightLog={addWeightLog}
             deleteWeightLog={deleteWeightLog}
+            sub={voortgangSub}
+            onSubChange={setVoortgangSub}
           />
         )}
         {tab === "coach" && (

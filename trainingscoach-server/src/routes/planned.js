@@ -142,6 +142,52 @@ function weekdayMismatch(dayText, resolvedDate) {
 }
 
 /**
+ * De weekdagen waar een krachtdag aan vastzit. Ingevuld bij Schema gaat voor;
+ * staat daar niets maar heet de dag zelf naar een weekdag ("Vrijdag"), dan is
+ * dat net zo goed een afspraak. Zonder deze tweede regel kon de coach een dag
+ * die letterlijk Vrijdag heet op zaterdag zetten, en dat is precies wat er
+ * gebeurde.
+ */
+function vasteWeekdagenVan(dag) {
+  if (!dag) return [];
+  const ingevuld = String(dag.weekdays || "").split(",").map((w) => w.trim()).filter(Boolean);
+  if (ingevuld.length) return ingevuld;
+  const naam = String(dag.name || "").trim().toLowerCase();
+  const uitNaam = calc.WEEKDAYS.find((w) => w.toLowerCase() === naam);
+  return uitNaam ? [uitNaam] : [];
+}
+
+/**
+ * Zet een datum op de dichtstbijzijnde vaste weekdag, binnen drie dagen naar
+ * voren of naar achteren en nooit in het verleden. Bij gelijke afstand wint de
+ * latere dag: een dag uitstellen is veiliger dan een dag minder herstel.
+ * Geeft de datum ongewijzigd terug als die al op een vaste dag valt.
+ */
+function opVasteWeekdag(date, weekdagen, vandaag = calc.todayStr()) {
+  if (!weekdagen.length || weekdagen.includes(calc.weekdayNameForDate(date))) return date;
+  const basis = new Date(date + "T00:00:00");
+  const kandidaten = [];
+  for (let delta = -3; delta <= 3; delta++) {
+    const d = new Date(basis);
+    d.setDate(d.getDate() + delta);
+    const iso = toIso(d);
+    if (iso >= vandaag && weekdagen.includes(calc.weekdayNameForDate(iso))) kandidaten.push({ iso, delta });
+  }
+  if (!kandidaten.length) {
+    // Alles binnen bereik ligt al achter ons: de eerstvolgende vaste dag dan.
+    for (let delta = 1; delta <= 7; delta++) {
+      const d = new Date(basis);
+      d.setDate(d.getDate() + delta);
+      const iso = toIso(d);
+      if (iso >= vandaag && weekdagen.includes(calc.weekdayNameForDate(iso))) return iso;
+    }
+    return date;
+  }
+  kandidaten.sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || b.delta - a.delta);
+  return kandidaten[0].iso;
+}
+
+/**
  * Looks for a logged cardio session that plausibly fulfils a plan: same day,
  * same sport. Returns the session id, or null.
  */
@@ -475,9 +521,12 @@ function createProposalsFromCoachEntry(coachEntryId) {
   );
   // De oefeningen per schemadag, om de getallen van de coach tegen te houden.
   const schemaOefeningen = new Map();
-  for (const d of db.prepare("SELECT id, name FROM schema_days").all()) {
+  // En per schemadag de vaste weekdagen, om de datum tegen te houden.
+  const vasteDagen = new Map();
+  for (const d of db.prepare("SELECT id, name, weekdays FROM schema_days").all()) {
     const namen = db.prepare("SELECT name FROM schema_exercises WHERE day_id = ? ORDER BY sort_order").all(d.id).map((e) => e.name);
     schemaOefeningen.set(d.name.trim().toLowerCase(), namen);
+    vasteDagen.set(d.name.trim().toLowerCase(), vasteWeekdagenVan(d));
   }
   // Conflicts are per discipline: a strength session and a ride on the same
   // day is a normal double day, not a clash.
@@ -491,11 +540,17 @@ function createProposalsFromCoachEntry(coachEntryId) {
   const usedDates = new Set();
 
   proposals.forEach((p, i) => {
-    const date = resolveDate(p.dag);
-    if (!date) {
+    const coachDatum = resolveDate(p.dag);
+    if (!coachDatum) {
       skipped.push({ dag: p.dag, reden: "kon er geen datum van maken" });
       return;
     }
+    // Een krachtdag met een vaste weekdag gaat naar die weekdag, wat de coach
+    // ook schreef. De prompt vraagt dat al, maar het model hield zich er niet
+    // altijd aan; hier kan het niet meer misgaan.
+    const date = p.discipline === "kracht"
+      ? opVasteWeekdag(coachDatum, vasteDagen.get(String(p.schemaDag || "").trim().toLowerCase()) || [])
+      : coachDatum;
 
     // Two proposals for the same discipline on one day means the advice was
     // ambiguous. Keep the first and flag it rather than stacking silently.
@@ -506,8 +561,14 @@ function createProposalsFromCoachEntry(coachEntryId) {
     }
     usedDates.add(dateKey);
 
-    const mismatch = weekdayMismatch(p.dag, date);
-    if (mismatch) {
+    const mismatch = date === coachDatum ? weekdayMismatch(p.dag, date) : null;
+    if (date !== coachDatum) {
+      waarschuwingen.push({
+        dag: p.dag,
+        datum: date,
+        melding: `${p.schemaDag} ligt vast op ${calc.weekdayNameForDate(date).toLowerCase()}; de coach zette hem op ${coachDatum}, verplaatst naar ${date}`,
+      });
+    } else if (mismatch) {
       waarschuwingen.push({
         dag: p.dag,
         datum: date,
@@ -1174,4 +1235,4 @@ function getUpcomingPlan(days = 14) {
     .map(serialize);
 }
 
-module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, getRecentMoves, createProposalsFromCoachEntry, markSupersededSessions };
+module.exports = { router, resolveDate, weekdayMismatch, refreshCompletions, getUpcomingPlan, getRecentDeclines, getRecentMoves, createProposalsFromCoachEntry, markSupersededSessions, opVasteWeekdag, vasteWeekdagenVan };

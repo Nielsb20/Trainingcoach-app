@@ -514,6 +514,31 @@ describe("Navigatie", () => {
   });
 });
 
+describe("Doorklikken vanaf Vandaag", () => {
+  const morgen = new Date(Date.now() + 864e5 * 10).toISOString().slice(0, 10);
+  beforeEach(() => {
+    vi.spyOn(api, "loadAll").mockResolvedValue({
+      schema: { days: [], cardioDays: [], profile: {} },
+      workoutLogs: [], cardioLogs: [], weightLogs: [],
+      events: [{ id: "e1", name: "Veluwerit", date: morgen, type: "fietstocht" }],
+      coachHistory: [],
+    });
+    vi.spyOn(api, "getPlannedSessions").mockResolvedValue({ plans: [] });
+    vi.spyOn(api, "getPlannedRange").mockResolvedValue({ plans: [], krachttrainingen: [], evenementen: [] });
+    vi.spyOn(api, "getWellnessLogs").mockResolvedValue([]);
+    vi.spyOn(api, "getBackups").mockResolvedValue({ backups: [], laatste: null });
+    vi.spyOn(api, "getGoals").mockResolvedValue({});
+    vi.spyOn(api, "getAutomation").mockResolvedValue({});
+  });
+
+  it("opent bij het evenement meteen de evenementen", async () => {
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /Veluwerit/ }));
+    expect(screen.getByRole("button", { name: "Instellingen" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("tab", { name: "Evenementen" })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
 describe("Hersteltabel", () => {
   const dag = (d, extra = {}) => ({
     date: d, restingHr: 48, sleepingHr: 52, hrvMs: 44, sleepMinutes: 420,

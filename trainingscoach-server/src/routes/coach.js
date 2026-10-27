@@ -225,6 +225,14 @@ function buildCoachPayload({ question = null } = {}) {
   return {
     vandaag: calc.todayStr(),
     vandaagWeekdag: calc.weekdayNameForDate(calc.todayStr()),
+    // Een kant-en-klare kalender, zodat het model weekdag en datum niet zelf
+    // hoeft uit te rekenen: daar ging het een dag naast (vrijdag op de 31e).
+    komendeDagen: Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(calc.todayStr() + "T00:00:00");
+      d.setDate(d.getDate() + i);
+      const datum = calc.toDateStr(d);
+      return `${calc.weekdayNameForDate(datum).toLowerCase()} ${datum}`;
+    }),
     eerderGesprek: getRecentConversation(),
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     lichaamsgewicht: weightSummary,
