@@ -116,8 +116,23 @@ const COACH_RESPONSE_SCHEMA = {
               krachtSessies: { type: "NUMBER", nullable: true },
               kernsessies: { type: "ARRAY", items: { type: "STRING" } },
               toelichting: { type: "STRING", nullable: true },
+              // De trainingen van die week over de dagen verdeeld, zodat de
+              // planning ook verder vooruit per dag laat zien wat er komt.
+              dagen: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    dag: { type: "STRING" },
+                    discipline: { type: "STRING" },
+                    titel: { type: "STRING" },
+                    kort: { type: "STRING", nullable: true },
+                  },
+                  required: ["dag", "discipline", "titel"],
+                },
+              },
             },
-            required: ["weekVan", "fase", "focus", "kernsessies"],
+            required: ["weekVan", "fase", "focus", "kernsessies", "dagen"],
           },
         },
       },

@@ -42,6 +42,32 @@ function getalTussen(waarde, min, max, stap) {
 }
 
 /**
+ * De trainingen van een week per dag. De coach noemt een weekdag; de datum
+ * rekenen we hier zelf uit vanaf de maandag, zodat hij daar niet mis kan gaan.
+ * Per dag hooguit één kracht en één cardio, net als bij de voorstellen.
+ */
+function dagenVan(lijst, weekVan) {
+  if (!Array.isArray(lijst)) return [];
+  const maandag = new Date(weekVan + "T00:00:00");
+  const gezien = new Set();
+  const uit = [];
+  for (const d of lijst) {
+    if (!d || typeof d !== "object") continue;
+    const naam = String(d.dag || "").trim().toLowerCase();
+    const index = calc.WEEKDAYS.findIndex((w) => naam.startsWith(w.toLowerCase()));
+    if (index === -1) continue;
+    const discipline = String(d.discipline || "").toLowerCase().startsWith("kracht") ? "kracht" : "cardio";
+    const titel = tekst(d.titel, 60);
+    if (!titel || gezien.has(`${index}|${discipline}`)) continue;
+    gezien.add(`${index}|${discipline}`);
+    const datum = new Date(maandag);
+    datum.setDate(maandag.getDate() + index);
+    uit.push({ datum: calc.toDateStr(datum), dag: calc.WEEKDAYS[index], discipline, titel, kort: tekst(d.kort, 160) });
+  }
+  return uit.sort((a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : a.discipline < b.discipline ? 1 : -1));
+}
+
+/**
  * Maakt van wat het model teruggeeft een bruikbaar blokplan, of null.
  * `vandaag` is instelbaar voor de tests.
  */
@@ -68,6 +94,7 @@ function normalizeBlokplan(raw, vandaag = calc.todayStr()) {
         .filter(Boolean)
         .slice(0, 6),
       toelichting: tekst(w.toelichting, 300),
+      dagen: dagenVan(w.dagen, weekVan),
     });
   }
   const weken = [...perWeek.values()].sort((a, b) => (a.weekVan < b.weekVan ? -1 : 1)).slice(0, MAX_WEKEN);

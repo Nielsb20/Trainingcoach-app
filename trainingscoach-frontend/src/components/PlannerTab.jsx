@@ -17,7 +17,8 @@ import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel, surfaceLabel 
  */
 /** Een dag waarop niets staat: geen plan, geen voorstel, geen kracht, geen evenement. */
 const isRustdag = (day) =>
-  day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0 && day.events.length === 0;
+  day.committed.length === 0 && day.proposed.length === 0 && day.strength.length === 0 && day.events.length === 0 &&
+  (day.schets || []).length === 0;
 
 const formatDuration = (min) => {
   if (!min) return "";
@@ -131,8 +132,21 @@ export default function PlannerTab({ onOpenSession }) {
         events: events.filter((e) => e.date === iso),
       });
     }
+    // Verder vooruit dan de concrete voorstellen staat alleen het blokplan.
+    // Wat dat voor een dag in petto heeft komt er als schets bij, maar alleen
+    // waar nog niets echts staat van dezelfde discipline: zodra de wekelijkse
+    // planning de dag invult, neemt die het over.
+    const vandaag = todayStr();
+    for (const day of out) {
+      const week = blokWeken.get(maandagVan(day.date));
+      const echt = [...day.committed, ...day.proposed].map((p) => (p.discipline === "kracht" ? "kracht" : "cardio"));
+      if (day.strength.length > 0) echt.push("kracht");
+      day.schets = day.date < vandaag || !week
+        ? []
+        : (week.dagen || []).filter((d) => d.datum === day.date && !echt.includes(d.discipline));
+    }
     return out;
-  }, [committed, proposals, strengthSessions, events, rangeStart]);
+  }, [committed, proposals, strengthSessions, events, rangeStart, blokWeken]);
 
   /**
    * Waar zitten de aaneengesloten rustdagen?
@@ -340,6 +354,21 @@ export default function PlannerTab({ onOpenSession }) {
 
               <div className="tc-planner-sessions">
                 {empty && <span className="tc-planner-empty">rustdag</span>}
+
+                {day.schets.map((d) => (
+                  <div className={"tc-planner-session tc-planner-schets tc-planner-" + (d.discipline === "kracht" ? "strength" : "cardio")}
+                    key={`schets-${d.discipline}`} title="Uit het blokplan; de wekelijkse planning werkt dit uit">
+                    {d.discipline === "kracht"
+                      ? <Dumbbell size={16} style={{ color: "var(--strength)", flexShrink: 0 }} />
+                      : <Activity size={16} style={{ color: "var(--cardio)", flexShrink: 0 }} />}
+                    <div className="tc-gpxbatch-info">
+                      <span className="tc-planner-type">
+                        {d.titel} <span className="tc-hint-badge tc-badge-schets">voorlopig</span>
+                      </span>
+                      {d.kort && <span className="tc-history-detail">{d.kort}</span>}
+                    </div>
+                  </div>
+                ))}
 
                 {day.events.map((e) => (
                   <div className={"tc-planner-session tc-planner-event" + (e.voltooid ? " tc-event-done" : "")} key={e.id}>

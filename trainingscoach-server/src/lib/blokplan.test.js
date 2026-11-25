@@ -40,6 +40,24 @@ assert.strictEqual(normalizeBlokplan({ weken: [] }, VANDAAG), null);
 assert.strictEqual(normalizeBlokplan({ weken: [{ weekVan: "2026-01-05", fase: "Oud", focus: "x" }] }, VANDAAG), null);
 console.log("  ok  niets bruikbaars geeft null, zodat het vorige blokplan blijft gelden");
 
+console.log("\ntrainingen per dag");
+const metDagen = normalizeBlokplan({
+  weken: [{ weekVan: "2026-11-30", fase: "Opbouw", focus: "x", kernsessies: [], dagen: [
+    { dag: "Vrijdag", discipline: "kracht", titel: "Vrijdag", kort: "squat 3x3 op 70 kg" },
+    { dag: "dinsdag", discipline: "Cardio", titel: "Fietsen", kort: "1 uur z2" },
+    { dag: "Vrijdag", discipline: "kracht", titel: "Dubbel" },
+    { dag: "Funday", discipline: "cardio", titel: "Kapot" },
+    { dag: "Zondag", discipline: "iets", titel: "Fietsen", kort: null },
+  ] }],
+}, VANDAAG);
+assert.deepStrictEqual(metDagen.weken[0].dagen.map((d) => [d.datum, d.dag, d.discipline, d.titel]), [
+  ["2026-12-01", "Dinsdag", "cardio", "Fietsen"],
+  ["2026-12-04", "Vrijdag", "kracht", "Vrijdag"],
+  ["2026-12-06", "Zondag", "cardio", "Fietsen"],
+]);
+assert.deepStrictEqual(plan.weken[0].dagen, [], "een week zonder dagen is gewoon een lege lijst");
+console.log("  ok  datum uit de weekdag berekend, dubbele en onbekende dagen weg, onbekende discipline wordt cardio");
+
 console.log("\nhet geldende blokplan");
 const zet = (id, date, json) =>
   db.prepare("INSERT INTO coach_history (id, date, blokplan_json) VALUES (?, ?, ?)").run(id, date, json);
