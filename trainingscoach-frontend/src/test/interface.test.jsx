@@ -613,6 +613,23 @@ describe("Blokplan in de planner", () => {
     expect(screen.queryByText("Blokplan")).not.toBeInTheDocument();
   });
 
+  it("zet de trainingen van het blokplan als voorlopige sessies op hun dag", async () => {
+    const vr = (() => {
+      const d = new Date(volgende + "T00:00:00");
+      d.setDate(d.getDate() + 4);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+    vi.spyOn(api, "getBlokplan").mockResolvedValue({
+      coachEntryId: "c1", bijgewerkt: "2026-11-25T10:00:00Z", doel: null,
+      weken: [{ weekVan: volgende, fase: "Opbouw", focus: "x", cardioUren: 6, krachtSessies: 1, kernsessies: [],
+        toelichting: null,
+        dagen: [{ datum: vr, dag: "Vrijdag", discipline: "kracht", titel: "Vrijdag", kort: "squat 3x3 op 70 kg" }] }],
+    });
+    render(<PlannerTab onOpenSession={() => {}} />);
+    expect(await screen.findByText("squat 3x3 op 70 kg")).toBeInTheDocument();
+    expect(screen.getByText("voorlopig")).toBeInTheDocument();
+  });
+
   it("biedt aan een blokplan te maken als er nog geen is", async () => {
     vi.spyOn(api, "getBlokplan").mockResolvedValue(null);
     render(<PlannerTab onOpenSession={() => {}} />);
