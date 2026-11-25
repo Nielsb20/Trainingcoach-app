@@ -164,18 +164,26 @@ function naarJsonSchema(schema) {
  */
 /**
  * Het uitvoerbudget per aanroep. Standaard rekenen we het uit (zie hieronder
- * per provider), maar met COACH_MAX_OUTPUT_TOKENS in .env zet je het zelf vast,
- * voor elke coachvraag en elk schemavoorstel. Handig als een lange weekplanning
- * toch tegen de grens loopt: dan hoef je niet in de code te zoeken, alleen die
- * waarde op te hogen en de server te herstarten. Een onzinwaarde (tekst, nul,
- * negatief) wordt genegeerd; boven 64000 wordt het afgekapt, want meer kan
- * geen van beide providers in één antwoord teruggeven.
+ * per provider), maar je kunt het zelf vastzetten: in de app bij Instellingen
+ * › Automatische planning, of met COACH_MAX_OUTPUT_TOKENS in .env. De app gaat
+ * voor, want daar kun je het aanpassen zonder herstart. Een onzinwaarde (tekst,
+ * nul, negatief) wordt genegeerd; boven 64000 wordt het afgekapt, want meer
+ * kan geen van beide providers in één antwoord teruggeven.
  */
 const MAX_INSTELBAAR = 64000;
+function geldig(waarde) {
+  const n = Math.floor(Number(waarde));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_INSTELBAAR) : null;
+}
 function uitvoerBudget(berekend) {
-  const ingesteld = Math.floor(Number(process.env.COACH_MAX_OUTPUT_TOKENS));
-  if (Number.isFinite(ingesteld) && ingesteld > 0) return Math.min(ingesteld, MAX_INSTELBAAR);
-  return berekend;
+  let uitApp = null;
+  try {
+    const { db } = require("../db/db");
+    uitApp = db.prepare("SELECT max_output_tokens FROM coach_automation WHERE id = 1").get()?.max_output_tokens;
+  } catch {
+    // Geen database of nog geen kolom: dan geldt .env of automatisch.
+  }
+  return geldig(uitApp) ?? geldig(process.env.COACH_MAX_OUTPUT_TOKENS) ?? berekend;
 }
 
 async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSchema }) {
@@ -237,8 +245,8 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   if (data.stop_reason === "max_tokens") {
     throw new Error(
       `Het antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. ` +
-        "Wat er binnenkwam is onvolledig en is daarom niet bewaard. Zet COACH_MAX_OUTPUT_TOKENS in .env hoger " +
-        "(bijvoorbeeld 16000) en herstart de server."
+        "Wat er binnenkwam is onvolledig en is daarom niet bewaard. Zet bij Instellingen › Automatische planning " +
+        "de ruimte voor het antwoord hoger (bijvoorbeeld 16000)."
     );
   }
 
@@ -312,7 +320,7 @@ async function callGemini({ systemPrompt, userContent, maxTokens, responseSchema
   if (candidate.finishReason === "MAX_TOKENS") {
     throw new Error(
       `Gemini's antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. Zet ` +
-        "COACH_MAX_OUTPUT_TOKENS in .env hoger (bijvoorbeeld 16000) en herstart de server, " +
+        "bij Instellingen › Automatische planning de ruimte voor het antwoord hoger (bijvoorbeeld 16000), " +
         "of kies een model dat minder 'thinking'-tokens gebruikt."
     );
   }

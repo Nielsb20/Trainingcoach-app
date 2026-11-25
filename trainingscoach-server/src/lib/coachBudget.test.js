@@ -71,6 +71,15 @@ for (const onzin of ["", "veel", "0", "-5"]) {
   assert.strictEqual(uitvoerBudget(8000), 8000, `"${onzin}" hoort genegeerd te worden`);
 }
 delete process.env.COACH_MAX_OUTPUT_TOKENS;
+const { db, initSchema } = require("../db/db");
+initSchema();
+process.env.COACH_MAX_OUTPUT_TOKENS = "12000";
+db.prepare("UPDATE coach_automation SET max_output_tokens = 24000 WHERE id = 1").run();
+assert.strictEqual(uitvoerBudget(8000), 24000, "de instelling in de app gaat voor .env");
+db.prepare("UPDATE coach_automation SET max_output_tokens = NULL WHERE id = 1").run();
+assert.strictEqual(uitvoerBudget(8000), 12000, "zonder app-instelling geldt .env");
+delete process.env.COACH_MAX_OUTPUT_TOKENS;
+console.log("  ok  instelling in de app gaat voor .env");
 console.log("  ok  leeg = automatisch, ingesteld wint, boven 64000 afgekapt, onzin genegeerd");
 
 console.log("\nAlle budgettests geslaagd.");

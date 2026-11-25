@@ -193,6 +193,24 @@ export default function AutomationPanel() {
         </div>
       )}
 
+      {/* ------------------------- answer length ---------------------------- */}
+      <div className="tc-form-row" style={{ marginTop: 14 }}>
+        <div>
+          <label className="tc-label" htmlFor="coach-max-tokens">Ruimte voor het antwoord van de coach</label>
+          <select id="coach-max-tokens" className="tc-input" value={settings.maxOutputTokens ?? ""} disabled={saving}
+            onChange={(e) => save({ ...settings, maxOutputTokens: e.target.value ? Number(e.target.value) : null })}>
+            <option value="">Automatisch (minstens 8.000 tokens)</option>
+            {[8000, 16000, 32000, 64000].map((n) => (
+              <option key={n} value={n}>{n.toLocaleString("nl-NL")} tokens</option>
+            ))}
+          </select>
+          <span className="tc-history-detail">
+            Krijg je de melding dat het antwoord werd afgekapt, zet dit dan hoger. Je betaalt alleen
+            wat de coach echt schrijft, dus meer ruimte kost niets extra zolang het antwoord even lang blijft.
+          </span>
+        </div>
+      </div>
+
       {/* --------------------------- current state -------------------------- */}
       <div className="tc-import-preview">
         <p className="tc-import-help">

@@ -514,3 +514,7 @@ ALTER TABLE wellness_logs ADD COLUMN respiration_avg REAL;
 -- tekst van description, waar je het in de sportschool moest teruglezen en
 -- overtikken. Los opgeslagen kan het loggen de gewichten klaarzetten.
 ALTER TABLE planned_sessions ADD COLUMN strength_targets_json TEXT;
+
+-- Hoeveel tokens de coach per antwoord mag terugschrijven. Leeg = automatisch.
+-- Staat in de app zodat je er niet voor in .env hoeft (zie llmProvider.js).
+ALTER TABLE coach_automation ADD COLUMN max_output_tokens INTEGER;
