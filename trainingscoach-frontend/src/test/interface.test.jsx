@@ -593,7 +593,7 @@ describe("Blokplan in de planner", () => {
     });
   });
 
-  it("toont per week de fase, uren en kernsessies", async () => {
+  it("zet elke week van het blokplan als kop in de gewone planning", async () => {
     vi.spyOn(api, "getBlokplan").mockResolvedValue({
       coachEntryId: "c1", bijgewerkt: "2026-11-25T10:00:00Z", doel: "Veluwerit",
       weken: [
@@ -604,16 +604,19 @@ describe("Blokplan in de planner", () => {
       ],
     });
     render(<PlannerTab onOpenSession={() => {}} />);
-    expect(await screen.findByText("Herstelweek")).toBeInTheDocument();
+    // Geen los overzicht meer, maar koppen tussen de dagen.
+    const kop = await screen.findByText("Herstelweek");
+    expect(kop.closest(".tc-planner")).not.toBeNull();
     expect(screen.getByText("6,5 u · 2× kracht")).toBeInTheDocument();
     expect(screen.getByText("lange duurrit 3 uur")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Toon alle/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Veluwerit")).toBeInTheDocument();
+    expect(screen.queryByText("Blokplan")).not.toBeInTheDocument();
   });
 
   it("biedt aan een blokplan te maken als er nog geen is", async () => {
     vi.spyOn(api, "getBlokplan").mockResolvedValue(null);
     render(<PlannerTab onOpenSession={() => {}} />);
-    expect(await screen.findByText("nog geen lange lijn")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Maak een blokplan/ })).toBeInTheDocument();
   });
 });
 
