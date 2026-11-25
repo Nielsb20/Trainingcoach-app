@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbbell, Activity, ChevronLeft, ChevronRight, CalendarPlus, Flag, CalendarClock, Trophy, Moon, MoreVertical, FileDown, SkipForward, RotateCcw } from "lucide-react";
 import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import WorkoutFilePanel from "./shared/WorkoutFilePanel";
-import Blokplan from "./shared/Blokplan";
+import { WeekKop, BlokplanKnop, maandagVan } from "./shared/Blokplan";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel, surfaceLabel } from "../lib/calculations";
 
@@ -45,6 +45,8 @@ export default function PlannerTab({ onOpenSession }) {
   const [blockOffset, setBlockOffset] = useState(0);
   // Reeksen rustdagen staan samengevat; één klik zet ze weer los uit elkaar.
   const [rustUitgeklapt, setRustUitgeklapt] = useState(false);
+  // De lange lijn van de coach; elke week ervan staat als kop in de lijst.
+  const [blokplan, setBlokplan] = useState(null);
 
   const DAYS_PER_BLOCK = 14;
   const rangeStart = useMemo(() => {
@@ -74,6 +76,19 @@ export default function PlannerTab({ onOpenSession }) {
   }
 
   useEffect(() => { setLoading(true); load(); }, [blockOffset]);
+
+  async function laadBlokplan() {
+    try {
+      setBlokplan(await api.getBlokplan());
+    } catch {
+      setBlokplan(null); // zonder blokplan werkt de planning gewoon zoals altijd
+    }
+  }
+  useEffect(() => { laadBlokplan(); }, []);
+  const blokWeken = useMemo(
+    () => new Map((blokplan?.weken || []).map((w) => [w.weekVan, w])),
+    [blokplan]
+  );
 
   async function act(fn) {
     setBusy(true);
@@ -134,7 +149,10 @@ export default function PlannerTab({ onOpenSession }) {
     while (i < days.length) {
       if (!isRustdag(days[i])) { i += 1; continue; }
       let eind = i;
-      while (eind + 1 < days.length && isRustdag(days[eind + 1])) eind += 1;
+      // Met een blokplan breekt een reeks op maandag, anders verdwijnt de kop
+      // van die week in de samengevatte rustdagen.
+      const weekGrens = (d) => blokWeken.size > 0 && d.weekday === "Maandag";
+      while (eind + 1 < days.length && isRustdag(days[eind + 1]) && !weekGrens(days[eind + 1])) eind += 1;
       const lengte = eind - i + 1;
       if (lengte >= 2) {
         reeksen.set(days[i].date, { lengte, eind: days[eind].date });
@@ -143,7 +161,7 @@ export default function PlannerTab({ onOpenSession }) {
       i = eind + 1;
     }
     return { rustReeksen: reeksen, rustVerborgen: verborgen };
-  }, [days]);
+  }, [days, blokWeken]);
 
   if (loading) {
     return (
@@ -167,8 +185,6 @@ export default function PlannerTab({ onOpenSession }) {
       </p>
 
       {error && <div className="tc-error"><span>{error}</span></div>}
-
-      <Blokplan onProposals={load} />
 
       {upcomingEvent && (
         <div className="tc-chiprow" style={{ marginBottom: 10 }}>
@@ -271,13 +287,23 @@ export default function PlannerTab({ onOpenSession }) {
         <button className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setShowAdd(!showAdd)}>
           <Plus size={14} /> Zelf een training inplannen
         </button>
+        <BlokplanKnop heeftPlan={!!blokplan} onFout={setError}
+          onKlaar={async () => { await laadBlokplan(); await load(); }} />
       </div>
+      {blokplan?.doel && <p className="tc-import-help" style={{ marginTop: -8 }}><strong>Doel van dit blok:</strong> {blokplan.doel}</p>}
       {fillMessage && <p className="tc-import-help" style={{ marginTop: -8 }}>{fillMessage}</p>}
 
       {showAdd && <AddSessionForm onAdded={() => { setShowAdd(false); load(); }} onError={setError} />}
 
       <div className="tc-planner">
-        {days.map((day) => {
+        {days.map((day, index) => {
+          // Boven de eerste dag van elke week in beeld: wat het blokplan voor
+          // die week wil. Het is één planning, de lange lijn staat er gewoon in.
+          const weekVan = maandagVan(day.date);
+          const kop = (index === 0 || day.weekday === "Maandag") && blokWeken.get(weekVan);
+          const metKop = (el) => (kop
+            ? <Fragment key={day.date}><WeekKop week={kop} huidig={weekVan === maandagVan(todayStr())} />{el}</Fragment>
+            : el);
           const empty = isRustdag(day);
           // Een reeks lege dagen wordt één regel. Twee weken vooruit kijken
           // levert al gauw tien "rustdag"-regels op, en dan staat de vorm van
@@ -289,7 +315,7 @@ export default function PlannerTab({ onOpenSession }) {
             return null; // zit in de reeks die hierboven al is samengevat
           }
           if (empty && !rustUitgeklapt && reeks) {
-            return (
+            return metKop(
               <button
                 className="tc-planner-day tc-planner-rust"
                 key={day.date}
@@ -304,7 +330,7 @@ export default function PlannerTab({ onOpenSession }) {
               </button>
             );
           }
-          return (
+          return metKop(
             <div className={"tc-planner-day" + (day.isToday ? " tc-planner-today" : "")} key={day.date}>
               <div className="tc-planner-daylabel">
                 <span className="tc-planner-weekday">{day.weekday}</span>
