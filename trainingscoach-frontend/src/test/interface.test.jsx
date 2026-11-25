@@ -574,6 +574,49 @@ describe("Hersteltabel", () => {
   });
 });
 
+describe("Blokplan in de planner", () => {
+  const maandag = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const volgende = (() => {
+    const d = new Date(maandag + "T00:00:00");
+    d.setDate(d.getDate() + 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  beforeEach(() => {
+    vi.spyOn(api, "getPlannedRange").mockResolvedValue({
+      plans: [], krachttrainingen: [], evenementen: [],
+      samenvatting: { opvolgingPercentage: null }, volgendEvenement: null,
+    });
+  });
+
+  it("toont per week de fase, uren en kernsessies", async () => {
+    vi.spyOn(api, "getBlokplan").mockResolvedValue({
+      coachEntryId: "c1", bijgewerkt: "2026-11-25T10:00:00Z", doel: "Veluwerit",
+      weken: [
+        { weekVan: maandag, fase: "Opbouw", focus: "duur uitbreiden", cardioUren: 6.5, krachtSessies: 2,
+          kernsessies: ["lange duurrit 3 uur"], toelichting: null },
+        { weekVan: volgende, fase: "Herstelweek", focus: "rustiger", cardioUren: 4, krachtSessies: 1,
+          kernsessies: [], toelichting: null },
+      ],
+    });
+    render(<PlannerTab onOpenSession={() => {}} />);
+    expect(await screen.findByText("Herstelweek")).toBeInTheDocument();
+    expect(screen.getByText("6,5 u · 2× kracht")).toBeInTheDocument();
+    expect(screen.getByText("lange duurrit 3 uur")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Toon alle/ })).not.toBeInTheDocument();
+  });
+
+  it("biedt aan een blokplan te maken als er nog geen is", async () => {
+    vi.spyOn(api, "getBlokplan").mockResolvedValue(null);
+    render(<PlannerTab onOpenSession={() => {}} />);
+    expect(await screen.findByText("nog geen lange lijn")).toBeInTheDocument();
+  });
+});
+
 describe("Rustdagen in de planner", () => {
   // De planner toont veertien dagen vanaf vandaag, dus de testdata loopt mee
   // met de klok in plaats van met vaste datums.

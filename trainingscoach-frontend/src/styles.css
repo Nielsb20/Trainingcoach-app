@@ -710,3 +710,19 @@ button.tc-today-row { cursor:pointer; }
   .tc-planner-nav { flex-wrap: nowrap; }
   .tc-planner-nav .tc-btn-sm { padding: 10px 12px; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Blokplan (zie shared/Blokplan.jsx) */
+.tc-blok-list { list-style:none; margin: 4px 0 10px; padding:0; display:flex; flex-direction:column; gap:6px; }
+.tc-blok-week { display:flex; flex-direction:column; gap:3px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background: var(--surface); }
+.tc-blok-nu { border-color: var(--cardio); background: rgba(79,168,160,0.08); }
+.tc-blok-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.tc-blok-datum { font-size:12px; color: var(--text-muted); min-width: 64px; }
+.tc-blok-fase { font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:999px; background: rgba(79,168,160,0.18); color: var(--cardio); }
+.tc-blok-fase-herstel { background: rgba(139,148,155,0.2); color: #C3C9CE; }
+.tc-blok-fase-taper { background: rgba(171,166,224,0.18); color: #ABA6E0; }
+.tc-blok-fase-piek { background: rgba(201,122,63,0.2); color: var(--strength); }
+.tc-blok-cijfers { margin-left:auto; font-size:12px; color: var(--text-muted); }
+.tc-blok-focus { font-size:13px; line-height:1.45; }
+.tc-blok-kern { font-size:12px; color: var(--text-muted); line-height:1.45; }
+.tc-blok-toelichting { font-size:12.5px; color: #C8C6C1; line-height:1.45; }

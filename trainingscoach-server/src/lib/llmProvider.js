@@ -97,6 +97,32 @@ const COACH_RESPONSE_SCHEMA = {
         required: ["dag", "schemaDag", "invulling", "oefeningen"],
       },
     },
+    // De lange lijn, per week. Alleen gevuld als de coach het blokplan maakt
+    // of bijstelt; anders null en blijft het vorige gelden.
+    blokplan: {
+      type: "OBJECT",
+      nullable: true,
+      properties: {
+        doel: { type: "STRING", nullable: true },
+        weken: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              weekVan: { type: "STRING" },
+              fase: { type: "STRING" },
+              focus: { type: "STRING" },
+              cardioUren: { type: "NUMBER", nullable: true },
+              krachtSessies: { type: "NUMBER", nullable: true },
+              kernsessies: { type: "ARRAY", items: { type: "STRING" } },
+              toelichting: { type: "STRING", nullable: true },
+            },
+            required: ["weekVan", "fase", "focus", "kernsessies"],
+          },
+        },
+      },
+      required: ["weken"],
+    },
   },
   required: ["analyse", "tips", "cardioVoorstel", "krachtVoorstel"],
 };
@@ -139,8 +165,9 @@ function naarJsonSchema(schema) {
     if (schema.required) uit.required = schema.required;
     // Alles wat niet in het contract staat hoort er niet in te zitten.
     uit.additionalProperties = false;
+    if (schema.nullable) uit.type = ["object", "null"];
   } else if (type === "array") {
-    uit.type = "array";
+    uit.type = schema.nullable ? ["array", "null"] : "array";
     uit.items = naarJsonSchema(schema.items);
   } else {
     // Een nullable veld wordt een unie, want JSON Schema kent geen `nullable`.

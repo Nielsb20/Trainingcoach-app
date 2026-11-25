@@ -74,7 +74,8 @@ const cardio = vertaald.properties.cardioVoorstel.items;
 assert.strictEqual(cardio.type, "object");
 assert.deepStrictEqual(cardio.required, ["dag", "type", "invulling"]);
 assert.deepStrictEqual(cardio.properties.fiets.type, ["string", "null"]);
-assert.strictEqual(cardio.properties.blokken.type, "array", "geneste lijsten gaan mee");
+// blokken mag null zijn (buitenrit zonder structuur), dus ook hier een unie.
+assert.deepStrictEqual(cardio.properties.blokken.type, ["array", "null"], "geneste lijsten gaan mee");
 assert.strictEqual(cardio.properties.blokken.items.properties.soort.type, "string");
 console.log("  ok  de geneste voorstellen en blokken vertalen mee");
 
