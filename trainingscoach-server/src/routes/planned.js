@@ -545,12 +545,20 @@ function createProposalsFromCoachEntry(coachEntryId) {
       skipped.push({ dag: p.dag, reden: "kon er geen datum van maken" });
       return;
     }
-    // Een krachtdag met een vaste weekdag gaat naar die weekdag, wat de coach
-    // ook schreef. De prompt vraagt dat al, maar het model hield zich er niet
-    // altijd aan; hier kan het niet meer misgaan.
+    // Noemt de coach een weekdag en een datum die niet bij elkaar passen, dan
+    // geldt de weekdag, in dezelfde week als die datum. Het model denkt in
+    // weekdagen en rekent de datum erbij uit, en dat rekenwerk ging steeds een
+    // dag mis ("vrijdag 31 oktober" terwijl de 31e een zaterdag is), voor
+    // cardio net zo goed als voor kracht. Binnen drie dagen blijven voorkomt
+    // het oude probleem dat twee weken op elkaar klapten.
+    const mismatch = weekdayMismatch(p.dag, coachDatum);
+    const genoemdeDag = mismatch ? opVasteWeekdag(coachDatum, [mismatch.genoemd]) : coachDatum;
+    // Een krachtdag met een vaste weekdag gaat daarna naar die weekdag, wat de
+    // coach ook schreef. De prompt vraagt dat al, maar het model hield zich er
+    // niet altijd aan; hier kan het niet meer misgaan.
     const date = p.discipline === "kracht"
-      ? opVasteWeekdag(coachDatum, vasteDagen.get(String(p.schemaDag || "").trim().toLowerCase()) || [])
-      : coachDatum;
+      ? opVasteWeekdag(genoemdeDag, vasteDagen.get(String(p.schemaDag || "").trim().toLowerCase()) || [])
+      : genoemdeDag;
 
     // Two proposals for the same discipline on one day means the advice was
     // ambiguous. Keep the first and flag it rather than stacking silently.
@@ -561,18 +569,17 @@ function createProposalsFromCoachEntry(coachEntryId) {
     }
     usedDates.add(dateKey);
 
-    const mismatch = date === coachDatum ? weekdayMismatch(p.dag, date) : null;
-    if (date !== coachDatum) {
+    if (date !== genoemdeDag) {
       waarschuwingen.push({
         dag: p.dag,
         datum: date,
-        melding: `${p.schemaDag} ligt vast op ${calc.weekdayNameForDate(date).toLowerCase()}; de coach zette hem op ${coachDatum}, verplaatst naar ${date}`,
+        melding: `${p.schemaDag} ligt vast op ${calc.weekdayNameForDate(date).toLowerCase()}; de coach zette hem op ${genoemdeDag}, verplaatst naar ${date}`,
       });
     } else if (mismatch) {
       waarschuwingen.push({
         dag: p.dag,
         datum: date,
-        melding: `de coach noemde ${mismatch.genoemd}, maar ${date} is een ${mismatch.werkelijk} — de datum is aangehouden`,
+        melding: `de coach noemde ${mismatch.genoemd.toLowerCase()} bij ${coachDatum}, maar dat is een ${mismatch.werkelijk.toLowerCase()} — de weekdag is aangehouden: ${date}`,
       });
     }
 

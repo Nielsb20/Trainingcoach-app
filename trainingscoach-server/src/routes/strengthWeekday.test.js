@@ -59,4 +59,20 @@ assert.strictEqual(benen.date, iso(za));
 assert.ok(r.waarschuwingen.some((w) => /Vrijdag ligt vast op vrijdag/.test(w.melding)));
 console.log("  ok  schemadag Vrijdag komt op vrijdag, met een melding; een dag zonder vaste dag blijft waar de coach hem zette");
 
+console.log("\nweekdag en datum spreken elkaar tegen");
+// Het gemelde patroon: "vrijdag" met de datum van zaterdag. Ook voor cardio.
+const vr2 = new Date(vr); vr2.setDate(vr2.getDate() + 7);
+const za2 = new Date(vr2); za2.setDate(za2.getDate() + 1);
+db.prepare(
+  `INSERT INTO coach_history (id, date, cardio_voorstel_json, kracht_voorstel_json) VALUES ('c2', ?, ?, '[]')`
+).run(new Date().toISOString(), JSON.stringify([
+  { dag: `Vrijdag ${iso(za2)}`, type: "Fietsen", invulling: "duurrit" },
+  { dag: `Zaterdag ${iso(za2)}`, type: "Hardlopen", invulling: "rustig" },
+]));
+const r2 = createProposalsFromCoachEntry("c2");
+assert.strictEqual(r2.created.find((c) => c.type === "Fietsen").date, iso(vr2));
+assert.strictEqual(r2.created.find((c) => c.type === "Hardlopen").date, iso(za2));
+assert.ok(r2.waarschuwingen.some((w) => /weekdag is aangehouden/.test(w.melding)));
+console.log("  ok  'vrijdag' met de datum van zaterdag wordt vrijdag, ook bij cardio; een kloppende combinatie blijft staan");
+
 console.log("\nalle tests geslaagd");

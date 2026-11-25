@@ -58,4 +58,19 @@ budget.claim(at("2026-08-06T09:00:00"));
 assert.strictEqual(budget.status(at("2026-08-06T09:00:00")).aanvragenVandaag, 1);
 console.log("  ok  teller loopt per dag, niet per proces");
 
+console.log("\ninstelbaar uitvoerbudget (COACH_MAX_OUTPUT_TOKENS)");
+const { uitvoerBudget } = require("./llmProvider");
+delete process.env.COACH_MAX_OUTPUT_TOKENS;
+assert.strictEqual(uitvoerBudget(8000), 8000);
+process.env.COACH_MAX_OUTPUT_TOKENS = "16000";
+assert.strictEqual(uitvoerBudget(8000), 16000);
+process.env.COACH_MAX_OUTPUT_TOKENS = "999999";
+assert.strictEqual(uitvoerBudget(8000), 64000);
+for (const onzin of ["", "veel", "0", "-5"]) {
+  process.env.COACH_MAX_OUTPUT_TOKENS = onzin;
+  assert.strictEqual(uitvoerBudget(8000), 8000, `"${onzin}" hoort genegeerd te worden`);
+}
+delete process.env.COACH_MAX_OUTPUT_TOKENS;
+console.log("  ok  leeg = automatisch, ingesteld wint, boven 64000 afgekapt, onzin genegeerd");
+
 console.log("\nAlle budgettests geslaagd.");

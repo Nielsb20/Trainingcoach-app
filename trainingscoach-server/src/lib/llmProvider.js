@@ -162,6 +162,22 @@ function naarJsonSchema(schema) {
  * ingevulde waarden gaan er als JSON-tekst weer uit, zodat de aanroeper geen
  * verschil merkt tussen de twee providers.
  */
+/**
+ * Het uitvoerbudget per aanroep. Standaard rekenen we het uit (zie hieronder
+ * per provider), maar met COACH_MAX_OUTPUT_TOKENS in .env zet je het zelf vast,
+ * voor elke coachvraag en elk schemavoorstel. Handig als een lange weekplanning
+ * toch tegen de grens loopt: dan hoef je niet in de code te zoeken, alleen die
+ * waarde op te hogen en de server te herstarten. Een onzinwaarde (tekst, nul,
+ * negatief) wordt genegeerd; boven 64000 wordt het afgekapt, want meer kan
+ * geen van beide providers in één antwoord teruggeven.
+ */
+const MAX_INSTELBAAR = 64000;
+function uitvoerBudget(berekend) {
+  const ingesteld = Math.floor(Number(process.env.COACH_MAX_OUTPUT_TOKENS));
+  if (Number.isFinite(ingesteld) && ingesteld > 0) return Math.min(ingesteld, MAX_INSTELBAAR);
+  return berekend;
+}
+
 async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSchema }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ontbreekt in .env.");
@@ -176,8 +192,10 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   // dat probleem niet omdat die hieronder al ruimer werd bemeten.
   //
   // Je betaalt alleen voor wat er daadwerkelijk uitkomt, dus de ruimte kost
-  // niets zolang het antwoord kort blijft.
-  const outputBudget = Math.max(maxTokens * 4, 4000);
+  // niets zolang het antwoord kort blijft. 4000 bleek te krap sinds de coach
+  // per oefening ook sets en gewichten teruggeeft: een volle week liep ertegen
+  // aan. Vandaar 8000 als ondergrens.
+  const outputBudget = uitvoerBudget(Math.max(maxTokens * 4, 8000));
 
   const body = {
     model,
@@ -219,7 +237,8 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   if (data.stop_reason === "max_tokens") {
     throw new Error(
       `Het antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. ` +
-        "Wat er binnenkwam is onvolledig en is daarom niet bewaard; verhoog maxTokens voor deze vraag."
+        "Wat er binnenkwam is onvolledig en is daarom niet bewaard. Zet COACH_MAX_OUTPUT_TOKENS in .env hoger " +
+        "(bijvoorbeeld 16000) en herstart de server."
     );
   }
 
@@ -245,7 +264,7 @@ async function callGemini({ systemPrompt, userContent, maxTokens, responseSchema
   // Gemini 3 models reason before answering, and those thinking tokens count
   // against maxOutputTokens. A budget sized for the visible answer alone gets
   // consumed by thinking and truncates the JSON mid-sentence, so give it room.
-  const outputBudget = Math.max(maxTokens * 8, 8000);
+  const outputBudget = uitvoerBudget(Math.max(maxTokens * 8, 8000));
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY ontbreekt in .env.");
   const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
@@ -292,7 +311,8 @@ async function callGemini({ systemPrompt, userContent, maxTokens, responseSchema
 
   if (candidate.finishReason === "MAX_TOKENS") {
     throw new Error(
-      "Gemini's antwoord werd afgekapt omdat het tokenbudget op was. Verhoog maxTokens, " +
+      `Gemini's antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. Zet ` +
+        "COACH_MAX_OUTPUT_TOKENS in .env hoger (bijvoorbeeld 16000) en herstart de server, " +
         "of kies een model dat minder 'thinking'-tokens gebruikt."
     );
   }
@@ -343,4 +363,4 @@ function describeProvider() {
   }
 }
 
-module.exports = { callCoachModel, describeProvider, resolveProvider, COACH_RESPONSE_SCHEMA, naarJsonSchema };
+module.exports = { callCoachModel, describeProvider, resolveProvider, COACH_RESPONSE_SCHEMA, naarJsonSchema, uitvoerBudget };
