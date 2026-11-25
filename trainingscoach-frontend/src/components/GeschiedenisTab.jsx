@@ -18,8 +18,12 @@ import * as api from "../api/client";
  * vanzelf binnen (weegschaal, horloge) — het handmatige formulier staat
  * onderaan elk scherm voor de uitzondering.
  */
-export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession, addWeightLog, deleteWeightLog }) {
-  const [sub, setSub] = useState("kracht");
+export default function GeschiedenisTab({ schema, workoutLogs, cardioLogs, weightLogs, updateWorkoutLog, deleteWorkoutLog, deleteCardioLog, onOpenSession, addWeightLog, deleteWeightLog, sub: subVanBuiten, onSubChange }) {
+  // App mag het onderdeel bepalen (Vandaag springt zo naar Herstel of
+  // Belasting); zonder die props houdt het tabblad het zelf bij.
+  const [eigenSub, setEigenSub] = useState("kracht");
+  const sub = subVanBuiten ?? eigenSub;
+  const setSub = onSubChange ?? setEigenSub;
   const [expandedProfileId, setExpandedProfileId] = useState(null);
   const [isolatedSeries, setIsolatedSeries] = useState(null);
   const [editingLogId, setEditingLogId] = useState(null);

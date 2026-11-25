@@ -78,6 +78,7 @@ export const deleteEvent = (id) => request(`/events/${id}`, { method: "DELETE" }
 export const getCoachHistory = () => request("/coach/history");
 export const askCoach = (question) => request("/coach/ask", { method: "POST", body: JSON.stringify({ question }) });
 export const deleteCoachEntry = (id) => request(`/coach/history/${id}`, { method: "DELETE" });
+export const getBlokplan = () => request("/coach/blokplan");
 
 /* ---------------------- goals + coach schema proposals ------------------- */
 

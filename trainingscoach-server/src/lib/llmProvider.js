@@ -97,6 +97,32 @@ const COACH_RESPONSE_SCHEMA = {
         required: ["dag", "schemaDag", "invulling", "oefeningen"],
       },
     },
+    // De lange lijn, per week. Alleen gevuld als de coach het blokplan maakt
+    // of bijstelt; anders null en blijft het vorige gelden.
+    blokplan: {
+      type: "OBJECT",
+      nullable: true,
+      properties: {
+        doel: { type: "STRING", nullable: true },
+        weken: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              weekVan: { type: "STRING" },
+              fase: { type: "STRING" },
+              focus: { type: "STRING" },
+              cardioUren: { type: "NUMBER", nullable: true },
+              krachtSessies: { type: "NUMBER", nullable: true },
+              kernsessies: { type: "ARRAY", items: { type: "STRING" } },
+              toelichting: { type: "STRING", nullable: true },
+            },
+            required: ["weekVan", "fase", "focus", "kernsessies"],
+          },
+        },
+      },
+      required: ["weken"],
+    },
   },
   required: ["analyse", "tips", "cardioVoorstel", "krachtVoorstel"],
 };
@@ -139,8 +165,9 @@ function naarJsonSchema(schema) {
     if (schema.required) uit.required = schema.required;
     // Alles wat niet in het contract staat hoort er niet in te zitten.
     uit.additionalProperties = false;
+    if (schema.nullable) uit.type = ["object", "null"];
   } else if (type === "array") {
-    uit.type = "array";
+    uit.type = schema.nullable ? ["array", "null"] : "array";
     uit.items = naarJsonSchema(schema.items);
   } else {
     // Een nullable veld wordt een unie, want JSON Schema kent geen `nullable`.
@@ -162,6 +189,30 @@ function naarJsonSchema(schema) {
  * ingevulde waarden gaan er als JSON-tekst weer uit, zodat de aanroeper geen
  * verschil merkt tussen de twee providers.
  */
+/**
+ * Het uitvoerbudget per aanroep. Standaard rekenen we het uit (zie hieronder
+ * per provider), maar je kunt het zelf vastzetten: in de app bij Instellingen
+ * › Automatische planning, of met COACH_MAX_OUTPUT_TOKENS in .env. De app gaat
+ * voor, want daar kun je het aanpassen zonder herstart. Een onzinwaarde (tekst,
+ * nul, negatief) wordt genegeerd; boven 64000 wordt het afgekapt, want meer
+ * kan geen van beide providers in één antwoord teruggeven.
+ */
+const MAX_INSTELBAAR = 64000;
+function geldig(waarde) {
+  const n = Math.floor(Number(waarde));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_INSTELBAAR) : null;
+}
+function uitvoerBudget(berekend) {
+  let uitApp = null;
+  try {
+    const { db } = require("../db/db");
+    uitApp = db.prepare("SELECT max_output_tokens FROM coach_automation WHERE id = 1").get()?.max_output_tokens;
+  } catch {
+    // Geen database of nog geen kolom: dan geldt .env of automatisch.
+  }
+  return geldig(uitApp) ?? geldig(process.env.COACH_MAX_OUTPUT_TOKENS) ?? berekend;
+}
+
 async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSchema }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ontbreekt in .env.");
@@ -176,8 +227,10 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   // dat probleem niet omdat die hieronder al ruimer werd bemeten.
   //
   // Je betaalt alleen voor wat er daadwerkelijk uitkomt, dus de ruimte kost
-  // niets zolang het antwoord kort blijft.
-  const outputBudget = Math.max(maxTokens * 4, 4000);
+  // niets zolang het antwoord kort blijft. 4000 bleek te krap sinds de coach
+  // per oefening ook sets en gewichten teruggeeft: een volle week liep ertegen
+  // aan. Vandaar 8000 als ondergrens.
+  const outputBudget = uitvoerBudget(Math.max(maxTokens * 4, 8000));
 
   const body = {
     model,
@@ -219,7 +272,8 @@ async function callAnthropic({ systemPrompt, userContent, maxTokens, responseSch
   if (data.stop_reason === "max_tokens") {
     throw new Error(
       `Het antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. ` +
-        "Wat er binnenkwam is onvolledig en is daarom niet bewaard; verhoog maxTokens voor deze vraag."
+        "Wat er binnenkwam is onvolledig en is daarom niet bewaard. Zet bij Instellingen › Automatische planning " +
+        "de ruimte voor het antwoord hoger (bijvoorbeeld 16000)."
     );
   }
 
@@ -245,7 +299,7 @@ async function callGemini({ systemPrompt, userContent, maxTokens, responseSchema
   // Gemini 3 models reason before answering, and those thinking tokens count
   // against maxOutputTokens. A budget sized for the visible answer alone gets
   // consumed by thinking and truncates the JSON mid-sentence, so give it room.
-  const outputBudget = Math.max(maxTokens * 8, 8000);
+  const outputBudget = uitvoerBudget(Math.max(maxTokens * 8, 8000));
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY ontbreekt in .env.");
   const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
@@ -292,7 +346,8 @@ async function callGemini({ systemPrompt, userContent, maxTokens, responseSchema
 
   if (candidate.finishReason === "MAX_TOKENS") {
     throw new Error(
-      "Gemini's antwoord werd afgekapt omdat het tokenbudget op was. Verhoog maxTokens, " +
+      `Gemini's antwoord werd afgekapt omdat het tokenbudget (${outputBudget}) op was. Zet ` +
+        "bij Instellingen › Automatische planning de ruimte voor het antwoord hoger (bijvoorbeeld 16000), " +
         "of kies een model dat minder 'thinking'-tokens gebruikt."
     );
   }
@@ -343,4 +398,4 @@ function describeProvider() {
   }
 }
 
-module.exports = { callCoachModel, describeProvider, resolveProvider, COACH_RESPONSE_SCHEMA, naarJsonSchema };
+module.exports = { callCoachModel, describeProvider, resolveProvider, COACH_RESPONSE_SCHEMA, naarJsonSchema, uitvoerBudget };

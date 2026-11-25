@@ -3,6 +3,7 @@ import { Check, X, Clock, Plus, Trash2, Loader2, Lock, Unlock, ArrowRight, Dumbb
 import * as api from "../api/client";
 import CollapsibleCard from "./shared/CollapsibleCard";
 import WorkoutFilePanel from "./shared/WorkoutFilePanel";
+import Blokplan from "./shared/Blokplan";
 import { CARDIO_TYPES } from "../lib/constants";
 import { todayStr, formatDateNL, weekdayNameForDate, subTypeLabel, surfaceLabel } from "../lib/calculations";
 
@@ -166,6 +167,8 @@ export default function PlannerTab({ onOpenSession }) {
       </p>
 
       {error && <div className="tc-error"><span>{error}</span></div>}
+
+      <Blokplan onProposals={load} />
 
       {upcomingEvent && (
         <div className="tc-chiprow" style={{ marginBottom: 10 }}>

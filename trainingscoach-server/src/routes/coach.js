@@ -9,6 +9,7 @@ const { getUpcomingPlan, getRecentDeclines, getRecentMoves } = require("./planne
 const calc = require("../lib/calculations");
 const { buildCoachSystemPrompt } = require("../lib/coachPrompt");
 const { callCoachModel, describeProvider } = require("../lib/llmProvider");
+const { normalizeBlokplan, huidigBlokplan } = require("../lib/blokplan");
 
 const router = express.Router();
 
@@ -225,12 +226,22 @@ function buildCoachPayload({ question = null } = {}) {
   return {
     vandaag: calc.todayStr(),
     vandaagWeekdag: calc.weekdayNameForDate(calc.todayStr()),
+    // Een kant-en-klare kalender, zodat het model weekdag en datum niet zelf
+    // hoeft uit te rekenen: daar ging het een dag naast (vrijdag op de 31e).
+    komendeDagen: Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(calc.todayStr() + "T00:00:00");
+      d.setDate(d.getDate() + i);
+      const datum = calc.toDateStr(d);
+      return `${calc.weekdayNameForDate(datum).toLowerCase()} ${datum}`;
+    }),
     eerderGesprek: getRecentConversation(),
     hartslagzones: hrZones ? hrZones.map((z) => ({ zone: z.zone, naam: z.naam, van: z.vanBpm, tot: z.totBpm })) : null,
     lichaamsgewicht: weightSummary,
     herstel,
     krachtcontext,
     huidigePlanning: getUpcomingPlan(14),
+    // De afgesproken lange lijn; null als er nog geen is.
+    blokplan: huidigBlokplan(db),
     recenteVerplaatsingen: getRecentMoves(14),
     eerderAfgewezenVoorstellen: getRecentDeclines(14),
     trainingsbelasting: currentLoad
@@ -331,11 +342,12 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
           waarschuwing: structured.waarschuwing || null,
           cardioVoorstel: Array.isArray(structured.cardioVoorstel) ? structured.cardioVoorstel : [],
           krachtVoorstel: Array.isArray(structured.krachtVoorstel) ? structured.krachtVoorstel : [],
+          blokplan: normalizeBlokplan(structured.blokplan),
         }
       : { id: entryId, date: new Date().toISOString(), question, rawFeedback: rawText };
 
     db.prepare(
-      "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback, kracht_voorstel_json, trigger_type, trigger_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO coach_history (id, date, question, analyse, tips_json, waarschuwing, cardio_voorstel_json, raw_feedback, kracht_voorstel_json, trigger_type, trigger_reason, blokplan_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ).run(
       entry.id,
       entry.date,
@@ -347,7 +359,8 @@ async function runCoachConsultation({ question = null, triggerType = "handmatig"
       entry.rawFeedback || null,
       entry.krachtVoorstel ? JSON.stringify(entry.krachtVoorstel) : null,
       triggerType,
-      triggerReason
+      triggerReason,
+      entry.blokplan ? JSON.stringify(entry.blokplan) : null
     );
 
     return entry;
@@ -373,6 +386,11 @@ router.post("/ask", async (req, res) => {
   }
 });
 
+// GET /api/coach/blokplan - het geldende blokplan vanaf deze week, of null
+router.get("/blokplan", (req, res) => {
+  res.json(huidigBlokplan(db));
+});
+
 // GET /api/coach/history
 router.get("/history", (req, res) => {
   const rows = db.prepare("SELECT * FROM coach_history ORDER BY date DESC").all();
@@ -388,6 +406,7 @@ router.get("/history", (req, res) => {
       triggerReason: r.trigger_reason,
       cardioVoorstel: r.cardio_voorstel_json ? JSON.parse(r.cardio_voorstel_json) : [],
       krachtVoorstel: r.kracht_voorstel_json ? JSON.parse(r.kracht_voorstel_json) : [],
+      blokplan: r.blokplan_json ? JSON.parse(r.blokplan_json) : null,
       rawFeedback: r.raw_feedback,
     }))
   );

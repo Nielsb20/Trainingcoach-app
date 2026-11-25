@@ -67,7 +67,9 @@ async function consultCoach({ question, triggerType, triggerReason }) {
 async function runWeekly(settings) {
   const question =
     "Plan mijn komende week in op basis van mijn schema, recente trainingen, herstel en trainingsbelasting. " +
-    "Houd rekening met wat er al gepland staat en wijzig dat alleen als daar een duidelijke reden voor is.";
+    "Houd rekening met wat er al gepland staat en wijzig dat alleen als daar een duidelijke reden voor is. " +
+    "Kijk ook naar het blokplan: ontbreekt het of reikt het minder dan vier weken vooruit, maak of verleng het dan tot 8 à 12 weken; " +
+    "geven herstel of gemiste trainingen aanleiding, stel het dan bij. Anders laat je het staan.";
 
   const { entry, proposals } = await consultCoach({
     question,

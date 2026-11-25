@@ -22,6 +22,7 @@ function serialize(row) {
     lastWeeklyRun: row.last_weekly_run,
     lastSignalRun: row.last_signal_run,
     lastError: row.last_error,
+    maxOutputTokens: row.max_output_tokens ?? null,
   };
 }
 
@@ -53,6 +54,12 @@ router.put("/", (req, res) => {
     b.signalsEnabled ? 1 : 0,
     Number(b.cooldownDays) || current.cooldown_days
   );
+  // Alleen aanraken als het meegestuurd is; leeg of 0 betekent automatisch.
+  if (Object.prototype.hasOwnProperty.call(b, "maxOutputTokens")) {
+    const n = Math.floor(Number(b.maxOutputTokens));
+    const waarde = Number.isFinite(n) && n > 0 ? Math.min(Math.max(n, 1000), 64000) : null;
+    db.prepare("UPDATE coach_automation SET max_output_tokens = ? WHERE id = 1").run(waarde);
+  }
   res.json(serialize(getRow()));
 });
 
